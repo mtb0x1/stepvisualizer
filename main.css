@@ -1,0 +1,314 @@
+html, body {
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+}
+
+.app-container {
+    display: grid;
+    grid-template-rows: 56px calc(100vh - 56px);
+    grid-template-columns: 20% 60% 20%;
+    height: 100vh;
+    width: 100vw;
+}
+.app-header {
+    grid-column: 1 / span 3;
+    display: flex;
+    align-items: center;
+    padding: 0 1.5em;
+    background: #f3f3f7;
+    color: #09090a;
+    font-size: 1rem;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.file-name {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.processing-hint {
+    margin-left: 0.8em;
+    font-size: 0.9em;
+    color: #f0ab00;
+}
+.empty-canvas-message {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #7b7f8f;
+    font-size: 1.2em;
+}
+.main-viewport {
+    position: relative;
+}
+.canvas-wrapper {
+    position: relative;
+    width: 100%;
+    height: calc(100% - 80px);
+}
+.canvas-ui {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+.canvas-stats {
+    background: rgba(0, 0, 0, 0.5);
+    color: #fff;
+    padding: 0.4em 0.6em;
+    border-radius: 6px;
+    font-size: 0.85em;
+}
+.camera-toolbar {
+    display: flex;
+    gap: 0.4em;
+}
+.camera-button {
+    padding: 0.3em 0.8em;
+    border-radius: 6px;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    background: rgba(0, 0, 0, 0.4);
+    color: #fff;
+    cursor: pointer;
+    font-size: 0.8em;
+}
+.camera-button:hover {
+    background: rgba(0, 0, 0, 0.6);
+}
+.center-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 2em;
+    min-width: 0;
+}
+.file-input-container {
+    margin-bottom: 1.5em;
+    text-align: center;
+}
+.parse-button {
+    margin-left: 1em;
+}
+.viewer-container {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 350px;
+}
+.result-message {
+    white-space: pre-wrap;
+    margin-top: 1em;
+    color: #033f03;
+}
+.sidebar-left {
+    overflow: hidden;
+}
+.sidebar-right {
+    overflow: hidden;
+}
+.left-panel {
+    width: 100%;
+    height: 100%;
+    background: #f3f3f7;
+    border-right: 1px solid #ddd;
+    padding: 1.2em;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+.left-panel-header {
+    font-size: 1.1em;
+    margin: 0 0 0.6em 0;
+}
+.empty-files-message {
+    color: #888;
+    font-size: 0.95em;
+    margin-top: 0.6em;
+}
+.files-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4em;
+}
+.file-item-container {
+    display: flex;
+    gap: 0.4em;
+    align-items: stretch;
+    min-width: 0;
+}
+.file-item-button {
+    flex: 1;
+    min-width: 0;
+    text-align: left;
+    border: 1px solid #ddd;
+    background: #fff;
+    padding: 0.5em 0.6em;
+    border-radius: 6px;
+    cursor: pointer;
+}
+.file-item-name {
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.file-item-details {
+    font-size: 0.85em;
+    color: #666;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.delete-button {
+    width: 36px;
+    height: 36px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 0;
+}
+.delete-icon {
+    font-size: 14px;
+    display: inline-block;
+    pointer-events: none;
+}
+.main-panel-container {
+    width: 100%;
+    height: 100%;
+}
+.main-viewport {
+    overflow: hidden;
+}
+.main-panel-status {
+    font-size: 0.85em;
+    color: #666;
+    align-items: center;
+}
+/*width and margin-left are hacks*/
+.main-panel-canvas {
+    width: 98%;
+    height: 100%;
+    min-height: 350px;
+    display: block;
+    background: #fafbfc;
+    border: 2px dashed #bbb;
+    margin-left: 1%;
+}
+.canvas-processing-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    padding: 0.6em 1.2em;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border-radius: 8px;
+    font-size: 0.95em;
+}
+.right-panel {
+    width: 100%;
+    height: 100%;
+    background: #f3f3f7;
+    border-left: 1px solid #ddd;
+    padding: 1.5em;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
+}
+.metadata-grid {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 0.5em 1em;
+    align-items: baseline;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+}
+
+.detail-label {
+    font-weight: bold;
+}
+
+/* Meshes Panel */
+.panel-meshes {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+.mesh-controls {
+    display: flex;
+    gap: 8px;
+    padding: 8px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.mesh-item {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.mesh-item:hover {
+    background-color: var(--hover-bg);
+}
+
+.mesh-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.mesh-name {
+    font-weight: 500;
+}
+
+.mesh-details {
+    margin-left: 24px;
+    font-size: 0.85em;
+    color: var(--text-secondary);
+}
+
+.mesh-visibility {
+    margin-right: 4px;
+}
+
+.meshes-list {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.back-button {
+    width: 100%;
+    padding: 8px;
+    text-align: left;
+    background: var(--bg-secondary);
+    border: none;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.back-button:hover {
+    background: var(--hover-bg);
+}
