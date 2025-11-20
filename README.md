@@ -77,8 +77,8 @@ sequenceDiagram
 
 ## TODO
 
-- Tesslation : reduce precison to save memory and time.
-- Tesslation : allow user to select preferred precision (this need to be in range of allowed tolerance)
+- Tessellation : reduce precison to save memory and time.
+- Tessellation : allow user to select preferred precision (this need to be in range of allowed tolerance)
 - Few FIXME and TODO are in the code, some are critical.
 - Add support for STEP file features that are not currently supported.
 - Clean up :
