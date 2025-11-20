@@ -1,0 +1,50 @@
+name: Deploy Yew site
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+      - run: rustup target add wasm32-unknown-unknown
+      - run: cargo install trunk
+
+      - name: Build Yew App
+        run: trunk build --release --dist ./app --public-url /stepvisualizer/
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: app-dist
+          path: ./app
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifact
+        uses: actions/download-artifact@v5
+        with:
+          name: app-dist
+          path: ./app
+      
+      #? I guess we need to cheat 404 errors
+      - name: Copy index.html to 404.html
+        run: cp ./app/index.html ./app/404.html
+
+      - name: Deploy
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./app
+          publish_branch: gh-pages
