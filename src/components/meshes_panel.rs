@@ -69,23 +69,27 @@ pub struct MeshData {
 
 // TODO: Implement actual centering logic based on visible meshes
 // Consider performance - only recompute when visible meshes change
- 
+
 #[function_component(MeshesPanel)]
 pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
     trace_span!("meshes_panel");
-    
-    let meshes_list = props.meshes.iter().map(|mesh| {
-        html! {
-            <MeshItem
-                id={mesh.id.clone()}
-                name={mesh.name.clone()}
-                triangle_count={mesh.triangle_count}
-                vertex_count={mesh.vertex_count}
-                visible={mesh.visible}
-                on_toggle_visibility={props.on_visibility_change.clone()}
-            />
-        }
-    }).collect::<Html>();
+
+    let meshes_list = props
+        .meshes
+        .iter()
+        .map(|mesh| {
+            html! {
+                <MeshItem
+                    id={mesh.id.clone()}
+                    name={mesh.name.clone()}
+                    triangle_count={mesh.triangle_count}
+                    vertex_count={mesh.vertex_count}
+                    visible={mesh.visible}
+                    on_toggle_visibility={props.on_visibility_change.clone()}
+                />
+            }
+        })
+        .collect::<Html>();
 
     html! {
         <div class="panel panel-meshes">
@@ -98,14 +102,14 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
             </div>
             <div class="panel-content">
                 <div class="mesh-controls">
-                    <button 
-                        class="btn btn-small" 
+                    <button
+                        class="btn btn-small"
                         onclick={props.on_show_all.reform(|_| ())}
                     >
                         <span class="fas fa-eye"></span> {" Show All"}
                     </button>
-                    <button 
-                        class="btn btn-small" 
+                    <button
+                        class="btn btn-small"
                         onclick={props.on_hide_all.reform(|_| ())}
                     >
                         <span class="fas fa-eye-slash"></span> {" Hide All"}

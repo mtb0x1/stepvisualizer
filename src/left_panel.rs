@@ -1,14 +1,11 @@
+use crate::common::types::StepModel;
 use crate::{
     common::FileIndexItem,
-    components::{
-        file_history_panel::FileHistoryPanel,
-        stepmesh_panel::StepMeshPanel,
-    },
-    trace_span
+    components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel},
+    trace_span,
 };
 use std::rc::Rc;
 use yew::prelude::*;
-use crate::common::types::StepModel;
 
 #[derive(Properties, PartialEq)]
 pub struct LeftPanelProps {
@@ -37,7 +34,7 @@ pub fn left_panel(props: &LeftPanelProps) -> Html {
                     on_clear_history={props.on_clear_history.clone()}
                 />
             } else {
-                <StepMeshPanel 
+                <StepMeshPanel
                     on_deselect={props.on_deselect.clone()}
                     model={props.model.clone()}
                     on_visibility_change={props.on_visibility_change.clone()}

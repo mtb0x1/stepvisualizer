@@ -12,6 +12,19 @@ thread_local! {
         RefCell::new(HashMap::new());
 }
 
+const COLORS: [[f32; 3]; 10] = [
+    [0.8, 0.2, 0.2],
+    [0.2, 0.8, 0.2],
+    [0.2, 0.2, 0.8],
+    [0.8, 0.8, 0.2],
+    [0.8, 0.2, 0.8],
+    [0.2, 0.8, 0.8],
+    [0.6, 0.4, 0.2],
+    [0.4, 0.6, 0.8],
+    [0.8, 0.6, 0.4],
+    [0.6, 0.8, 0.4],
+];
+
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
 pub struct GpuVertex {
@@ -34,10 +47,7 @@ impl Default for RenderablePart {
             vertices: Vec::new(),
             indices: Vec::new(),
             model_matrix: [
-                1.0, 0.0, 0.0, 0.0,
-                0.0, 1.0, 0.0, 0.0,
-                0.0, 0.0, 1.0, 0.0,
-                0.0, 0.0, 0.0, 1.0,
+                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
             ],
             color: [0.8, 0.8, 0.8],
             visible: true,
@@ -49,7 +59,6 @@ pub fn step_extract_wsgl_reqs(
     file_id: &str,
     step_table: &truck_stepio::r#in::Table,
 ) -> Vec<RenderablePart> {
-    
     trace_span!("step_extract_wsgl_reqs");
 
     if let Some(cached) = try_get_cached_parts(file_id) {
@@ -128,7 +137,7 @@ fn tessellate_table(table: &truck_stepio::r#in::Table, parts_to_render: &mut Vec
         //FIXME: this is a hack
         //allow user to set tolerance (trigger 3D scene re-render)
         let tolerance = 0.1; // smaller => higher quality, but slower
-        let poly_shell = cshell.triangulation(tolerance); 
+        let poly_shell = cshell.triangulation(tolerance);
         let triangulation_ms = now_ms() - tri_start;
 
         let mut vertices = Vec::new();
@@ -196,20 +205,8 @@ fn tessellate_table(table: &truck_stepio::r#in::Table, parts_to_render: &mut Vec
         }
 
         if !vertices.is_empty() && !indices.is_empty() {
-            let colors = [
-                [0.8, 0.2, 0.2],
-                [0.2, 0.8, 0.2],
-                [0.2, 0.2, 0.8],
-                [0.8, 0.8, 0.2],
-                [0.8, 0.2, 0.8],
-                [0.2, 0.8, 0.8],
-                [0.6, 0.4, 0.2],
-                [0.4, 0.6, 0.8],
-                [0.8, 0.6, 0.4],
-                [0.6, 0.8, 0.4],
-            ];
-            let color_index = parts_to_render.len() % colors.len();
-            let color = colors[color_index];
+            let color_index = parts_to_render.len() % COLORS.len();
+            let color = COLORS[color_index];
 
             parts_to_render.push(RenderablePart {
                 vertices,

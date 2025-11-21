@@ -97,13 +97,18 @@ pub fn use_step_workspace() -> StepWorkspace {
                                 Ok(parsed) => {
                                     if parsed.data.is_empty() {
                                         result_state.set(Some(
-                                            "No data sections found in the STEP file.".to_string()
+                                            "No data sections found in the STEP file.".to_string(),
                                         ));
                                         processing_state.set(false);
                                         return;
                                     }
                                     let section = match parsed.data.get(0) {
-                                        Some(section) if !section.entities.is_empty() || !section.meta.is_empty() => section,
+                                        Some(section)
+                                            if !section.entities.is_empty()
+                                                || !section.meta.is_empty() =>
+                                        {
+                                            section
+                                        }
                                         _ => {
                                             result_state.set(Some(
                                                 "STEP file has no usable data sections (empty meta/entities).".to_string(),

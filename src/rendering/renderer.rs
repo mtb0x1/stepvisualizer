@@ -88,11 +88,11 @@ pub async fn render_wgpu_on_canvas(
     let near = 0.1;
     let far = max_size * 100.0;
     let projection_matrix = create_perspective_matrix(fov_y, aspect, near, far);
-    
+
     let frame = match surface.get_current_texture() {
         Ok(frame) => frame,
         Err(e) => {
-           panic!("Failed to acquire swap chain texture: {e}");
+            panic!("Failed to acquire swap chain texture: {e}");
         }
     };
     let view = frame

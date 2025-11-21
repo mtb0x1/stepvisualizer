@@ -125,11 +125,11 @@ impl AppTracerTrait for AppTracer {
     fn info(message: &str) {
         tracing::info!("{} {}", STEP_TRACER, message);
     }
- 
+
     fn debug(message: &str) {
         tracing::debug!("{} {}", STEP_TRACER, message);
     }
- 
+
     fn trace(message: &str) {
         tracing::trace!("{} {}", STEP_TRACER, message);
     }
@@ -148,14 +148,14 @@ macro_rules! trace_span {
     ($name:expr) => {
         //-FIXME : for debug we log only on specific functions
         //if $name == "step_extract_wsgl_reqs" || $name == "render_wgpu_on_canvas" {
-            //tracing::error!("tracing enabled for _NAME_ {}", $name);
-            let sp = tracing::span!(
-                tracing::Level::INFO,
-                crate::apptracing::STEP_TRACER,
-                "{}",
-                $name
-            );
-            let _ = sp.entered();
+        //tracing::error!("tracing enabled for _NAME_ {}", $name);
+        let sp = tracing::span!(
+            tracing::Level::INFO,
+            crate::apptracing::STEP_TRACER,
+            "{}",
+            $name
+        );
+        let _ = sp.entered();
         //}
     };
 }

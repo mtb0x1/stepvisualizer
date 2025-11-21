@@ -20,7 +20,7 @@ yew = { version = "0.21.0", features = ["csr"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 gloo-storage = "0.3"
-wgpu = { version = "27.0.1", features = ["webgpu"] }
+wgpu = { version = "27.0.1", features = ["webgpu","wgsl","web"] }
 time = { version = "0.3.44", features = ["wasm-bindgen"] }
 tracing = "0.1.41"
 tracing-web = "0.1.3"

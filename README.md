@@ -6,6 +6,12 @@ A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This too
 
 =======>  https://mtb0x1.github.io/stepvisualizer/  <=======
 
+Or
+
+=======>  https://mtb0x1.github.io/stepvisualizer/?tracing=on&level=trace <=======
+
+and check browser Web console.
+
 ## Current Status
 
 This is an experimental project. The visualization works for basic STEP files but may fail or crash with complex models. Performance and stability are not guaranteed.

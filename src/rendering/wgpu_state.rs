@@ -1,4 +1,6 @@
-use crate::trace_span;
+use core::panic;
+
+use crate::{apptracing::AppTracer, apptracing::AppTracerTrait, trace_span};
 use wasm_bindgen::JsCast;
 use web_sys::HtmlCanvasElement;
 use wgpu::{self, SurfaceTarget, util::DeviceExt};
@@ -52,19 +54,42 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
 pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn std::error::Error>> {
     trace_span!("init_wgpu");
-    let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+
+    let instance_descriptor = wgpu::InstanceDescriptor {
         backends: wgpu::Backends::BROWSER_WEBGPU,
         ..Default::default()
-    });
+    };
+
+    let instance = wgpu::Instance::new(&instance_descriptor);
 
     let target = SurfaceTarget::Canvas(canvas.clone());
-    let surface = instance
-        .create_surface(target)
-        .expect("Failed to create WebGPU surface");
-    let adapter = instance
-        .request_adapter(&wgpu::RequestAdapterOptions::default())
+    let surface = match instance.create_surface(target) {
+        Ok(surface) => surface,
+        Err(err) => {
+            let msg = format!("Failed to create WebGPU surface: {}", err);
+            AppTracer::error(&msg);
+            return Err(msg.into());
+        }
+    };
+
+    //FIXME : we request an adapter with the surface
+    // and activate high performance mode ? (does it make sense for all hardwares, who knows)
+    let adapter = match instance
+        .request_adapter(&wgpu::RequestAdapterOptions {
+            power_preference: wgpu::PowerPreference::HighPerformance,
+            force_fallback_adapter: false,
+            compatible_surface: Some(&surface),
+        })
         .await
-        .expect("No adapter found");
+    {
+        Ok(adapter) => adapter,
+        Err(err) => {
+            let msg = format!("Failed to request WebGPU adapter: {}", err);
+            AppTracer::error(&msg);
+            return Err(msg.into());
+        }
+    };
+    //FIXME: we should request an adapter with the surface
     // let adapter = instance
     //     .request_adapter(&wgpu::RequestAdapterOptions {
     //         compatible_surface: Some(&surface),
@@ -72,15 +97,24 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
     //     })
     //     .await
     //     .expect("No adapter found");
-    let (device, queue) = adapter
+    let (device, queue) = match adapter
         .request_device(&wgpu::DeviceDescriptor::default())
-        .await?;
+        .await
+    {
+        Ok((device, queue)) => (device, queue),
+        Err(err) => {
+            let msg = format!("Failed to request adapter device: {}", err);
+            AppTracer::error(&msg);
+            return Err(msg.into());
+        }
+    };
 
     let canvas_width = canvas.client_width().max(1) as u32;
     let canvas_height = canvas.client_height().max(1) as u32;
     canvas.set_width(canvas_width);
     canvas.set_height(canvas_height);
 
+    //FIXME : Params below may not be the best choice
     let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface.get_capabilities(&adapter).formats[0],
@@ -127,7 +161,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     //FIXME: this should be 64 but it crashes
-                    min_binding_size: std::num::NonZeroU64::new(12), 
+                    min_binding_size: std::num::NonZeroU64::new(12),
                 },
                 count: None,
             },
