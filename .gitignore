@@ -4,3 +4,4 @@ data.sample
 .env
 trunk_output.log
 random_example.rs
+/app
