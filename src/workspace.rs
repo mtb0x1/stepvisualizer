@@ -11,8 +11,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
-const CACHE_SIZE: usize = 5;
-const MAX_FILE_BYTES: f64 = 20.0 * 1024.0 * 1024.0;
+use crate::common::constants::{CACHE_SIZE, MAX_FILE_BYTES};
 
 pub struct WorkspaceActions {
     pub on_file_change: Callback<Event>,

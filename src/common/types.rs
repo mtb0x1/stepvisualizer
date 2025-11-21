@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::render::RenderablePart;
 
-pub const NA: &str = "N/A";
+
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct StepHeader {

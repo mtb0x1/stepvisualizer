@@ -5,7 +5,7 @@ use std::hash::Hasher;
 
 use super::types::{FileIndexItem, StepModel};
 
-const LS_INDEX_KEY: &str = "stepviz:index";
+use crate::common::constants::LS_INDEX_KEY;
 
 pub fn save_index(index: &[FileIndexItem]) {
     trace_span!("save_index");

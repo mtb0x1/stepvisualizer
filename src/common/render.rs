@@ -1,7 +1,7 @@
 use crate::{AppTracer, AppTracerTrait, trace_span};
 use bytemuck::{Pod, Zeroable};
 use js_sys::Date;
-use ruststep::ast::Exchange;
+
 use serde::{Deserialize, Serialize};
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use truck_geometry::prelude::*;
@@ -12,18 +12,7 @@ thread_local! {
         RefCell::new(HashMap::new());
 }
 
-const COLORS: [[f32; 3]; 10] = [
-    [0.8, 0.2, 0.2],
-    [0.2, 0.8, 0.2],
-    [0.2, 0.2, 0.8],
-    [0.8, 0.8, 0.2],
-    [0.8, 0.2, 0.8],
-    [0.2, 0.8, 0.8],
-    [0.6, 0.4, 0.2],
-    [0.4, 0.6, 0.8],
-    [0.8, 0.6, 0.4],
-    [0.6, 0.8, 0.4],
-];
+use crate::common::constants::COLORS;
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
@@ -136,7 +125,8 @@ fn tessellate_table(table: &truck_stepio::r#in::Table, parts_to_render: &mut Vec
         //this has to be smaller than the radius of the sphere
         //FIXME: this is a hack
         //allow user to set tolerance (trigger 3D scene re-render)
-        let tolerance = 0.1; // smaller => higher quality, but slower
+        use crate::common::constants::DEFAULT_TOLERANCE;
+        let tolerance = DEFAULT_TOLERANCE; // smaller => higher quality, but slower
         let poly_shell = cshell.triangulation(tolerance);
         let triangulation_ms = now_ms() - tri_start;
 

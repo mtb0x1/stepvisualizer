@@ -1,4 +1,4 @@
-use crate::{AppTracer, AppTracerTrait, trace_span};
+use crate::trace_span;
 use ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 

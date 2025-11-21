@@ -85,7 +85,7 @@ pub async fn render_wgpu_on_canvas(
 
     let aspect = canvas_width as f32 / canvas_height as f32;
     let fov_y = std::f32::consts::PI / 3.0;
-    let near = 0.1;
+    let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
     let projection_matrix = create_perspective_matrix(fov_y, aspect, near, far);
 
@@ -111,9 +111,9 @@ pub async fn render_wgpu_on_canvas(
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.165,
-                        g: 0.165,
-                        b: 0.165,
+                        r: crate::common::constants::CLEAR_COLOR_RGB.0,
+                        g: crate::common::constants::CLEAR_COLOR_RGB.1,
+                        b: crate::common::constants::CLEAR_COLOR_RGB.2,
                         a: 1.0,
                     }),
                     store: wgpu::StoreOp::Store,

@@ -11,7 +11,7 @@ use tracing_web::{MakeConsoleWriter, performance_layer};
 
 pub struct AppTracer;
 
-pub(crate) const STEP_TRACER: &str = "[STEP_TRACER]";
+use crate::common::constants::STEP_TRACER;
 
 pub trait AppTracerTrait {
     fn init();
@@ -151,7 +151,7 @@ macro_rules! trace_span {
         //tracing::error!("tracing enabled for _NAME_ {}", $name);
         let sp = tracing::span!(
             tracing::Level::INFO,
-            crate::apptracing::STEP_TRACER,
+            crate::common::constants::STEP_TRACER,
             "{}",
             $name
         );

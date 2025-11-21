@@ -1,9 +1,6 @@
-use core::panic;
-
 use crate::{apptracing::AppTracer, apptracing::AppTracerTrait, trace_span};
-use wasm_bindgen::JsCast;
 use web_sys::HtmlCanvasElement;
-use wgpu::{self, SurfaceTarget, util::DeviceExt};
+use wgpu::{self, SurfaceTarget};
 
 #[derive(PartialEq)]
 pub struct WgpuState {
@@ -15,42 +12,7 @@ pub struct WgpuState {
     pub bind_group_layout: wgpu::BindGroupLayout,
 }
 
-const WGSL_SHADER: &str = r#"
-struct VertexInput {
-@location(0) position: vec3<f32>,
-@location(1) normal: vec3<f32>,
-};
-
-struct VertexOutput {
-@builtin(position) clip_position: vec4<f32>,
-@location(0) normal: vec3<f32>,
-};
-
-@group(0) @binding(0)
-var<uniform> mvp_matrix: mat4x4<f32>;
-
-@group(0) @binding(1)
-var<uniform> model_matrix: mat4x4<f32>;
-
-@group(0) @binding(2)
-var<uniform> color: vec3<f32>;
-
-@vertex
-fn vs_main(input: VertexInput) -> VertexOutput {
-var out: VertexOutput;
-    out.clip_position = mvp_matrix * vec4<f32>(input.position, 1.0);
-    out.normal = (model_matrix * vec4<f32>(input.normal, 0.0)).xyz;
-    return out;
-}
-
-@fragment
-fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-    let intensity = max(dot(normalize(in.normal), light_dir), 0.0);
-    let shaded_color = color * intensity;
-    return vec4<f32>(shaded_color, 1.0);
-}
-"#;
+use crate::common::constants::WGSL_SHADER;
 
 pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn std::error::Error>> {
     trace_span!("init_wgpu");
