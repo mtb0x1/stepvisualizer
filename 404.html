@@ -1,0 +1,8 @@
+<!doctype html><meta charset=utf-8><title>Step files Visualiser</title><link href=/stepvisualizer/main-6478ca2d4f733397.css integrity=sha384-AbkCZgJr2kKR6lCy3hLsxqtgTjBqXWXsesZaU7GHrrQrKAS++h1UQ6+W2os4sLMR rel=stylesheet><link integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css referrerpolicy=no-referrer rel=stylesheet><link crossorigin href=/stepvisualizer/stepvisualizer-8dd5351e8349c1ae.js integrity=sha384-ayUbXhJ0rtf2PqA4+Mibg5nyCukYRhFegvyUz4sldISuZPNs5gqm1aZcN6tYC1OE rel=modulepreload><link as=fetch crossorigin href=/stepvisualizer/stepvisualizer-8dd5351e8349c1ae_bg.wasm integrity=sha384-LIZlCxMFkqxDD5BjyaY4sZmtCaVofcXiLW1BHiQZLaY9P4SRsngOjYlTca1/Dl5i rel=preload type=application/wasm></head><body><div id=root></div><script type=module>import init, * as bindings from '/stepvisualizer/stepvisualizer-8dd5351e8349c1ae.js';
+const wasm = await init({ module_or_path: '/stepvisualizer/stepvisualizer-8dd5351e8349c1ae_bg.wasm' });
+
+
+window.wasmBindings = bindings;
+
+
+dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));</script></body></html>
