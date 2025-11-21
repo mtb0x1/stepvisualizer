@@ -2,8 +2,6 @@ use serde::{Deserialize, Serialize};
 
 use super::render::RenderablePart;
 
-
-
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct StepHeader {
     pub file_description: String,
@@ -30,6 +28,10 @@ pub struct Metadata {
     pub vertex_count: usize,
     #[serde(default)]
     pub triangle_count: usize,
+    #[serde(default)]
+    pub volume: Option<f64>,
+    #[serde(default)]
+    pub surface_area: Option<f64>,
 }
 
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]

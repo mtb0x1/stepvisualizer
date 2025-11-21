@@ -89,7 +89,11 @@ fn app() -> Html {
 
             // Right Sidebar
             <aside class="sidebar sidebar-right">
-                <MetadataPanel metadata={(*workspace.metadata).clone()} />
+            <MetadataPanel
+                metadata={(*workspace.metadata).clone()}
+                on_calculate_volume={workspace.actions.on_calculate_volume.clone()}
+                on_calculate_surface={workspace.actions.on_calculate_surface.clone()}
+            />
             </aside>
         </div>
     }

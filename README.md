@@ -89,7 +89,7 @@ sequenceDiagram
 - Add support for STEP file features that are not currently supported.
 - Clean up :
    - panic should be replaced with error notification instead (on UI).
-   - constants are in a separate file but not used.
+   - ~~constants are in a separate file but not used.~~
    - deduplicate code (some are in common, some are in rendering, alot of repetitve patterns).
    - alot of `clone` and are most probably adding to perf issues.
    - regorg components to make it more maintainable.

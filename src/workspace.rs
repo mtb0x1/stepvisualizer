@@ -22,6 +22,8 @@ pub struct WorkspaceActions {
     pub on_visibility_change: Callback<(usize, bool)>,
     pub on_show_all: Callback<()>,
     pub on_hide_all: Callback<()>,
+    pub on_calculate_volume: Callback<()>,
+    pub on_calculate_surface: Callback<()>,
 }
 
 pub struct StepWorkspace {
@@ -138,6 +140,8 @@ pub fn use_step_workspace() -> StepWorkspace {
                                         units,
                                         vertex_count: 0,
                                         triangle_count: 0,
+                                        volume: None,
+                                        surface_area: None,
                                     };
 
                                     metadata_state.set(Some(meta.clone()));
@@ -381,6 +385,64 @@ pub fn use_step_workspace() -> StepWorkspace {
         })
     };
 
+    let on_calculate_volume = {
+        let step_model = step_model.clone();
+        let metadata = metadata.clone();
+        let cache = cache.clone();
+        Callback::from(move |_| {
+            if let Some(model) = step_model.as_ref() {
+                let mut total_volume = 0.0;
+                for part in &model.render_parts {
+                    total_volume += part.calculate_volume();
+                }
+
+                let mut new_meta = model.metadata.clone();
+                new_meta.volume = Some(total_volume);
+                metadata.set(Some(new_meta.clone()));
+
+                let mut new_model = (**model).clone();
+                new_model.metadata = new_meta;
+
+                {
+                    let mut c = cache.borrow_mut();
+                    c.insert(new_model.id.clone(), new_model.clone());
+                }
+                save_model(&new_model);
+
+                step_model.set(Some(Rc::new(new_model)));
+            }
+        })
+    };
+
+    let on_calculate_surface = {
+        let step_model = step_model.clone();
+        let metadata = metadata.clone();
+        let cache = cache.clone();
+        Callback::from(move |_| {
+            if let Some(model) = step_model.as_ref() {
+                let mut total_area = 0.0;
+                for part in &model.render_parts {
+                    total_area += part.calculate_surface_area();
+                }
+
+                let mut new_meta = model.metadata.clone();
+                new_meta.surface_area = Some(total_area);
+                metadata.set(Some(new_meta.clone()));
+
+                let mut new_model = (**model).clone();
+                new_model.metadata = new_meta;
+
+                {
+                    let mut c = cache.borrow_mut();
+                    c.insert(new_model.id.clone(), new_model.clone());
+                }
+                save_model(&new_model);
+
+                step_model.set(Some(Rc::new(new_model)));
+            }
+        })
+    };
+
     StepWorkspace {
         result,
         metadata,
@@ -397,6 +459,8 @@ pub fn use_step_workspace() -> StepWorkspace {
             on_visibility_change,
             on_show_all,
             on_hide_all,
+            on_calculate_volume,
+            on_calculate_surface,
         },
     }
 }

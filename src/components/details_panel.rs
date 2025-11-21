@@ -5,6 +5,8 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct DetailsPanelProps {
     pub metadata: Option<Metadata>,
+    pub on_calculate_volume: Callback<()>,
+    pub on_calculate_surface: Callback<()>,
 }
 
 #[function_component(DetailsPanel)]
@@ -116,15 +118,47 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                                 <dd>{ format!("{:.2}", bb.max[2] - bb.min[2]) }</dd>
                             </div>
                         }
-                        // TODO: Implement calculation logic for Volume and Surface Area.
-                        // These buttons should trigger backend calculations and display the results.
                         <div class="detail-item">
                             <dt class="detail-label">{ "Volume:" }</dt>
-                            <dd class="calculate">{ "Calculate..." }</dd>
+                            <dd>
+                                {
+                                    if let Some(vol) = meta.volume {
+                                        let unit = meta.units.as_deref().unwrap_or("");
+                                        html! { format!("{:.4} {}³", vol, unit) }
+                                    } else {
+                                        let on_click = props.on_calculate_volume.clone();
+                                        html! {
+                                            <span
+                                                class="calculate-link"
+                                                onclick={move |_| on_click.emit(())}
+                                            >
+                                                { "Calculate..." }
+                                            </span>
+                                        }
+                                    }
+                                }
+                            </dd>
                         </div>
                         <div class="detail-item">
                             <dt class="detail-label">{ "Surface:" }</dt>
-                            <dd class="calculate">{ "Calculate..." }</dd>
+                            <dd>
+                                {
+                                    if let Some(area) = meta.surface_area {
+                                        let unit = meta.units.as_deref().unwrap_or("");
+                                        html! { format!("{:.4} {}²", area, unit) }
+                                    } else {
+                                        let on_click = props.on_calculate_surface.clone();
+                                        html! {
+                                            <span
+                                                class="calculate-link"
+                                                onclick={move |_| on_click.emit(())}
+                                            >
+                                                { "Calculate..." }
+                                            </span>
+                                        }
+                                    }
+                                }
+                            </dd>
                         </div>
                     </dl>
                 } else {
