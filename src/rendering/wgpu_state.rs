@@ -10,6 +10,7 @@ pub struct WgpuState {
     pub config: wgpu::SurfaceConfiguration,
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
+    pub depth_texture_view: wgpu::TextureView,
 }
 
 use crate::common::constants::WGSL_SHADER;
@@ -89,6 +90,22 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
     };
     surface.configure(&device, &config);
 
+    let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Depth Texture"),
+        size: wgpu::Extent3d {
+            width: config.width,
+            height: config.height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+
     let shader_module_descriptor = wgpu::ShaderModuleDescriptor {
         label: Some("shader"),
         source: wgpu::ShaderSource::Wgsl(WGSL_SHADER.into()),
@@ -123,7 +140,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
                     ty: wgpu::BufferBindingType::Uniform,
                     has_dynamic_offset: false,
                     //FIXME: this should be 64 but it crashes
-                    min_binding_size: std::num::NonZeroU64::new(12),
+                    min_binding_size: std::num::NonZeroU64::new(16),
                 },
                 count: None,
             },
@@ -163,7 +180,13 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
             })],
         }),
         primitive: wgpu::PrimitiveState::default(),
-        depth_stencil: None,
+        depth_stencil: Some(wgpu::DepthStencilState {
+            format: wgpu::TextureFormat::Depth32Float,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        }),
         multisample: wgpu::MultisampleState::default(),
         multiview: None,
     });
@@ -175,5 +198,6 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
         config,
         render_pipeline,
         bind_group_layout,
+        depth_texture_view,
     })
 }

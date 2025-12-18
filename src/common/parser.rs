@@ -59,7 +59,7 @@ pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<Bo
     let values = step_table.cartesian_point.values();
     for value in values {
         let coords = &value.coordinates;
-        for i in 0..3 {
+        for i in 0..coords.len() {
             min[i] = min[i].min(coords[i]);
             max[i] = max[i].max(coords[i]);
         }

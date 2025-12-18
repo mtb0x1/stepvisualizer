@@ -65,6 +65,11 @@ sequenceDiagram
    trunk serve
    ```
 
+   or if you only need the wasm file:
+   ```bash
+   RUSTFLAGS='--cfg web' cargo build --target wasm32-unknown-unknown
+   ```
+
 3. Open `http://localhost:8080` in a modern browser
 
 ## Known Limitations

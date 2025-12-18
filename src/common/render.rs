@@ -26,7 +26,7 @@ pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
     pub indices: Vec<u32>,
     pub model_matrix: [f32; 16],
-    pub color: [f32; 3],
+    pub color: [f32; 4],
     pub visible: bool,
 }
 
@@ -38,7 +38,7 @@ impl Default for RenderablePart {
             model_matrix: [
                 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
             ],
-            color: [0.8, 0.8, 0.8],
+            color: [0.8, 0.8, 0.8, 1.0],
             visible: true,
         }
     }
@@ -264,7 +264,8 @@ fn tessellate_table(
 
         if !vertices.is_empty() && !indices.is_empty() {
             let color_index = parts_to_render.len() % COLORS.len();
-            let color = COLORS[color_index];
+            let color3 = COLORS[color_index];
+            let color = [color3[0], color3[1], color3[2], 1.0];
 
             parts_to_render.push(RenderablePart {
                 vertices,
