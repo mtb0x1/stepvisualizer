@@ -89,15 +89,16 @@ pub fn multiply_matrices_unrolled(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     );
 
     for i in 0..4 {
-        let bi0 = b[i * 4 + 0];
-        let bi1 = b[i * 4 + 1];
-        let bi2 = b[i * 4 + 2];
-        let bi3 = b[i * 4 + 3];
+        // i is the column of b (and result)
+        let b0i = b[0 * 4 + i];
+        let b1i = b[1 * 4 + i];
+        let b2i = b[2 * 4 + i];
+        let b3i = b[3 * 4 + i];
 
-        result[i + 0] = a00 * bi0 + a01 * bi1 + a02 * bi2 + a03 * bi3;
-        result[i + 4] = a10 * bi0 + a11 * bi1 + a12 * bi2 + a13 * bi3;
-        result[i + 8] = a20 * bi0 + a21 * bi1 + a22 * bi2 + a23 * bi3;
-        result[i + 12] = a30 * bi0 + a31 * bi1 + a32 * bi2 + a33 * bi3;
+        result[0 * 4 + i] = a00 * b0i + a01 * b1i + a02 * b2i + a03 * b3i;
+        result[1 * 4 + i] = a10 * b0i + a11 * b1i + a12 * b2i + a13 * b3i;
+        result[2 * 4 + i] = a20 * b0i + a21 * b1i + a22 * b2i + a23 * b3i;
+        result[3 * 4 + i] = a30 * b0i + a31 * b1i + a32 * b2i + a33 * b3i;
     }
 
     result

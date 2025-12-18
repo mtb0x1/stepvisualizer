@@ -120,16 +120,11 @@ impl RenderablePart {
 pub fn step_extract_wsgl_reqs(
     file_id: &str,
     step_table: &truck_stepio::r#in::Table,
+    tolerance: f64,
 ) -> Vec<RenderablePart> {
     trace_span!("step_extract_wsgl_reqs");
 
     if let Some(cached) = try_get_cached_parts(file_id) {
-        // let msg = format!(
-        //     "step_extract_wsgl_reqs => cache hit for {} ({} parts)",
-        //     file_id,
-        //     cached.len()
-        // );
-        // AppTracer::debug(&msg);
         return cached;
     }
 
@@ -147,7 +142,7 @@ pub fn step_extract_wsgl_reqs(
     );
     AppTracer::debug(&msg);
     let section_start = now_ms();
-    tessellate_table(&table, &mut parts_to_render);
+    tessellate_table(&table, tolerance, &mut parts_to_render);
     let tessellate_ms = now_ms() - section_start;
     let msg = format!(
         "step_extract_wsgl_reqs => tessellated {} parts in {:.2} ms",
@@ -173,7 +168,11 @@ pub fn step_extract_wsgl_reqs(
     parts_to_render
 }
 
-fn tessellate_table(table: &truck_stepio::r#in::Table, parts_to_render: &mut Vec<RenderablePart>) {
+fn tessellate_table(
+    table: &truck_stepio::r#in::Table,
+    tolerance: f64,
+    parts_to_render: &mut Vec<RenderablePart>,
+) {
     for (shell_index, shell) in table.shell.values().enumerate() {
         let model_matrix: [f32; 16] = [
             1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
@@ -195,11 +194,7 @@ fn tessellate_table(table: &truck_stepio::r#in::Table, parts_to_render: &mut Vec
 
         let tri_start = now_ms();
 
-        //this has to be smaller than the radius of the sphere
-        //FIXME: this is a hack
-        //allow user to set tolerance (trigger 3D scene re-render)
-        use crate::common::constants::DEFAULT_TOLERANCE;
-        let tolerance = DEFAULT_TOLERANCE; // smaller => higher quality, but slower
+        // tolerance: smaller => higher quality, but slower
         let poly_shell = cshell.triangulation(tolerance);
         let triangulation_ms = now_ms() - tri_start;
 
