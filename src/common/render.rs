@@ -177,6 +177,86 @@ fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
     ]
 }
 
+/// Append one tessellated face's mesh to the part's vertex/index buffers.
+///
+/// `orientation` is the shell face's orientation flag. Reversed faces get
+/// their mesh inverted up front so the emitted winding matches the render
+/// pipeline's front-face convention.
+fn append_face_geometry(
+    mut mesh: truck_polymesh::PolygonMesh,
+    orientation: bool,
+    vertices: &mut Vec<GpuVertex>,
+    indices: &mut Vec<u32>,
+) {
+    let needs_invert = !orientation;
+    if needs_invert {
+        mesh.invert();
+    }
+
+    let face_positions = mesh.positions();
+    let face_normals = mesh.normals();
+
+    // This face's vertices are appended after all previous faces', so its
+    // indices are emitted relative to the vertex count before the append.
+    let base_index = vertices.len() as u32;
+
+    vertices.extend(
+        face_positions
+            .iter()
+            .zip(face_normals.iter())
+            .map(|(p, n)| GpuVertex {
+                position: [p.x as f32, p.y as f32, p.z as f32],
+                normal: [n.x as f32, n.y as f32, n.z as f32],
+            }),
+    );
+
+    emit_face_indices(mesh.faces(), base_index, needs_invert, indices);
+}
+
+/// Emit triangle indices for one face's mesh, offset by `base_index`.
+///
+/// Quads are split into two triangles along the (0, 2) diagonal. For inverted
+/// faces the second and third vertices of each triangle are swapped to
+/// reverse the winding.
+fn emit_face_indices(
+    faces: &truck_polymesh::Faces,
+    base_index: u32,
+    needs_invert: bool,
+    indices: &mut Vec<u32>,
+) {
+    for tri in faces.tri_faces() {
+        if needs_invert {
+            indices.push(base_index + tri[0].pos as u32);
+            indices.push(base_index + tri[2].pos as u32);
+            indices.push(base_index + tri[1].pos as u32);
+        } else {
+            indices.push(base_index + tri[0].pos as u32);
+            indices.push(base_index + tri[1].pos as u32);
+            indices.push(base_index + tri[2].pos as u32);
+        }
+    }
+
+    for quad in faces.quad_faces() {
+        if needs_invert {
+            indices.push(base_index + quad[0].pos as u32);
+            indices.push(base_index + quad[2].pos as u32);
+            indices.push(base_index + quad[1].pos as u32);
+
+            indices.push(base_index + quad[0].pos as u32);
+            indices.push(base_index + quad[3].pos as u32);
+            indices.push(base_index + quad[2].pos as u32);
+        } else {
+            indices.push(base_index + quad[0].pos as u32);
+            indices.push(base_index + quad[1].pos as u32);
+            indices.push(base_index + quad[2].pos as u32);
+
+            indices.push(base_index + quad[0].pos as u32);
+            indices.push(base_index + quad[2].pos as u32);
+            indices.push(base_index + quad[3].pos as u32);
+        }
+    }
+}
+
 fn tessellate_table(
     table: &truck_stepio::r#in::Table,
     tolerance: f64,
@@ -211,63 +291,8 @@ fn tessellate_table(
         let mut indices = Vec::new();
 
         for face in poly_shell.faces {
-            if let Some(mut mesh) = face.surface {
-                let needs_invert = !face.orientation;
-                if needs_invert {
-                    mesh.invert();
-                }
-
-                let face_positions = mesh.positions();
-                let face_normals = mesh.normals();
-
-                let base_index = vertices.len() as u32;
-
-                vertices.extend(
-                    face_positions
-                        .iter()
-                        .zip(face_normals.iter())
-                        .map(|(p, n)| GpuVertex {
-                            position: [p.x as f32, p.y as f32, p.z as f32],
-                            normal: [n.x as f32, n.y as f32, n.z as f32],
-                        }),
-                );
-
-                let faces = mesh.faces();
-
-                let tri_faces = faces.tri_faces();
-                let quad_faces = faces.quad_faces();
-
-                for tri in tri_faces {
-                    if needs_invert {
-                        indices.push(base_index + tri[0].pos as u32);
-                        indices.push(base_index + tri[2].pos as u32);
-                        indices.push(base_index + tri[1].pos as u32);
-                    } else {
-                        indices.push(base_index + tri[0].pos as u32);
-                        indices.push(base_index + tri[1].pos as u32);
-                        indices.push(base_index + tri[2].pos as u32);
-                    }
-                }
-
-                for quad in quad_faces {
-                    if needs_invert {
-                        indices.push(base_index + quad[0].pos as u32);
-                        indices.push(base_index + quad[2].pos as u32);
-                        indices.push(base_index + quad[1].pos as u32);
-
-                        indices.push(base_index + quad[0].pos as u32);
-                        indices.push(base_index + quad[3].pos as u32);
-                        indices.push(base_index + quad[2].pos as u32);
-                    } else {
-                        indices.push(base_index + quad[0].pos as u32);
-                        indices.push(base_index + quad[1].pos as u32);
-                        indices.push(base_index + quad[2].pos as u32);
-
-                        indices.push(base_index + quad[0].pos as u32);
-                        indices.push(base_index + quad[2].pos as u32);
-                        indices.push(base_index + quad[3].pos as u32);
-                    }
-                }
+            if let Some(mesh) = face.surface {
+                append_face_geometry(mesh, face.orientation, &mut vertices, &mut indices);
             }
         }
 
