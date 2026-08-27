@@ -16,11 +16,9 @@ use crate::common::constants::STEP_TRACER;
 
 pub trait AppTracerTrait {
     fn init();
-    fn info(msg: &str);
     fn error(msg: &str);
     fn warn(msg: &str);
     fn debug(msg: &str);
-    fn trace(msg: &str);
     fn tracing_enabled_from_url() -> bool;
     fn tracing_level_from_url() -> Option<Level>;
 }
@@ -126,16 +124,8 @@ impl AppTracerTrait for AppTracer {
         Some(Level::TRACE) // Default if 'level' param is not present
     }
 
-    fn info(message: &str) {
-        tracing::info!("{} {}", STEP_TRACER, message);
-    }
-
     fn debug(message: &str) {
         tracing::debug!("{} {}", STEP_TRACER, message);
-    }
-
-    fn trace(message: &str) {
-        tracing::trace!("{} {}", STEP_TRACER, message);
     }
 
     fn error(message: &str) {
