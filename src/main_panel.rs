@@ -7,8 +7,10 @@ use crate::{
     },
     trace_span,
 };
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
 use wasm_bindgen_futures::spawn_local;
-use web_sys::HtmlCanvasElement;
+use web_sys::{HtmlCanvasElement, ResizeObserver};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -32,6 +34,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let is_dragging = use_state(|| false);
     let last_mouse_pos = use_state(|| (0, 0));
     let render_parts = use_state(Vec::new);
+    let canvas_size = use_state(|| (0u32, 0u32));
 
     {
         let canvas_ref = canvas_ref.clone();
@@ -52,6 +55,36 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 });
             }
             || ()
+        });
+    }
+
+    {
+        let canvas_ref = canvas_ref.clone();
+        let wgpu_state = wgpu_state.clone();
+        let canvas_size = canvas_size.clone();
+        use_effect_with(canvas_ref.clone(), move |canvas_ref| {
+            let Some(canvas) = canvas_ref.cast::<HtmlCanvasElement>() else {
+                return Box::new(|| {}) as Box<dyn Fn()>;
+            };
+            let canvas_for_closure = canvas.clone();
+            let on_resize = Closure::wrap(Box::new(move |_entries: js_sys::Array| {
+                let width = canvas_for_closure.client_width().max(1) as u32;
+                let height = canvas_for_closure.client_height().max(1) as u32;
+                canvas_for_closure.set_width(width);
+                canvas_for_closure.set_height(height);
+                if let Some(state) = &*wgpu_state {
+                    state.resize(width, height);
+                }
+                canvas_size.set((width, height));
+            }) as Box<dyn Fn(js_sys::Array)>);
+            let observer = ResizeObserver::new(on_resize.as_ref().unchecked_ref())
+                .expect("failed to create ResizeObserver");
+            observer.observe(&canvas);
+            // Keep the closure alive until the observer is disconnected.
+            Box::new(move || {
+                observer.disconnect();
+                let _ = &on_resize;
+            }) as Box<dyn Fn()>
         });
     }
 
@@ -84,8 +117,14 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         let render_error_cb = props.on_render_error.clone();
 
         use_effect_with(
-            (wgpu_state_handle, camera_state, render_parts, part_visibility),
-            move |(wgpu_handle, camera, parts, vis)| {
+            (
+                wgpu_state_handle,
+                camera_state,
+                render_parts,
+                part_visibility,
+                canvas_size,
+            ),
+            move |(wgpu_handle, camera, parts, vis, _size)| {
                 if let Some(wgpu_state) = &**wgpu_handle {
                     if !parts.is_empty() {
                         let parts_vec = (**parts).clone();

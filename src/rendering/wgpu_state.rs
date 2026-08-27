@@ -25,14 +25,50 @@ pub struct WgpuState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface<'static>,
-    pub config: wgpu::SurfaceConfiguration,
+    /// Surface configuration (canvas size). Interior-mutable so `resize` can
+    /// update it without requiring unique ownership of the whole `WgpuState`.
+    pub config: RefCell<wgpu::SurfaceConfiguration>,
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    pub depth_texture_view: wgpu::TextureView,
+    /// Depth texture view, sized to the canvas. Recreated on resize.
+    pub depth_texture_view: RefCell<wgpu::TextureView>,
     /// Per-part GPU buffers, keyed by the part's position index in the frame's
     /// part list. Slots are (re)created lazily when missing or when the part's
     /// geometry size changes, and truncated to match the live part count.
     pub part_buffers: RefCell<Vec<Option<PartGpu>>>,
+}
+
+impl WgpuState {
+    /// Reconfigure the surface and rebuild the depth texture for a new canvas
+    /// size. Safe to call between frames; callers should trigger a re-render
+    /// afterwards so the next frame uses the updated dimensions/aspect ratio.
+    pub fn resize(&self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        {
+            let mut config = self.config.borrow_mut();
+            config.width = width;
+            config.height = height;
+            self.surface.configure(&self.device, &config);
+        }
+        let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
+            label: Some("Depth Texture"),
+            size: wgpu::Extent3d {
+                width,
+                height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: wgpu::TextureFormat::Depth32Float,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        });
+        *self.depth_texture_view.borrow_mut() =
+            depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    }
 }
 
 impl PartialEq for WgpuState {
@@ -224,10 +260,10 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
         device,
         queue,
         surface,
-        config,
+        config: RefCell::new(config),
         render_pipeline,
         bind_group_layout,
-        depth_texture_view,
+        depth_texture_view: RefCell::new(depth_texture_view),
         part_buffers: RefCell::new(Vec::new()),
     })
 }

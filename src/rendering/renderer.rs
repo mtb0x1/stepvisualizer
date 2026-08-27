@@ -28,8 +28,8 @@ pub async fn render_wgpu_on_canvas(
         part_buffers,
     } = &*state;
 
-    let canvas_width = config.width;
-    let canvas_height = config.height;
+    let canvas_width = config.borrow().width;
+    let canvas_height = config.borrow().height;
     // AppTracer::debug(&format!(
     //     "Canvas dimensions: {}x{}",
     //     canvas_width, canvas_height
@@ -100,6 +100,7 @@ pub async fn render_wgpu_on_canvas(
 
     let mut parts_drawn = 0;
     {
+        let depth_texture_view = depth_texture_view.borrow();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: Some("Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -116,8 +117,8 @@ pub async fn render_wgpu_on_canvas(
                 },
                 depth_slice: Some(0),
             })],
-            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: depth_texture_view,
+                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &*depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
