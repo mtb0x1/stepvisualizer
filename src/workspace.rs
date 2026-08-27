@@ -7,6 +7,7 @@ use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;
+use ruststep::ast::{DataSection, Exchange};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
@@ -66,6 +67,124 @@ struct StateHandles {
     file_reader: UseStateHandle<Option<FileReader>>,
 }
 
+/// Extracts the first selected file from an `<input type="file">` change event.
+fn input_file(event: &Event) -> Option<web_sys::File> {
+    let input: HtmlInputElement = event
+        .target()
+        .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())?;
+    input.files()?.get(0)
+}
+
+/// Resets the UI after a failed load: surface `msg`, clear stale metadata,
+/// and drop the processing flag. Every failure path funnels through here.
+fn fail_load(
+    msg: String,
+    result: &UseStateHandle<Option<String>>,
+    metadata: &UseStateHandle<Option<Metadata>>,
+    is_processing: &UseStateHandle<bool>,
+) {
+    result.set(Some(msg));
+    metadata.set(None);
+    is_processing.set(false);
+}
+
+/// Returns the first data section carrying usable STEP content, or a
+/// user-facing message explaining why the file has none.
+fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, String> {
+    if parsed.data.is_empty() {
+        return Err("No data sections found in the STEP file.".to_string());
+    }
+    match parsed.data.first() {
+        Some(section) if !section.entities.is_empty() || !section.meta.is_empty() => Ok(section),
+        _ => Err("STEP file has no usable data sections (empty meta/entities).".to_string()),
+    }
+}
+
+/// Assembles the pre-tessellation metadata (header, entity count, bounding
+/// box, units) for a parsed STEP file, together with its content-hash id.
+/// The tessellated counts (vertices/triangles) are filled in later, once
+/// the geometry pass has produced them.
+fn build_initial_metadata(
+    fallback_name: &str,
+    parsed: &Exchange,
+    step_table: &truck_stepio::r#in::Table,
+    text: &str,
+) -> Result<(Metadata, String), String> {
+    let entity_count: usize = parsed
+        .data
+        .iter()
+        .map(|section| section.entities.len())
+        .sum();
+    let mut step_header = convert_header(&parsed.header)?;
+    if step_header.file_name.is_empty() {
+        step_header.file_name = fallback_name.to_string();
+    }
+    let meta = Metadata {
+        header: step_header,
+        entity_count,
+        bounding_box: compute_bounding_box(step_table),
+        units: parse_units(parsed),
+        vertex_count: 0,
+        triangle_count: 0,
+        volume: None,
+        surface_area: None,
+    };
+    Ok((meta, hash_text_to_id(text)))
+}
+
+/// UI state targets that receive the results of the async tessellation pass.
+struct TessellationTargets {
+    metadata: UseStateHandle<Option<Metadata>>,
+    step_model: UseStateHandle<Option<Rc<StepModel>>>,
+    part_visibility: UseStateHandle<Vec<bool>>,
+    result: UseStateHandle<Option<String>>,
+    is_processing: UseStateHandle<bool>,
+    cache: Rc<RefCell<LruCache>>,
+}
+
+/// Spawns the async tessellation pass: tessellates the STEP table, wraps the
+/// result in a `StepModel`, persists it to the cache and localStorage, then
+/// publishes the updated metadata and model to the UI.
+fn spawn_tessellation(
+    step_table: truck_stepio::r#in::Table,
+    file_id: String,
+    meta: Metadata,
+    targets: TessellationTargets,
+) {
+    let tolerance = DEFAULT_TOLERANCE;
+    wasm_bindgen_futures::spawn_local(async move {
+        let renderable_parts = step_extract_wsgl_reqs(&file_id, &step_table, tolerance);
+        let vertex_count = renderable_parts.iter().map(|p| p.vertices.len()).sum();
+        let triangle_count = renderable_parts.iter().map(|p| p.indices.len() / 3).sum();
+
+        let mut updated_meta = meta;
+        updated_meta.vertex_count = vertex_count;
+        updated_meta.triangle_count = triangle_count;
+
+        let part_count = renderable_parts.len();
+        let model = StepModel {
+            id: file_id.clone(),
+            metadata: updated_meta.clone(),
+            render_parts: renderable_parts,
+            part_visibility: vec![true; part_count],
+        };
+
+        {
+            let mut cache_ref = targets.cache.borrow_mut();
+            cache_ref.insert(file_id.clone(), model.clone());
+        }
+        save_model(&model);
+
+        targets.metadata.set(Some(updated_meta));
+        targets.step_model.set(Some(Rc::new(model)));
+        targets.part_visibility.set(vec![true; part_count]);
+        targets
+            .result
+            .set(Some("Parsed STEP file successfully.".to_string()));
+        targets.is_processing.set(false);
+    });
+}
+
 #[hook]
 fn use_file_processor(
     states: &StateHandles,
@@ -84,179 +203,95 @@ fn use_file_processor(
 
     Callback::from(move |event: Event| {
         trace_span!("on_file_change callback");
-        let input: HtmlInputElement = match event
-            .target()
-            .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-        {
-            Some(input) => input,
-            None => {
-                is_processing_handle.set(false);
-                return;
-            }
+        let Some(web_file) = input_file(&event) else {
+            is_processing_handle.set(false);
+            return;
         };
-        if let Some(files) = input.files() {
-            if let Some(web_file) = files.get(0) {
-                is_processing_handle.set(true);
-                if web_file.size() > MAX_FILE_BYTES {
-                    result_handle.set(Some(
-                        "File too large. Maximum allowed is 20 MB.".to_string(),
-                    ));
-                    metadata_handle.set(None);
-                    is_processing_handle.set(false);
-                    return;
-                }
-                let name = web_file.name();
-                let file = File::from(web_sys::File::from(web_file));
-                let result_state = result_handle.clone();
-                let metadata_state = metadata_handle.clone();
-                let list_state = files_index_handle.clone();
-                let cache_state = cache_handle.clone();
-                let step_model_state = step_model_handle.clone();
-                let selected_file_state = selected_file_handle.clone();
-                let part_visibility_state = part_visibility_handle.clone();
-                let processing_state = is_processing_handle.clone();
-                let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
-                    match res {
-                        Ok(text) => match ruststep::parser::parse(&text) {
-                            Ok(parsed) => {
-                                if parsed.data.is_empty() {
-                                    result_state.set(Some(
-                                        "No data sections found in the STEP file.".to_string(),
-                                    ));
-                                    processing_state.set(false);
-                                    return;
-                                }
-                                let section = match parsed.data.get(0) {
-                                    Some(section)
-                                        if !section.entities.is_empty()
-                                            || !section.meta.is_empty() =>
-                                    {
-                                        section
-                                    }
-                                    _ => {
-                                        result_state.set(Some(
-                                            "STEP file has no usable data sections (empty meta/entities).".to_string(),
-                                        ));
-                                        metadata_state.set(None);
-                                        processing_state.set(false);
-                                        return;
-                                    }
-                                };
-                                let step_table =
-                                    truck_stepio::r#in::Table::from_data_section(&section);
-                                let entity_count: usize = parsed
-                                    .data
-                                    .iter()
-                                    .map(|section| section.entities.len())
-                                    .sum();
-                                let mut step_header = match convert_header(&parsed.header) {
-                                    Ok(h) => h,
-                                    Err(e) => {
-                                        result_state.set(Some(e));
-                                        metadata_state.set(None);
-                                        processing_state.set(false);
-                                        return;
-                                    }
-                                };
-                                if step_header.file_name.is_empty() {
-                                    step_header.file_name = name.clone();
-                                }
-                                let id = hash_text_to_id(&text);
-                                let bbox = compute_bounding_box(&step_table);
-                                let units = parse_units(&parsed);
-                                let meta = Metadata {
-                                    header: step_header.clone(),
-                                    entity_count,
-                                    bounding_box: bbox,
-                                    units,
-                                    vertex_count: 0,
-                                    triangle_count: 0,
-                                    volume: None,
-                                    surface_area: None,
-                                };
 
-                                metadata_state.set(Some(meta.clone()));
-                                let tolerance = DEFAULT_TOLERANCE;
-                                selected_file_state.set(Some(id.clone()));
-                                result_state
-                                    .set(Some("Tessellating geometry for 3D view...".to_string()));
-
-                                let metadata_future = metadata_state.clone();
-                                let step_model_future = step_model_state.clone();
-                                let part_visibility_future = part_visibility_state.clone();
-                                let cache_future = cache_state.clone();
-                                let result_future = result_state.clone();
-                                let model_meta = meta.clone();
-                                let tess_id = id.clone();
-                                let processing_future = processing_state.clone();
-                                wasm_bindgen_futures::spawn_local(async move {
-                                    let renderable_parts =
-                                        step_extract_wsgl_reqs(&tess_id, &step_table, tolerance);
-                                    let vertex_count =
-                                        renderable_parts.iter().map(|p| p.vertices.len()).sum();
-                                    let triangle_count =
-                                        renderable_parts.iter().map(|p| p.indices.len() / 3).sum();
-
-                                    let mut updated_meta = model_meta;
-                                    updated_meta.vertex_count = vertex_count;
-                                    updated_meta.triangle_count = triangle_count;
-
-                                    let part_count = renderable_parts.len();
-                                    let part_visibility = vec![true; part_count];
-                                    let model = StepModel {
-                                        id: tess_id.clone(),
-                                        metadata: updated_meta.clone(),
-                                        render_parts: renderable_parts,
-                                        part_visibility,
-                                    };
-
-                                    {
-                                        let mut cache_ref = cache_future.borrow_mut();
-                                        cache_ref.insert(tess_id.clone(), model.clone());
-                                    }
-                                    save_model(&model);
-
-                                    metadata_future.set(Some(updated_meta));
-                                    step_model_future.set(Some(Rc::new(model)));
-                                    part_visibility_future
-                                        .set(vec![true; part_count]);
-                                    result_future
-                                        .set(Some("Parsed STEP file successfully.".to_string()));
-                                    processing_future.set(false);
-                                });
-
-                                let mut list = (*list_state).clone();
-                                list.retain(|i| i.id != id);
-                                list.insert(
-                                    0,
-                                    FileIndexItem {
-                                        id: id.clone(),
-                                        name: step_header.file_name.clone(),
-                                        entity_count,
-                                        time_stamp: step_header.time_stamp.clone(),
-                                    },
-                                );
-                                list_state.set(list.clone());
-                                save_index(&list);
-                                return;
-                            }
-                            Err(e) => {
-                                result_state.set(Some(format!("Failed to parse STEP: {e}")));
-                                metadata_state.set(None);
-                            }
-                        },
-                        Err(e) => {
-                            result_state.set(Some(format!("Failed to read file: {e}")));
-                            metadata_state.set(None);
-                        }
-                    }
-                    processing_state.set(false);
-                });
-                file_reader_handle.set(Some(reader));
-                return;
-            }
+        is_processing_handle.set(true);
+        if web_file.size() > MAX_FILE_BYTES {
+            fail_load(
+                "File too large. Maximum allowed is 20 MB.".to_string(),
+                &result_handle,
+                &metadata_handle,
+                &is_processing_handle,
+            );
+            return;
         }
-        is_processing_handle.set(false);
+
+        let name = web_file.name();
+        let file = File::from(web_sys::File::from(web_file));
+
+        // Clone the handles the reader callback will own: the outer closure
+        // must stay `Fn` (it is invoked for every file-selection event), so it
+        // cannot move its own captures into the one-shot reader callback.
+        let result_state = result_handle.clone();
+        let metadata_state = metadata_handle.clone();
+        let processing_state = is_processing_handle.clone();
+        let selected_file_state = selected_file_handle.clone();
+        let step_model_state = step_model_handle.clone();
+        let part_visibility_state = part_visibility_handle.clone();
+        let cache_state = cache_handle.clone();
+        let files_index_state = files_index_handle.clone();
+
+        let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
+            // Every early exit below resets the UI the same way.
+            let fail = |msg: String| {
+                fail_load(msg, &result_state, &metadata_state, &processing_state);
+            };
+
+            let text = match res {
+                Ok(text) => text,
+                Err(e) => return fail(format!("Failed to read file: {e}")),
+            };
+            let parsed = match ruststep::parser::parse(&text) {
+                Ok(parsed) => parsed,
+                Err(e) => return fail(format!("Failed to parse STEP: {e}")),
+            };
+            let section = match first_usable_section(&parsed) {
+                Ok(section) => section,
+                Err(msg) => return fail(msg),
+            };
+            let step_table = truck_stepio::r#in::Table::from_data_section(section);
+            let (meta, id) = match build_initial_metadata(&name, &parsed, &step_table, &text) {
+                Ok(v) => v,
+                Err(msg) => return fail(msg),
+            };
+
+            metadata_state.set(Some(meta.clone()));
+            selected_file_state.set(Some(id.clone()));
+            result_state.set(Some("Tessellating geometry for 3D view...".to_string()));
+
+            spawn_tessellation(
+                step_table,
+                id.clone(),
+                meta.clone(),
+                TessellationTargets {
+                    metadata: metadata_state.clone(),
+                    step_model: step_model_state.clone(),
+                    part_visibility: part_visibility_state.clone(),
+                    result: result_state.clone(),
+                    is_processing: processing_state.clone(),
+                    cache: cache_state.clone(),
+                },
+            );
+
+            // Record the file in the history index (most recent first).
+            let mut list = (*files_index_state).clone();
+            list.retain(|i| i.id != id);
+            list.insert(
+                0,
+                FileIndexItem {
+                    id: id.clone(),
+                    name: meta.header.file_name.clone(),
+                    entity_count: meta.entity_count,
+                    time_stamp: meta.header.time_stamp.clone(),
+                },
+            );
+            files_index_state.set(list.clone());
+            save_index(&list);
+        });
+        file_reader_handle.set(Some(reader));
     })
 }
 
