@@ -38,8 +38,19 @@ pub async fn render_wgpu_on_canvas(
     let mut max_x = f32::NEG_INFINITY;
     let mut max_y = f32::NEG_INFINITY;
     let mut max_z = f32::NEG_INFINITY;
+    let mut visible_count = 0;
 
-    for part in &parts {
+    // Frame on the visible subset only: when parts are hidden the remaining
+    // geometry may sit off the (baked-at-origin) model center, so we derive
+    // the orbit target from the visible bounding box instead of the origin.
+    for (index, part) in parts.iter().enumerate() {
+        if !visibility.get(index).copied().unwrap_or(true) {
+            continue;
+        }
+        if part.vertices.is_empty() {
+            continue;
+        }
+        visible_count += 1;
         for vertex in &part.vertices {
             let pos = vertex.position;
             min_x = min_x.min(pos[0]);
@@ -51,7 +62,7 @@ pub async fn render_wgpu_on_canvas(
         }
     }
 
-    if parts.is_empty() || (min_x == f32::INFINITY) {
+    if visible_count == 0 {
         min_x = -1.0;
         max_x = 1.0;
         min_y = -1.0;
@@ -65,8 +76,18 @@ pub async fn render_wgpu_on_canvas(
     let size_z = (max_z - min_z).max(0.1);
     let max_size = size_x.max(size_y).max(size_z);
 
-    let eye = compute_eye_position(camera);
-    let view_matrix = create_look_at_matrix(eye, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
+    let view_target = [
+        (min_x + max_x) * 0.5,
+        (min_y + max_y) * 0.5,
+        (min_z + max_z) * 0.5,
+    ];
+
+    let camera_target = CameraState {
+        target: view_target,
+        ..(*camera).clone()
+    };
+    let eye = compute_eye_position(&camera_target);
+    let view_matrix = create_look_at_matrix(eye, view_target, [0.0, 1.0, 0.0]);
 
     let aspect = canvas_width as f32 / canvas_height as f32;
     let fov_y = std::f32::consts::PI / 3.0;

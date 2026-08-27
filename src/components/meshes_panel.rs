@@ -63,12 +63,8 @@ pub struct MeshData {
     pub visible: bool,
 }
 
-// FIXME : Scene need to be centered on visible meshes
-// example if only one mesh is visible, center on that mesh
-// if multiple meshes are visible, center on the bounding box of all visible meshes
-
-// TODO: Implement actual centering logic based on visible meshes
-// Consider performance - only recompute when visible meshes change
+// Scene centering on the visible subset is handled in the renderer
+// (renderer.rs derives the orbit target from the visible bounding box).
 
 #[function_component(MeshesPanel)]
 pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
