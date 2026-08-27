@@ -1,7 +1,7 @@
 use crate::{
     common::{Metadata, StepModel},
     rendering::{
-        camera::CameraState,
+        camera::{CAMERA_PRESETS, CameraPreset, CameraState},
         renderer::render_wgpu_on_canvas,
         wgpu_state::{WgpuState, init_wgpu},
     },
@@ -158,28 +158,23 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         }
     };
 
-    let preset_button = |label: &str, azimuth: f32, elevation: f32, distance: f32| {
+    let preset_button = |preset: &CameraPreset| {
         let camera_state = camera_state.clone();
+        let preset = *preset;
         html! {
             <button
                 class="camera-button"
                 onclick={Callback::from(move |_| {
-                    let mut new_camera = (*camera_state).clone();
-                    new_camera.azimuth = azimuth;
-                    new_camera.elevation = elevation;
-                    new_camera.distance = distance;
+                    let new_camera = preset.apply(&camera_state);
                     camera_state.set(new_camera);
                 })}
-            >{ label }</button>
+            >{ preset.label }</button>
         }
     };
 
     let camera_toolbar = html! {
         <div class="camera-toolbar">
-            { preset_button("Reset", CameraState::default().azimuth, CameraState::default().elevation, CameraState::default().distance) }
-            { preset_button("Iso", 0.8, 0.9, 3.0) }
-            { preset_button("Top", 0.0, 1.3, 2.5) }
-            { preset_button("Front", 0.0, 0.0, 3.0) }
+            { for CAMERA_PRESETS.iter().map(preset_button) }
         </div>
     };
 
