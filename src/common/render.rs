@@ -1,4 +1,4 @@
-use crate::{AppTracer, AppTracerTrait, trace_span};
+use crate::{apptracing::{AppTracer, AppTracerTrait}, trace_span};
 use bytemuck::{Pod, Zeroable};
 
 use serde::{Deserialize, Serialize};

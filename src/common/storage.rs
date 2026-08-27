@@ -1,4 +1,4 @@
-use crate::{AppTracer, AppTracerTrait, trace_span};
+use crate::{apptracing::{AppTracer, AppTracerTrait}, trace_span};
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;
