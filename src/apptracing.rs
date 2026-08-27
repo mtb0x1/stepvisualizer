@@ -26,35 +26,13 @@ pub trait AppTracerTrait {
 impl AppTracerTrait for AppTracer {
     fn init() {
         if let Some(level) = Self::tracing_level_from_url() {
-            let fmt_layer: tracing_subscriber::fmt::Layer<
-                Registry,
-                tracing_subscriber::fmt::format::DefaultFields,
-                tracing_subscriber::fmt::format::Format<
-                    tracing_subscriber::fmt::format::Full,
-                    UtcTime<time::format_description::well_known::Rfc3339>,
-                >,
-                MakeConsoleWriter,
-            > = tracing_subscriber::fmt::layer()
+            let fmt_layer = tracing_subscriber::fmt::layer()
                 .with_ansi(false)
-                .with_timer(UtcTime::rfc_3339())
+                .with_timer(UtcTime::<time::format_description::well_known::Rfc3339>::rfc_3339())
                 .with_writer(MakeConsoleWriter)
                 .with_span_events(FmtSpan::ACTIVE);
 
-            let perf_layer: tracing_web::PerformanceEventsLayer<
-                tracing_subscriber::layer::Layered<
-                    tracing_subscriber::fmt::Layer<
-                        Registry,
-                        tracing_subscriber::fmt::format::DefaultFields,
-                        tracing_subscriber::fmt::format::Format<
-                            tracing_subscriber::fmt::format::Full,
-                            UtcTime<time::format_description::well_known::Rfc3339>,
-                        >,
-                        MakeConsoleWriter,
-                    >,
-                    Registry,
-                >,
-                tracing_web::FormatSpanFromFields<Pretty>,
-            > = performance_layer().with_details_from_fields(Pretty::default());
+            let perf_layer = performance_layer().with_details_from_fields(Pretty::default());
 
             let subscriber = Registry::default()
                 .with(fmt_layer)
@@ -74,23 +52,9 @@ impl AppTracerTrait for AppTracer {
     }
 
     fn tracing_enabled_from_url() -> bool {
-        if let Some(window) = web_sys::window() {
-            if let Ok(search) = window.location().search() {
-                let query = search.trim_start_matches('?');
-                for pair in query.split('&') {
-                    if pair.is_empty() {
-                        continue;
-                    }
-                    let mut parts = pair.splitn(2, '=');
-                    let key = parts.next().unwrap_or("");
-                    if key.eq_ignore_ascii_case("tracing") {
-                        let value = parts.next().unwrap_or("").to_ascii_lowercase();
-                        return value == "on" || value == "true" || value == "1";
-                    }
-                }
-            }
-        }
-        false
+        url_query_param("tracing").is_some_and(|value| {
+            value == "on" || value == "true" || value == "1"
+        })
     }
 
     fn tracing_level_from_url() -> Option<Level> {
@@ -98,30 +62,17 @@ impl AppTracerTrait for AppTracer {
             return None;
         }
 
-        if let Some(window) = web_sys::window() {
-            if let Ok(search) = window.location().search() {
-                let query = search.trim_start_matches('?');
-                for pair in query.split('&') {
-                    if pair.is_empty() {
-                        continue;
-                    }
-                    let mut parts = pair.splitn(2, '=');
-                    let key = parts.next().unwrap_or("");
-                    if key.eq_ignore_ascii_case("level") {
-                        let value = parts.next().unwrap_or("").to_ascii_lowercase();
-                        return match value.as_str() {
-                            "trace" => Some(Level::TRACE),
-                            "debug" => Some(Level::DEBUG),
-                            "info" => Some(Level::INFO),
-                            "warn" => Some(Level::WARN),
-                            "error" => Some(Level::ERROR),
-                            _ => Some(Level::INFO), // Default level
-                        };
-                    }
-                }
-            }
-        }
-        Some(Level::TRACE) // Default if 'level' param is not present
+        // Defaults: TRACE when the `level` param is absent, INFO when its
+        // value is not a recognized level name.
+        Some(match url_query_param("level").as_deref() {
+            Some("trace") => Level::TRACE,
+            Some("debug") => Level::DEBUG,
+            Some("info") => Level::INFO,
+            Some("warn") => Level::WARN,
+            Some("error") => Level::ERROR,
+            Some(_) => Level::INFO,
+            None => Level::TRACE,
+        })
     }
 
     fn debug(message: &str) {
@@ -135,6 +86,27 @@ impl AppTracerTrait for AppTracer {
     fn warn(message: &str) {
         tracing::warn!("{} {}", STEP_TRACER, message);
     }
+}
+
+/// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).
+///
+/// Keys are matched case-insensitively; the value is returned lowercased.
+/// Returns `None` when the key is absent or the URL cannot be inspected.
+fn url_query_param(key: &str) -> Option<String> {
+    let search = web_sys::window()?.location().search().ok()?;
+    let query = search.trim_start_matches('?');
+
+    query.split('&').find_map(|pair| {
+        // A bare key without '=' counts as present with an empty value,
+        // matching the original `splitn(2, '=')` parser.
+        let (pair_key, value) = match pair.split_once('=') {
+            Some((k, v)) => (k, v),
+            None => (pair, ""),
+        };
+        pair_key
+            .eq_ignore_ascii_case(key)
+            .then(|| value.to_ascii_lowercase())
+    })
 }
 
 #[macro_export]
