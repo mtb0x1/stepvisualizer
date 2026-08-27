@@ -1,13 +1,13 @@
-use crate::trace_span;
+use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
 use super::types::{BoundingBox, StepHeader};
 
-pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, String> {
+pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> {
     trace_span!("convert_header");
     let header_in: Header = Header::from_records(header_in)
-        .map_err(|e| format!("failed to parse header: {e}"))?;
+        .map_err(|e| StepVizError(format!("failed to parse header: {e}")))?;
     let file_description = header_in.file_description.description;
     Ok(StepHeader {
         file_description: file_description.join("; "),

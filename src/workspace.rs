@@ -115,7 +115,7 @@ fn build_initial_metadata(
         .iter()
         .map(|section| section.entities.len())
         .sum();
-    let mut step_header = convert_header(&parsed.header)?;
+    let mut step_header = convert_header(&parsed.header).map_err(|e| e.0)?;
     if step_header.file_name.is_empty() {
         step_header.file_name = fallback_name.to_string();
     }
