@@ -33,7 +33,6 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let camera_state = use_state(CameraState::default);
     let is_dragging = use_state(|| false);
     let last_mouse_pos = use_state(|| (0, 0));
-    let render_parts = use_state(Vec::new);
     let canvas_size = use_state(|| (0u32, 0u32));
     let last_model_id = use_state(|| None::<String>);
 
@@ -90,59 +89,37 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     }
 
     {
-        let render_parts = render_parts.clone();
-        use_effect_with(props.step_model.clone(), move |maybe_model| {
-            if let Some(model) = maybe_model {
-                render_parts.set((**model).render_parts.clone());
-            } else {
-                render_parts.set(Vec::new());
-            }
-            || ()
-        });
-    }
-
-    let part_visibility = use_state(Vec::new);
-    {
-        let part_visibility = part_visibility.clone();
-        use_effect_with(props.part_visibility.clone(), move |vis| {
-            part_visibility.set(vis.clone());
-            || ()
-        });
-    }
-
-    {
         let wgpu_state_handle = wgpu_state.clone();
         let camera_state = camera_state.clone();
-        let render_parts = render_parts.clone();
-        let part_visibility = part_visibility.clone();
         let render_error_cb = props.on_render_error.clone();
-        let step_model_id = props.step_model.as_ref().map(|m| m.id.clone());
+        let step_model = props.step_model.clone();
+        let part_visibility = props.part_visibility.clone();
         let last_model_id = last_model_id.clone();
 
         use_effect_with(
             (
                 wgpu_state_handle,
                 camera_state,
-                render_parts,
+                step_model,
                 part_visibility,
                 canvas_size,
-                step_model_id,
             ),
-            move |(wgpu_handle, camera, parts, vis, _size, model_id)| {
+            move |(wgpu_handle, camera, model, vis, _size)| {
                 // Discard cached per-part GPU buffers whenever the loaded model
                 // changes: index-keyed buffers would otherwise be reused for a
                 // different model that happens to have identical part counts.
-                if *model_id != *last_model_id {
+                let model_id = model.as_ref().map(|m| m.id.clone());
+                if model_id != *last_model_id {
                     if let Some(wgpu_state) = &**wgpu_handle {
                         wgpu_state.part_buffers.borrow_mut().clear();
                     }
-                    last_model_id.set(model_id.clone());
+                    last_model_id.set(model_id);
                 }
 
-                if let Some(wgpu_state) = &**wgpu_handle {
-                    if !parts.is_empty() {
-                        let parts_vec = (**parts).clone();
-                        let vis_vec = (**vis).clone();
+                if let (Some(wgpu_state), Some(model)) = (&**wgpu_handle, model.as_ref()) {
+                    if !model.render_parts.is_empty() {
+                        let parts_vec = model.render_parts.clone();
+                        let vis_vec = vis.clone();
                         let camera_value = (**camera).clone();
                         let state = wgpu_state.clone();
                         let error_cb = render_error_cb.clone();
@@ -170,7 +147,11 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
             html! { <div class="canvas-processing-overlay">{ "Preparing 3D view..." }</div> }
         } else if props.step_model.is_none() {
             html! { <div class="empty-canvas-message">{ "Upload a STEP file to visualize it." }</div> }
-        } else if render_parts.is_empty() {
+        } else if props
+            .step_model
+            .as_ref()
+            .is_some_and(|m| m.render_parts.is_empty())
+        {
             html! { <div class="empty-canvas-message">{ "Parsing geometry..." }</div> }
         } else {
             Html::default()
