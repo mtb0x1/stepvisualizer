@@ -12,9 +12,20 @@ jobs:
       - name: Install Rust (nightly + wasm target)
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: nightly-2025-11-07
+          toolchain: nightly
           target: wasm32-unknown-unknown
-      - run: cargo install trunk
+      - name: Install trunk (prebuilt binary)
+        env:
+          TRUNK_VERSION: v0.21.14
+        run: |
+          curl -fsSL -o /tmp/trunk.tar.gz "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL -o /tmp/trunk.tar.gz.sha256 "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          EXPECTED=$(cat /tmp/trunk.tar.gz.sha256)
+          ACTUAL=$(sha256sum /tmp/trunk.tar.gz)
+          test "$EXPECTED" = "${ACTUAL%% *}"
+          mkdir -p "${HOME}/.local/bin"
+          tar -xzf /tmp/trunk.tar.gz -C "${HOME}/.local/bin"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
       - name: Build Yew App
         run: trunk build --release --dist ./dist --public-url /stepvisualizer/
