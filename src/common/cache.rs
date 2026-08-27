@@ -35,6 +35,24 @@ impl LruCache {
         self.map.get(id).cloned()
     }
 
+    // Memory cache is the single in-memory layer; `load` is the persistence
+    // backend (e.g. localStorage). On a miss we fall through to the backend,
+    // promote the result into the cache, and return it. This removes the
+    // duplicated get-or-load branching that previously lived at every caller.
+    pub fn get_or_load(
+        &mut self,
+        id: &str,
+        load: impl Fn(&str) -> Option<StepModel>,
+    ) -> Option<StepModel> {
+        trace_span!("LruCache::get_or_load");
+        if let Some(model) = self.get(id) {
+            return Some(model);
+        }
+        let loaded = load(id)?;
+        self.insert(id.to_string(), loaded.clone());
+        Some(loaded)
+    }
+
     pub fn insert(&mut self, id: String, model: StepModel) {
         trace_span!("LruCache::insert");
         if !self.map.contains_key(&id) && self.map.len() == self.capacity {

@@ -279,19 +279,11 @@ fn use_workspace_management(
         let selected_file_state = states.selected_file.clone();
         let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |id: String| {
-            let maybe_model = {
-                let mut c = cache_state.borrow_mut();
-                c.get(&id)
-            }
-            .or_else(|| load_model(&id));
+            let maybe_model = cache_state.borrow_mut().get_or_load(&id, load_model);
 
             match maybe_model {
                 Some(model) => {
                     let model_rc = Rc::new(model);
-                    {
-                        let mut c = cache_state.borrow_mut();
-                        c.insert(id.clone(), (*model_rc).clone());
-                    }
                     let part_visibility = model_rc.part_visibility.clone();
                     metadata_state.set(Some(model_rc.metadata.clone()));
                     step_model_state.set(Some(model_rc));
