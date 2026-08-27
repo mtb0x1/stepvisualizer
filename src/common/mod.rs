@@ -7,7 +7,6 @@ pub mod storage;
 pub mod types;
 
 pub use cache::LruCache;
-pub use constants::*;
 pub use math::{create_look_at_matrix, create_perspective_matrix, multiply_matrices};
 pub use parser::{compute_bounding_box, convert_header, parse_units};
 pub use render::{GpuVertex, RenderablePart, extract_render_parts};

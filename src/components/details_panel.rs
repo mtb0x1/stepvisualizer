@@ -1,4 +1,5 @@
-use crate::common::{Metadata, NA};
+use crate::common::constants::NA;
+use crate::common::Metadata;
 use crate::trace_span;
 use yew::prelude::*;
 
