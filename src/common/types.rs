@@ -53,4 +53,6 @@ pub struct StepModel {
     pub id: String,
     pub metadata: Metadata,
     pub render_parts: Vec<RenderablePart>,
+    #[serde(default)]
+    pub part_visibility: Vec<bool>,
 }

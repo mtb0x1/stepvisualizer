@@ -30,7 +30,7 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                     name: format!("Mesh {}", i + 1),
                     triangle_count: part.indices.len() / 3,
                     vertex_count: part.vertices.len(),
-                    visible: part.visible,
+                    visible: m.part_visibility.get(i).copied().unwrap_or(true),
                 })
                 .collect()
         })

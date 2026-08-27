@@ -27,7 +27,6 @@ pub struct RenderablePart {
     pub indices: Vec<u32>,
     pub model_matrix: [f32; 16],
     pub color: [f32; 4],
-    pub visible: bool,
 }
 
 impl Default for RenderablePart {
@@ -39,7 +38,6 @@ impl Default for RenderablePart {
                 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
             ],
             color: [0.8, 0.8, 0.8, 1.0],
-            visible: true,
         }
     }
 }
@@ -272,7 +270,6 @@ fn tessellate_table(
                 indices,
                 model_matrix,
                 color,
-                visible: true,
             });
         }
 

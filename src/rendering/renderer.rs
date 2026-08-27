@@ -13,6 +13,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 pub async fn render_wgpu_on_canvas(
     state: Rc<WgpuState>,
     mut parts: Vec<RenderablePart>,
+    visibility: &[bool],
     camera: &CameraState,
 ) -> Result<(), Box<dyn std::error::Error>> {
     trace_span!("render_wgpu_on_canvas");
@@ -137,7 +138,10 @@ pub async fn render_wgpu_on_canvas(
 
         render_pass.set_pipeline(render_pipeline);
 
-        for part in parts.iter().filter(|p| p.visible) {
+        for (index, part) in parts.iter().enumerate() {
+            if !visibility.get(index).copied().unwrap_or(true) {
+                continue;
+            }
             if part.indices.is_empty() {
                 AppTracer::warn("Skipping render of part with empty indices");
                 continue;

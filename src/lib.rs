@@ -80,6 +80,7 @@ fn app() -> Html {
                     step_model={(*workspace.step_model).clone()}
                     is_processing={*workspace.is_processing}
                     metadata={(*workspace.metadata).clone()}
+                    part_visibility={(*workspace.part_visibility).clone()}
                     on_render_error={render_error_callback}
                 />
                 <div class="result-message">

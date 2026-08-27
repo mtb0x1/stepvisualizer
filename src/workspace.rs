@@ -33,6 +33,7 @@ pub struct StepWorkspace {
     pub files_index: UseStateHandle<Vec<FileIndexItem>>,
     pub selected_file: UseStateHandle<Option<String>>,
     pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
+    pub part_visibility: UseStateHandle<Vec<bool>>,
     pub is_processing: UseStateHandle<bool>,
     pub actions: WorkspaceActions,
 }
@@ -58,6 +59,7 @@ struct StateHandles {
     result: UseStateHandle<Option<String>>,
     metadata: UseStateHandle<Option<Metadata>>,
     step_model: UseStateHandle<Option<Rc<StepModel>>>,
+    part_visibility: UseStateHandle<Vec<bool>>,
     selected_file: UseStateHandle<Option<String>>,
     is_processing: UseStateHandle<bool>,
     file_reader: UseStateHandle<Option<FileReader>>,
@@ -76,6 +78,7 @@ fn use_file_processor(
     let cache_handle = cache.clone();
     let step_model_handle = states.step_model.clone();
     let selected_file_handle = states.selected_file.clone();
+    let part_visibility_handle = states.part_visibility.clone();
     let is_processing_handle = states.is_processing.clone();
 
     Callback::from(move |event: Event| {
@@ -109,6 +112,7 @@ fn use_file_processor(
                 let cache_state = cache_handle.clone();
                 let step_model_state = step_model_handle.clone();
                 let selected_file_state = selected_file_handle.clone();
+                let part_visibility_state = part_visibility_handle.clone();
                 let processing_state = is_processing_handle.clone();
                 let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
                     match res {
@@ -178,6 +182,7 @@ fn use_file_processor(
 
                                 let metadata_future = metadata_state.clone();
                                 let step_model_future = step_model_state.clone();
+                                let part_visibility_future = part_visibility_state.clone();
                                 let cache_future = cache_state.clone();
                                 let result_future = result_state.clone();
                                 let model_meta = meta.clone();
@@ -195,10 +200,13 @@ fn use_file_processor(
                                     updated_meta.vertex_count = vertex_count;
                                     updated_meta.triangle_count = triangle_count;
 
+                                    let part_count = renderable_parts.len();
+                                    let part_visibility = vec![true; part_count];
                                     let model = StepModel {
                                         id: tess_id.clone(),
                                         metadata: updated_meta.clone(),
                                         render_parts: renderable_parts,
+                                        part_visibility,
                                     };
 
                                     {
@@ -209,6 +217,8 @@ fn use_file_processor(
 
                                     metadata_future.set(Some(updated_meta));
                                     step_model_future.set(Some(Rc::new(model)));
+                                    part_visibility_future
+                                        .set(vec![true; part_count]);
                                     result_future
                                         .set(Some("Parsed STEP file successfully.".to_string()));
                                     processing_future.set(false);
@@ -267,6 +277,7 @@ fn use_workspace_management(
         let cache_state = cache.clone();
         let step_model_state = states.step_model.clone();
         let selected_file_state = states.selected_file.clone();
+        let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |id: String| {
             let maybe_model = {
                 let mut c = cache_state.borrow_mut();
@@ -281,8 +292,10 @@ fn use_workspace_management(
                         let mut c = cache_state.borrow_mut();
                         c.insert(id.clone(), (*model_rc).clone());
                     }
+                    let part_visibility = model_rc.part_visibility.clone();
                     metadata_state.set(Some(model_rc.metadata.clone()));
                     step_model_state.set(Some(model_rc));
+                    part_visibility_state.set(part_visibility);
                     selected_file_state.set(Some(id.clone()));
                     result_state.set(Some("Loaded from cache".to_string()));
                     let mut list = (*files_index_state).clone();
@@ -307,6 +320,7 @@ fn use_workspace_management(
         let selected_file_state = states.selected_file.clone();
         let metadata_state = states.metadata.clone();
         let step_model_state = states.step_model.clone();
+        let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |delete_id: String| {
             if let Some(window) = web_sys::window() {
                 if let Ok(false) = window.confirm_with_message(
@@ -330,6 +344,7 @@ fn use_workspace_management(
                 selected_file_state.set(None);
                 metadata_state.set(None);
                 step_model_state.set(None);
+                part_visibility_state.set(Vec::new());
             }
             result_state.set(Some("Removed file from list.".to_string()));
         })
@@ -339,10 +354,12 @@ fn use_workspace_management(
         let selected_file_state = states.selected_file.clone();
         let metadata_state = states.metadata.clone();
         let step_model_state = states.step_model.clone();
+        let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |_| {
             selected_file_state.set(None);
             metadata_state.set(None);
             step_model_state.set(None);
+            part_visibility_state.set(Vec::new());
         })
     };
 
@@ -353,6 +370,7 @@ fn use_workspace_management(
         let metadata_state = states.metadata.clone();
         let step_model_state = states.step_model.clone();
         let selected_file_state = states.selected_file.clone();
+        let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |_| {
             if let Some(window) = web_sys::window() {
                 if let Ok(false) = window.confirm_with_message(
@@ -378,6 +396,7 @@ fn use_workspace_management(
             metadata_state.set(None);
             step_model_state.set(None);
             selected_file_state.set(None);
+            part_visibility_state.set(Vec::new());
             result_state.set(Some("Cleared cached files.".to_string()));
         })
     };
@@ -427,41 +446,27 @@ fn use_model_actions(
     Callback<()>,
 ) {
     let on_visibility_change = {
-        let step_model = states.step_model.clone();
+        let part_visibility = states.part_visibility.clone();
         Callback::from(move |(index, visible): (usize, bool)| {
-            if let Some(model) = step_model.as_ref() {
-                let mut new_model = (**model).clone();
-                if let Some(part) = new_model.render_parts.get_mut(index) {
-                    part.visible = visible;
-                    step_model.set(Some(Rc::new(new_model)));
-                }
+            let mut new_visibility = (*part_visibility).clone();
+            if index < new_visibility.len() {
+                new_visibility[index] = visible;
+                part_visibility.set(new_visibility);
             }
         })
     };
 
     let on_show_all = {
-        let step_model = states.step_model.clone();
+        let part_visibility = states.part_visibility.clone();
         Callback::from(move |_| {
-            if let Some(model) = step_model.as_ref() {
-                let mut new_model = (**model).clone();
-                for part in &mut new_model.render_parts {
-                    part.visible = true;
-                }
-                step_model.set(Some(Rc::new(new_model)));
-            }
+            part_visibility.set(vec![true; part_visibility.len()]);
         })
     };
 
     let on_hide_all = {
-        let step_model = states.step_model.clone();
+        let part_visibility = states.part_visibility.clone();
         Callback::from(move |_| {
-            if let Some(model) = step_model.as_ref() {
-                let mut new_model = (**model).clone();
-                for part in &mut new_model.render_parts {
-                    part.visible = false;
-                }
-                step_model.set(Some(Rc::new(new_model)));
-            }
+            part_visibility.set(vec![false; part_visibility.len()]);
         })
     };
 
@@ -512,6 +517,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         metadata: use_state(|| None::<Metadata>),
         file_reader: use_state(|| None::<FileReader>),
         step_model: use_state(|| None::<Rc<StepModel>>),
+        part_visibility: use_state(Vec::new),
         selected_file: use_state(|| None::<String>),
         is_processing: use_state(|| false),
     };
@@ -532,6 +538,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         files_index,
         selected_file: states.selected_file.clone(),
         step_model: states.step_model.clone(),
+        part_visibility: states.part_visibility.clone(),
         is_processing: states.is_processing.clone(),
         actions: WorkspaceActions {
             on_file_change,

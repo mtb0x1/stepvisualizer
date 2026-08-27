@@ -17,6 +17,7 @@ pub struct MainPanelProps {
     #[prop_or(false)]
     pub is_processing: bool,
     pub metadata: Option<Metadata>,
+    pub part_visibility: Vec<bool>,
     pub on_render_error: Callback<String>,
 }
 
@@ -66,24 +67,40 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         });
     }
 
+    let part_visibility = use_state(Vec::new);
+    {
+        let part_visibility = part_visibility.clone();
+        use_effect_with(props.part_visibility.clone(), move |vis| {
+            part_visibility.set(vis.clone());
+            || ()
+        });
+    }
+
     {
         let wgpu_state_handle = wgpu_state.clone();
         let camera_state = camera_state.clone();
         let render_parts = render_parts.clone();
+        let part_visibility = part_visibility.clone();
         let render_error_cb = props.on_render_error.clone();
 
         use_effect_with(
-            (wgpu_state_handle, camera_state, render_parts),
-            move |(wgpu_handle, camera, parts)| {
+            (wgpu_state_handle, camera_state, render_parts, part_visibility),
+            move |(wgpu_handle, camera, parts, vis)| {
                 if let Some(wgpu_state) = &**wgpu_handle {
                     if !parts.is_empty() {
                         let parts_vec = (**parts).clone();
+                        let vis_vec = (**vis).clone();
                         let camera_value = (**camera).clone();
                         let state = wgpu_state.clone();
                         let error_cb = render_error_cb.clone();
                         spawn_local(async move {
-                            if let Err(e) =
-                                render_wgpu_on_canvas(state, parts_vec, &camera_value).await
+                            if let Err(e) = render_wgpu_on_canvas(
+                                state,
+                                parts_vec,
+                                &vis_vec,
+                                &camera_value,
+                            )
+                            .await
                             {
                                 error_cb.emit(format!("Render error: {e}"));
                             }
