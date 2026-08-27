@@ -3,6 +3,7 @@ use crate::common::{
     convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
     save_model, step_extract_wsgl_reqs,
 };
+use crate::common::render::{clear_cached_parts, drop_cached_parts};
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;
@@ -327,6 +328,10 @@ fn use_workspace_management(
                 c.remove(&delete_id);
             }
 
+            // Free the tessellated geometry held for this file so it is not
+            // retained for the lifetime of the page.
+            drop_cached_parts(&delete_id);
+
             delete_model(&delete_id);
             let mut list = (*files_index).clone();
             list.retain(|i| i.id != delete_id);
@@ -382,6 +387,9 @@ fn use_workspace_management(
                 let mut cache_mut = cache_handle.borrow_mut();
                 cache_mut.clear();
             }
+
+            // Drop every cached tessellation alongside the model cache.
+            clear_cached_parts();
 
             files_index_state.set(Vec::new());
             save_index(&[]);
