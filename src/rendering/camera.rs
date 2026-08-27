@@ -12,11 +12,10 @@ impl Default for CameraState {
         Self {
             azimuth: 0.5,
             elevation: 0.5,
-            //wtf
-            //FIXME: distance is way too big
-            // should be around 10-20
-            // or maybe it should be computed based on the model size?
-            distance: 500.0,
+            // Framed relative to the origin-centered model (size ~1). The far
+            // plane is `max_size * 100`, so an eye this far out would clip the
+            // model away; the camera presets use the same 2.5-3.0 range.
+            distance: 3.0,
             target: [0.0, 0.0, 0.0],
         }
     }

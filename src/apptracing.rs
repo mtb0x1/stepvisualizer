@@ -1,4 +1,5 @@
 use tracing::Level;
+use web_sys::console;
 use tracing_subscriber::{
     Registry,
     fmt::{
@@ -61,8 +62,11 @@ impl AppTracerTrait for AppTracer {
                 .with(fmt_layer)
                 .with(perf_layer)
                 .with(tracing_subscriber::filter::LevelFilter::from_level(level));
-            tracing::subscriber::set_global_default(subscriber)
-                .expect("Failed to set global default subscriber");
+            if let Err(err) = tracing::subscriber::set_global_default(subscriber) {
+                console::error_1(
+                    &format!("Failed to set global default subscriber: {err}").into(),
+                );
+            }
             tracing::info!(
                 "{} StepViz tracing initialized with level: {}",
                 STEP_TRACER,
