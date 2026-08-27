@@ -4,12 +4,12 @@ use ruststep::header::Header;
 
 use super::types::{BoundingBox, StepHeader};
 
-pub fn convert_header(header_in: &[Record]) -> StepHeader {
+pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, String> {
     trace_span!("convert_header");
-    //FIXME : in real life this should always yield a valid Header, but we are not handling errors here
-    let header_in: Header = Header::from_records(header_in).expect("failed to parse header");
+    let header_in: Header = Header::from_records(header_in)
+        .map_err(|e| format!("failed to parse header: {e}"))?;
     let file_description = header_in.file_description.description;
-    return StepHeader {
+    Ok(StepHeader {
         file_description: file_description.join("; "),
         implementation_level: header_in.file_description.implementation_level,
         file_name: header_in.file_name.name,
@@ -20,7 +20,7 @@ pub fn convert_header(header_in: &[Record]) -> StepHeader {
         originating_system: header_in.file_name.originating_system,
         authorization: header_in.file_name.authorization,
         file_schema: header_in.file_schema.schema.join("; "),
-    };
+    })
 }
 
 //FIXME : this is utterly stupid

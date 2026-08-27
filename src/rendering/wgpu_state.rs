@@ -52,14 +52,6 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
             return Err(msg.into());
         }
     };
-    //FIXME: we should request an adapter with the surface
-    // let adapter = instance
-    //     .request_adapter(&wgpu::RequestAdapterOptions {
-    //         compatible_surface: Some(&surface),
-    //         ..Default::default()
-    //     })
-    //     .await
-    //     .expect("No adapter found");
     let (device, queue) = match adapter
         .request_device(&wgpu::DeviceDescriptor::default())
         .await

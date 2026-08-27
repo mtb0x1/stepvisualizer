@@ -80,10 +80,16 @@ fn use_file_processor(
 
     Callback::from(move |event: Event| {
         trace_span!("on_file_change callback");
-        let input: HtmlInputElement = event
+        let input: HtmlInputElement = match event
             .target()
             .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-            .expect("file input event");
+        {
+            Some(input) => input,
+            None => {
+                is_processing_handle.set(false);
+                return;
+            }
+        };
         if let Some(files) = input.files() {
             if let Some(web_file) = files.get(0) {
                 is_processing_handle.set(true);
@@ -138,7 +144,15 @@ fn use_file_processor(
                                     .iter()
                                     .map(|section| section.entities.len())
                                     .sum();
-                                let mut step_header = convert_header(&parsed.header);
+                                let mut step_header = match convert_header(&parsed.header) {
+                                    Ok(h) => h,
+                                    Err(e) => {
+                                        result_state.set(Some(e));
+                                        metadata_state.set(None);
+                                        processing_state.set(false);
+                                        return;
+                                    }
+                                };
                                 if step_header.file_name.is_empty() {
                                     step_header.file_name = name.clone();
                                 }
