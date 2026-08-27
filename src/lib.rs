@@ -12,6 +12,7 @@ mod right_panel;
 mod workspace;
 use apptracing::AppTracer;
 use apptracing::AppTracerTrait;
+use components::upload_bar::UploadBar;
 use header::Header;
 use main_panel::AppStepviz;
 use right_panel::RightPanel as MetadataPanel;
@@ -54,23 +55,10 @@ fn app() -> Html {
 
             // Main Viewport
             <main class="main-viewport">
-                <div class="file-input-container">
-                    <label for="file-input">{ "Select a STEP file: " }</label>
-                    <input
-                        type="file"
-                        accept=".step,.stp"
-                        id="file-input"
-                        disabled={*workspace.is_processing}
-                        onchange={workspace.actions.on_file_change.clone()}
-                    />
-                    {
-                        if *workspace.is_processing {
-                            html! { <span class="processing-hint">{ "Processing STEP..." }</span> }
-                        } else {
-                            Html::default()
-                        }
-                    }
-                </div>
+                <UploadBar
+                    is_processing={*workspace.is_processing}
+                    on_file_change={workspace.actions.on_file_change.clone()}
+                />
 
                 //FIXME : invistigate the window resize issue
                 // when window is resized, the canvas doesn't resize properly
