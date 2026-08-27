@@ -12,7 +12,7 @@ use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 pub async fn render_wgpu_on_canvas(
     state: Rc<WgpuState>,
-    mut parts: Vec<RenderablePart>,
+    parts: Vec<RenderablePart>,
     visibility: &[bool],
     camera: &CameraState,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -63,19 +63,10 @@ pub async fn render_wgpu_on_canvas(
         max_z = 1.0;
     }
 
-    let center_x = (min_x + max_x) * 0.5;
-    let center_y = (min_y + max_y) * 0.5;
-    let center_z = (min_z + max_z) * 0.5;
     let size_x = (max_x - min_x).max(0.1);
     let size_y = (max_y - min_y).max(0.1);
     let size_z = (max_z - min_z).max(0.1);
-    let max_size = size_x.max(size_y).max(size_z); //?
-
-    for part in &mut parts {
-        part.model_matrix[12] -= center_x;
-        part.model_matrix[13] -= center_y;
-        part.model_matrix[14] -= center_z;
-    }
+    let max_size = size_x.max(size_y).max(size_z);
 
     // AppTracer::debug(&format!(
     //     "Model bounds: ({:.2}, {:.2}, {:.2}) to ({:.2}, {:.2}, {:.2}), center: ({:.2}, {:.2}, {:.2})",

@@ -162,8 +162,39 @@ pub fn step_extract_wsgl_reqs(
     );
     AppTracer::debug(&summary);
 
+    // Center the whole model at the origin once, by baking the centering
+    // translation into each part's model matrix. This keeps the geometry
+    // immutable across frames so the renderer no longer needs to mutate it.
+    let center = compute_parts_center(&parts_to_render);
+    for part in &mut parts_to_render {
+        part.model_matrix[12] -= center[0];
+        part.model_matrix[13] -= center[1];
+        part.model_matrix[14] -= center[2];
+    }
+
     cache_parts(file_id, &parts_to_render);
     parts_to_render
+}
+
+fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
+    let mut min = [f32::INFINITY; 3];
+    let mut max = [f32::NEG_INFINITY; 3];
+    for part in parts {
+        for vertex in &part.vertices {
+            for i in 0..3 {
+                min[i] = min[i].min(vertex.position[i]);
+                max[i] = max[i].max(vertex.position[i]);
+            }
+        }
+    }
+    if parts.is_empty() || min[0] == f32::INFINITY {
+        return [0.0, 0.0, 0.0];
+    }
+    [
+        (min[0] + max[0]) * 0.5,
+        (min[1] + max[1]) * 0.5,
+        (min[2] + max[2]) * 0.5,
+    ]
 }
 
 fn tessellate_table(
