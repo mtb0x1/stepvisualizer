@@ -37,74 +37,60 @@ impl Default for RenderablePart {
 }
 
 impl RenderablePart {
-    pub fn calculate_volume(&self) -> f64 {
-        let mut volume = 0.0;
-        for i in (0..self.indices.len()).step_by(3) {
-            if i + 2 >= self.indices.len() {
-                break;
-            }
-            let idx0 = self.indices[i] as usize;
-            let idx1 = self.indices[i + 1] as usize;
-            let idx2 = self.indices[i + 2] as usize;
-
+    /// Iterate over the triangles referenced by the index buffer.
+    ///
+    /// Malformed entries are skipped: an incomplete trailing triple (the index
+    /// count is not a multiple of 3) and triples pointing outside the vertex
+    /// buffer. Tessellated parts are always well-formed, so this only guards
+    /// against corrupted deserialized models.
+    fn triangles(&self) -> impl Iterator<Item = ([f32; 3], [f32; 3], [f32; 3])> + '_ {
+        self.indices.chunks_exact(3).filter_map(|tri| {
+            let idx0 = tri[0] as usize;
+            let idx1 = tri[1] as usize;
+            let idx2 = tri[2] as usize;
             if idx0 >= self.vertices.len()
                 || idx1 >= self.vertices.len()
                 || idx2 >= self.vertices.len()
             {
-                continue;
+                return None;
             }
+            Some((
+                self.vertices[idx0].position,
+                self.vertices[idx1].position,
+                self.vertices[idx2].position,
+            ))
+        })
+    }
 
-            let v0 = self.vertices[idx0].position;
-            let v1 = self.vertices[idx1].position;
-            let v2 = self.vertices[idx2].position;
-
-            let cross_x = v1[1] * v2[2] - v1[2] * v2[1];
-            let cross_y = v1[2] * v2[0] - v1[0] * v2[2];
-            let cross_z = v1[0] * v2[1] - v1[1] * v2[0];
-
-            let dot = v0[0] * cross_x + v0[1] * cross_y + v0[2] * cross_z;
-            volume += dot as f64;
-        }
+    /// Signed-volume decomposition: each triangle contributes v0·(v1×v2)/6
+    /// relative to the origin. The absolute sum is the enclosed volume for a
+    /// watertight mesh; open meshes give an approximation.
+    pub fn calculate_volume(&self) -> f64 {
+        let volume: f64 = self
+            .triangles()
+            .map(|(v0, v1, v2)| {
+                let cross_x = v1[1] * v2[2] - v1[2] * v2[1];
+                let cross_y = v1[2] * v2[0] - v1[0] * v2[2];
+                let cross_z = v1[0] * v2[1] - v1[1] * v2[0];
+                (v0[0] * cross_x + v0[1] * cross_y + v0[2] * cross_z) as f64
+            })
+            .sum();
         (volume / 6.0).abs()
     }
 
+    /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
-        let mut area = 0.0;
-        for i in (0..self.indices.len()).step_by(3) {
-            if i + 2 >= self.indices.len() {
-                break;
-            }
-            let idx0 = self.indices[i] as usize;
-            let idx1 = self.indices[i + 1] as usize;
-            let idx2 = self.indices[i + 2] as usize;
-
-            if idx0 >= self.vertices.len()
-                || idx1 >= self.vertices.len()
-                || idx2 >= self.vertices.len()
-            {
-                continue;
-            }
-
-            let v0 = self.vertices[idx0].position;
-            let v1 = self.vertices[idx1].position;
-            let v2 = self.vertices[idx2].position;
-
-            // area = 1/2 * abs|v1 - v0 x v2 - v0|
-            let edge1_x = v1[0] - v0[0];
-            let edge1_y = v1[1] - v0[1];
-            let edge1_z = v1[2] - v0[2];
-
-            let edge2_x = v2[0] - v0[0];
-            let edge2_y = v2[1] - v0[1];
-            let edge2_z = v2[2] - v0[2];
-
-            let cross_x = edge1_y * edge2_z - edge1_z * edge2_y;
-            let cross_y = edge1_z * edge2_x - edge1_x * edge2_z;
-            let cross_z = edge1_x * edge2_y - edge1_y * edge2_x;
-
-            let cross_len_sq = cross_x * cross_x + cross_y * cross_y + cross_z * cross_z;
-            area += cross_len_sq.sqrt() as f64;
-        }
+        let area: f64 = self
+            .triangles()
+            .map(|(v0, v1, v2)| {
+                let edge1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+                let edge2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+                let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
+                let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
+                let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
+                (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt() as f64
+            })
+            .sum();
         area * 0.5
     }
 }
