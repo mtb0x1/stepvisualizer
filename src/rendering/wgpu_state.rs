@@ -1,8 +1,26 @@
 use crate::{apptracing::AppTracer, apptracing::AppTracerTrait, trace_span};
+use std::cell::RefCell;
 use web_sys::HtmlCanvasElement;
 use wgpu::{self, SurfaceTarget};
 
-#[derive(PartialEq)]
+/// GPU-side buffers for a single rendered part.
+///
+/// Geometry buffers (`vertex_buffer`, `index_buffer`) are immutable for the
+/// lifetime of a given part, so they are allocated once and reused across
+/// frames. The uniform buffers (`mvp_buffer`, `model_buffer`, `color_buffer`)
+/// are rewritten every frame; the `bind_group` references them and is only
+/// rebuilt when the geometry buffers are (re)allocated.
+pub struct PartGpu {
+    pub vertex_buffer: wgpu::Buffer,
+    pub index_buffer: wgpu::Buffer,
+    pub vertex_count: usize,
+    pub index_count: usize,
+    pub mvp_buffer: wgpu::Buffer,
+    pub model_buffer: wgpu::Buffer,
+    pub color_buffer: wgpu::Buffer,
+    pub bind_group: wgpu::BindGroup,
+}
+
 pub struct WgpuState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -11,6 +29,25 @@ pub struct WgpuState {
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
     pub depth_texture_view: wgpu::TextureView,
+    /// Per-part GPU buffers, keyed by the part's position index in the frame's
+    /// part list. Slots are (re)created lazily when missing or when the part's
+    /// geometry size changes, and truncated to match the live part count.
+    pub part_buffers: RefCell<Vec<Option<PartGpu>>>,
+}
+
+impl PartialEq for WgpuState {
+    fn eq(&self, other: &Self) -> bool {
+        // `part_buffers` is a per-frame runtime cache and is intentionally
+        // excluded: two `WgpuState`s are equivalent when their GPU resources
+        // (device, pipeline, surfaces, ...) match, regardless of cached buffers.
+        self.device == other.device
+            && self.queue == other.queue
+            && self.surface == other.surface
+            && self.config == other.config
+            && self.render_pipeline == other.render_pipeline
+            && self.bind_group_layout == other.bind_group_layout
+            && self.depth_texture_view == other.depth_texture_view
+    }
 }
 
 use crate::common::constants::WGSL_SHADER;
@@ -191,5 +228,6 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn s
         render_pipeline,
         bind_group_layout,
         depth_texture_view,
+        part_buffers: RefCell::new(Vec::new()),
     })
 }

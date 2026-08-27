@@ -25,6 +25,7 @@ pub async fn render_wgpu_on_canvas(
         render_pipeline,
         bind_group_layout,
         depth_texture_view,
+        part_buffers,
     } = &*state;
 
     let canvas_width = config.width;
@@ -129,6 +130,11 @@ pub async fn render_wgpu_on_canvas(
 
         render_pass.set_pipeline(render_pipeline);
 
+        // Keep the buffer cache sized to the live part list. Truncating only
+        // drops tail slots, so surviving parts keep their allocated buffers.
+        let mut cache = part_buffers.borrow_mut();
+        cache.truncate(parts.len());
+
         for (index, part) in parts.iter().enumerate() {
             if !visibility.get(index).copied().unwrap_or(true) {
                 continue;
@@ -138,61 +144,88 @@ pub async fn render_wgpu_on_canvas(
                 continue;
             }
 
-            let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: cast_slice(&part.vertices),
-                usage: wgpu::BufferUsages::VERTEX,
-            });
-            let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: cast_slice(&part.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            });
+            while cache.len() <= index {
+                cache.push(None);
+            }
 
-            let mvp_matrix = multiply_matrices(
-                &projection_matrix,
-                &multiply_matrices(&view_matrix, &part.model_matrix),
-            );
+            // (Re)allocate geometry + uniform buffers only when the slot is
+            // empty or the part's geometry size has changed; otherwise reuse.
+            let vertex_count = part.vertices.len();
+            let index_count = part.indices.len();
+            let needs_recreate = match cache[index].as_ref() {
+                Some(gpu) => gpu.vertex_count != vertex_count || gpu.index_count != index_count,
+                None => true,
+            };
+            if needs_recreate {
+                let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Vertex Buffer"),
+                    contents: cast_slice(&part.vertices),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+                let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Index Buffer"),
+                    contents: cast_slice(&part.indices),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+                let mvp_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("MVP Uniform Buffer"),
+                    contents: bytemuck::bytes_of(&[0.0f32; 16]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+                let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Model Uniform Buffer"),
+                    contents: bytemuck::bytes_of(&[0.0f32; 16]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
+                let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
+                    label: Some("Color Uniform Buffer"),
+                    contents: bytemuck::bytes_of(&[0.0f32; 4]),
+                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                });
 
-            let mvp_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("MVP Uniform Buffer"),
-                contents: bytemuck::bytes_of(&mvp_matrix),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-            let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Model Uniform Buffer"),
-                contents: bytemuck::bytes_of(&part.model_matrix),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-            let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                label: Some("Color Uniform Buffer"),
-                contents: bytemuck::bytes_of(&part.color),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
+                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: mvp_buffer.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: model_buffer.as_entire_binding(),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: color_buffer.as_entire_binding(),
+                        },
+                    ],
+                    label: Some("bind_group"),
+                });
 
-            let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                layout: bind_group_layout,
-                entries: &[
-                    wgpu::BindGroupEntry {
-                        binding: 0,
-                        resource: mvp_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 1,
-                        resource: model_buffer.as_entire_binding(),
-                    },
-                    wgpu::BindGroupEntry {
-                        binding: 2,
-                        resource: color_buffer.as_entire_binding(),
-                    },
-                ],
-                label: Some("bind_group"),
-            });
+                cache[index] = Some(crate::rendering::wgpu_state::PartGpu {
+                    vertex_buffer,
+                    index_buffer,
+                    vertex_count,
+                    index_count,
+                    mvp_buffer,
+                    model_buffer,
+                    color_buffer,
+                    bind_group,
+                });
+            }
 
-            render_pass.set_bind_group(0, &bind_group, &[]);
-            render_pass.set_vertex_buffer(0, vertex_buffer.slice(..));
-            render_pass.set_index_buffer(index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..part.indices.len() as u32, 0, 0..1);
+            let gpu = cache[index].as_ref().expect("part GPU buffer slot populated");
+
+            let mvp_matrix =
+                multiply_matrices(&projection_matrix, &multiply_matrices(&view_matrix, &part.model_matrix));
+            queue.write_buffer(&gpu.mvp_buffer, 0, bytemuck::bytes_of(&mvp_matrix));
+            queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
+            queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
+
+            render_pass.set_bind_group(0, &gpu.bind_group, &[]);
+            render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(gpu.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+            render_pass.draw_indexed(0..gpu.index_count as u32, 0, 0..1);
             parts_drawn += 1;
         }
     }
