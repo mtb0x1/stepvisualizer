@@ -1,4 +1,8 @@
-use crate::{apptracing::AppTracer, apptracing::AppTracerTrait, trace_span};
+use crate::{
+    apptracing::{AppTracer, AppTracerTrait},
+    error::StepVizError,
+    trace_span,
+};
 use std::cell::RefCell;
 use web_sys::HtmlCanvasElement;
 use wgpu::{self, SurfaceTarget};
@@ -88,7 +92,7 @@ impl PartialEq for WgpuState {
 
 use crate::common::constants::WGSL_SHADER;
 
-pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, Box<dyn std::error::Error>> {
+pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizError> {
     trace_span!("init_wgpu");
 
     let instance_descriptor = wgpu::InstanceDescriptor {

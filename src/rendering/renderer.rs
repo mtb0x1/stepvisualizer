@@ -3,6 +3,7 @@ use std::rc::Rc;
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
     common::{RenderablePart, create_look_at_matrix, create_perspective_matrix, multiply_matrices},
+    error::StepVizError,
     rendering::camera::{CameraState, compute_eye_position},
     rendering::wgpu_state::WgpuState,
     trace_span,
@@ -15,7 +16,7 @@ pub async fn render_wgpu_on_canvas(
     parts: Vec<RenderablePart>,
     visibility: &[bool],
     camera: &CameraState,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<(), StepVizError> {
     trace_span!("render_wgpu_on_canvas");
     let WgpuState {
         device,

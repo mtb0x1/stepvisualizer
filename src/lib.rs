@@ -1,6 +1,7 @@
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 mod apptracing;
+mod error;
 mod common;
 mod components;
 mod header;
