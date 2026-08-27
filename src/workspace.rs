@@ -295,17 +295,20 @@ fn use_file_processor(
     })
 }
 
+/// History-management callbacks returned by `use_workspace_management`.
+pub struct WorkspaceManagementActions {
+    pub on_item_click: Callback<String>,
+    pub on_delete: Callback<String>,
+    pub on_deselect: Callback<()>,
+    pub on_clear_history: Callback<()>,
+}
+
 #[hook]
 fn use_workspace_management(
     states: &StateHandles,
     files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
-) -> (
-    Callback<String>,
-    Callback<String>,
-    Callback<()>,
-    Callback<()>,
-) {
+) -> WorkspaceManagementActions {
     let on_item_click = {
         let files_index_state = files_index.clone();
         let metadata_state = states.metadata.clone();
@@ -436,7 +439,12 @@ fn use_workspace_management(
         })
     };
 
-    (on_item_click, on_delete, on_deselect, on_clear_history)
+    WorkspaceManagementActions {
+        on_item_click,
+        on_delete,
+        on_deselect,
+        on_clear_history,
+    }
 }
 
 // Sums a per-part metric over the current model, updates the matching field on
@@ -469,17 +477,17 @@ fn recompute_and_store_metric(
     }
 }
 
+/// Per-model interaction callbacks returned by `use_model_actions`.
+pub struct ModelActions {
+    pub on_visibility_change: Callback<(usize, bool)>,
+    pub on_show_all: Callback<()>,
+    pub on_hide_all: Callback<()>,
+    pub on_calculate_volume: Callback<()>,
+    pub on_calculate_surface: Callback<()>,
+}
+
 #[hook]
-fn use_model_actions(
-    states: &StateHandles,
-    cache: Rc<RefCell<LruCache>>,
-) -> (
-    Callback<(usize, bool)>,
-    Callback<()>,
-    Callback<()>,
-    Callback<()>,
-    Callback<()>,
-) {
+fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> ModelActions {
     let on_visibility_change = {
         let part_visibility = states.part_visibility.clone();
         Callback::from(move |(index, visible): (usize, bool)| {
@@ -535,13 +543,13 @@ fn use_model_actions(
         })
     };
 
-    (
+    ModelActions {
         on_visibility_change,
         on_show_all,
         on_hide_all,
         on_calculate_volume,
         on_calculate_surface,
-    )
+    }
 }
 
 #[hook]
@@ -561,11 +569,9 @@ pub fn use_step_workspace() -> StepWorkspace {
 
     let on_file_change = use_file_processor(&states, files_index.clone(), cache.clone());
 
-    let (on_item_click, on_delete, on_deselect, on_clear_history) =
-        use_workspace_management(&states, files_index.clone(), cache.clone());
+    let management = use_workspace_management(&states, files_index.clone(), cache.clone());
 
-    let (on_visibility_change, on_show_all, on_hide_all, on_calculate_volume, on_calculate_surface) =
-        use_model_actions(&states, cache.clone());
+    let model_actions = use_model_actions(&states, cache.clone());
 
     StepWorkspace {
         result: states.result.clone(),
@@ -577,15 +583,15 @@ pub fn use_step_workspace() -> StepWorkspace {
         is_processing: states.is_processing.clone(),
         actions: WorkspaceActions {
             on_file_change,
-            on_item_click,
-            on_delete,
-            on_deselect,
-            on_clear_history,
-            on_visibility_change,
-            on_show_all,
-            on_hide_all,
-            on_calculate_volume,
-            on_calculate_surface,
+            on_item_click: management.on_item_click,
+            on_delete: management.on_delete,
+            on_deselect: management.on_deselect,
+            on_clear_history: management.on_clear_history,
+            on_visibility_change: model_actions.on_visibility_change,
+            on_show_all: model_actions.on_show_all,
+            on_hide_all: model_actions.on_hide_all,
+            on_calculate_volume: model_actions.on_calculate_volume,
+            on_calculate_surface: model_actions.on_calculate_surface,
         },
     }
 }
