@@ -1,6 +1,4 @@
 use crate::trace_span;
-// meth iz hard
-// fuck math
 #[inline(always)]
 pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -> [f32; 16] {
     trace_span!("create_perspective_matrix");
@@ -70,36 +68,5 @@ pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
             result[i * 4 + j] = sum;
         }
     }
-    result
-}
-
-//FIXME : replace above, but first fix result,
-// it doesn't yield same output as multiply_matrices
-//TODO : fix using hints below
-// A col major
-// B row major
-// output =  result[i*4 + j]
-#[inline(always)]
-pub fn multiply_matrices_unrolled(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
-    let mut result = [0.0; 16];
-
-    let (a00, a01, a02, a03, a10, a11, a12, a13, a20, a21, a22, a23, a30, a31, a32, a33) = (
-        a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7], a[8], a[9], a[10], a[11], a[12], a[13],
-        a[14], a[15],
-    );
-
-    for i in 0..4 {
-        // i is the column of b (and result)
-        let b0i = b[0 * 4 + i];
-        let b1i = b[1 * 4 + i];
-        let b2i = b[2 * 4 + i];
-        let b3i = b[3 * 4 + i];
-
-        result[0 * 4 + i] = a00 * b0i + a01 * b1i + a02 * b2i + a03 * b3i;
-        result[1 * 4 + i] = a10 * b0i + a11 * b1i + a12 * b2i + a13 * b3i;
-        result[2 * 4 + i] = a20 * b0i + a21 * b1i + a22 * b2i + a23 * b3i;
-        result[3 * 4 + i] = a30 * b0i + a31 * b1i + a32 * b2i + a33 * b3i;
-    }
-
     result
 }
