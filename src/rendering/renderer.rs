@@ -93,7 +93,9 @@ pub async fn render_wgpu_on_canvas(
     let frame = match surface.get_current_texture() {
         Ok(frame) => frame,
         Err(e) => {
-            panic!("Failed to acquire swap chain texture: {e}");
+            let msg = format!("Failed to acquire swap chain texture: {e}");
+            AppTracer::error(&msg);
+            return Err(msg.into());
         }
     };
     let view = frame
