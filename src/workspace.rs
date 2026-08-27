@@ -3,7 +3,7 @@ use crate::common::{
     convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
     save_model, step_extract_wsgl_reqs,
 };
-use crate::common::render::{clear_cached_parts, drop_cached_parts};
+use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;

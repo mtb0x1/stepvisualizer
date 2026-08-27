@@ -3,14 +3,8 @@ use bytemuck::{Pod, Zeroable};
 use js_sys::Date;
 
 use serde::{Deserialize, Serialize};
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
-
-thread_local! {
-    static RENDER_PART_CACHE: RefCell<HashMap<String, Rc<Vec<RenderablePart>>>> =
-        RefCell::new(HashMap::new());
-}
 
 use crate::common::constants::COLORS;
 
@@ -122,7 +116,7 @@ pub fn step_extract_wsgl_reqs(
 ) -> Vec<RenderablePart> {
     trace_span!("step_extract_wsgl_reqs");
 
-    if let Some(cached) = try_get_cached_parts(file_id) {
+        if let Some(cached) = crate::common::cache::get_cached_parts(file_id) {
         return cached;
     }
 
@@ -172,7 +166,7 @@ pub fn step_extract_wsgl_reqs(
         part.model_matrix[14] -= center[2];
     }
 
-    cache_parts(file_id, &parts_to_render);
+    crate::common::cache::cache_parts(file_id, &parts_to_render);
     parts_to_render
 }
 
@@ -317,27 +311,4 @@ fn tessellate_table(
 
 fn now_ms() -> f64 {
     Date::now()
-}
-
-fn try_get_cached_parts(file_id: &str) -> Option<Vec<RenderablePart>> {
-    RENDER_PART_CACHE.with(|cache| cache.borrow().get(file_id).map(|parts| (**parts).clone()))
-}
-
-fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
-    let rc = Rc::new(parts.to_vec());
-    RENDER_PART_CACHE.with(|cache| {
-        cache.borrow_mut().insert(file_id.to_string(), rc);
-    });
-}
-
-pub fn drop_cached_parts(file_id: &str) {
-    RENDER_PART_CACHE.with(|cache| {
-        cache.borrow_mut().remove(file_id);
-    });
-}
-
-pub fn clear_cached_parts() {
-    RENDER_PART_CACHE.with(|cache| {
-        cache.borrow_mut().clear();
-    });
 }

@@ -1,6 +1,9 @@
 use crate::trace_span;
+use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 
+use super::render::RenderablePart;
 use super::types::StepModel;
 
 pub struct LruCache {
@@ -77,4 +80,45 @@ impl LruCache {
         self.order.clear();
         self.map.clear();
     }
+}
+
+// ---------------------------------------------------------------------------
+// Rendered-part cache (tessellation output)
+//
+// A separate layer from the `LruCache` above: that one holds parsed `StepModel`s
+// (the persistence-backed source of truth), while this holds the GPU-ready
+// `RenderablePart` lists produced by tessellation. Keeping both caches behind a
+// single `cache` module avoids a third, scattered caching site.
+// ---------------------------------------------------------------------------
+
+thread_local! {
+    static RENDER_PART_CACHE: RefCell<HashMap<String, Rc<Vec<RenderablePart>>>> =
+        RefCell::new(HashMap::new());
+}
+
+pub fn get_cached_parts(file_id: &str) -> Option<Vec<RenderablePart>> {
+    trace_span!("get_cached_parts");
+    RENDER_PART_CACHE.with(|cache| cache.borrow().get(file_id).map(|parts| (**parts).clone()))
+}
+
+pub fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
+    trace_span!("cache_parts");
+    let rc = Rc::new(parts.to_vec());
+    RENDER_PART_CACHE.with(|cache| {
+        cache.borrow_mut().insert(file_id.to_string(), rc);
+    });
+}
+
+pub fn drop_cached_parts(file_id: &str) {
+    trace_span!("drop_cached_parts");
+    RENDER_PART_CACHE.with(|cache| {
+        cache.borrow_mut().remove(file_id);
+    });
+}
+
+pub fn clear_cached_parts() {
+    trace_span!("clear_cached_parts");
+    RENDER_PART_CACHE.with(|cache| {
+        cache.borrow_mut().clear();
+    });
 }
