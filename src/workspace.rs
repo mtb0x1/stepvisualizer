@@ -1,7 +1,7 @@
 use crate::common::{
-    FileIndexItem, LruCache, Metadata, StepModel, compute_bounding_box, convert_header,
-    delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index, save_model,
-    step_extract_wsgl_reqs,
+    FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
+    convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
+    save_model, step_extract_wsgl_reqs,
 };
 use crate::trace_span;
 use gloo::file::File;
@@ -385,6 +385,36 @@ fn use_workspace_management(
     (on_item_click, on_delete, on_deselect, on_clear_history)
 }
 
+// Sums a per-part metric over the current model, updates the matching field on
+// `Metadata`, then persists and republishes the model. Shared by the volume and
+// surface-area actions which differ only in the metric and the field written.
+fn recompute_and_store_metric(
+    step_model: &UseStateHandle<Option<Rc<StepModel>>>,
+    metadata: &UseStateHandle<Option<Metadata>>,
+    cache: &Rc<RefCell<LruCache>>,
+    compute: impl Fn(&RenderablePart) -> f64,
+    apply: impl Fn(&mut Metadata, f64),
+) {
+    if let Some(model) = step_model.as_ref() {
+        let total: f64 = model.render_parts.iter().map(|p| compute(p)).sum();
+
+        let mut new_meta = model.metadata.clone();
+        apply(&mut new_meta, total);
+        metadata.set(Some(new_meta.clone()));
+
+        let mut new_model = (**model).clone();
+        new_model.metadata = new_meta;
+
+        {
+            let mut c = cache.borrow_mut();
+            c.insert(new_model.id.clone(), new_model.clone());
+        }
+        save_model(&new_model);
+
+        step_model.set(Some(Rc::new(new_model)));
+    }
+}
+
 #[hook]
 fn use_model_actions(
     states: &StateHandles,
@@ -440,27 +470,13 @@ fn use_model_actions(
         let metadata = states.metadata.clone();
         let cache = cache.clone();
         Callback::from(move |_| {
-            if let Some(model) = step_model.as_ref() {
-                let mut total_volume = 0.0;
-                for part in &model.render_parts {
-                    total_volume += part.calculate_volume();
-                }
-
-                let mut new_meta = model.metadata.clone();
-                new_meta.volume = Some(total_volume);
-                metadata.set(Some(new_meta.clone()));
-
-                let mut new_model = (**model).clone();
-                new_model.metadata = new_meta;
-
-                {
-                    let mut c = cache.borrow_mut();
-                    c.insert(new_model.id.clone(), new_model.clone());
-                }
-                save_model(&new_model);
-
-                step_model.set(Some(Rc::new(new_model)));
-            }
+            recompute_and_store_metric(
+                &step_model,
+                &metadata,
+                &cache,
+                |p| p.calculate_volume(),
+                |meta, value| meta.volume = Some(value),
+            );
         })
     };
 
@@ -469,27 +485,13 @@ fn use_model_actions(
         let metadata = states.metadata.clone();
         let cache = cache.clone();
         Callback::from(move |_| {
-            if let Some(model) = step_model.as_ref() {
-                let mut total_area = 0.0;
-                for part in &model.render_parts {
-                    total_area += part.calculate_surface_area();
-                }
-
-                let mut new_meta = model.metadata.clone();
-                new_meta.surface_area = Some(total_area);
-                metadata.set(Some(new_meta.clone()));
-
-                let mut new_model = (**model).clone();
-                new_model.metadata = new_meta;
-
-                {
-                    let mut c = cache.borrow_mut();
-                    c.insert(new_model.id.clone(), new_model.clone());
-                }
-                save_model(&new_model);
-
-                step_model.set(Some(Rc::new(new_model)));
-            }
+            recompute_and_store_metric(
+                &step_model,
+                &metadata,
+                &cache,
+                |p| p.calculate_surface_area(),
+                |meta, value| meta.surface_area = Some(value),
+            );
         })
     };
 
