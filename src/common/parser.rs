@@ -23,32 +23,46 @@ pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, String> {
     })
 }
 
-//FIXME : this is utterly stupid
-// we are bruteforcing the units from the exchange
-// we should look into ruststep to see if there is a better way to do this
-// or maybe use truck_stepio
-// or ? anyway do better !
+// Units are declared as `(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))`
+// (a Complex entity) alongside sibling `PLANE_ANGLE_UNIT`/`SOLID_ANGLE_UNIT`
+// forms. We must prefer the length unit: a naive "first SI_UNIT wins" scan
+// returns the angle unit because it appears earlier in the file.
 pub fn parse_units(exchange: &Exchange) -> Option<String> {
     trace_span!("parse_units");
+    let mut fallback: Option<String> = None;
     for section in &exchange.data {
         for entity in &section.entities {
             match entity {
                 EntityInstance::Simple { record, .. } => {
-                    if let Some(unit) = unit_from_record(record) {
-                        return Some(unit);
+                    if fallback.is_none() {
+                        fallback = unit_from_record(record);
                     }
                 }
                 EntityInstance::Complex { subsuper, .. } => {
-                    for record in &subsuper.0 {
-                        if let Some(unit) = unit_from_record(record) {
-                            return Some(unit);
+                    let is_length = subsuper
+                        .0
+                        .iter()
+                        .any(|r| r.name.eq_ignore_ascii_case("LENGTH_UNIT"));
+                    if is_length {
+                        // The length unit is authoritative; return it immediately.
+                        for record in &subsuper.0 {
+                            if let Some(unit) = unit_from_record(record) {
+                                return Some(unit);
+                            }
+                        }
+                    } else if fallback.is_none() {
+                        for record in &subsuper.0 {
+                            if let Some(unit) = unit_from_record(record) {
+                                fallback = Some(unit);
+                                break;
+                            }
                         }
                     }
                 }
             }
         }
     }
-    None
+    fallback
 }
 
 pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<BoundingBox> {
