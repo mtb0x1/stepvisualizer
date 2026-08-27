@@ -56,22 +56,8 @@ impl WgpuState {
             config.height = height;
             self.surface.configure(&self.device, &config);
         }
-        let depth_texture = self.device.create_texture(&wgpu::TextureDescriptor {
-            label: Some("Depth Texture"),
-            size: wgpu::Extent3d {
-                width,
-                height,
-                depth_or_array_layers: 1,
-            },
-            mip_level_count: 1,
-            sample_count: 1,
-            dimension: wgpu::TextureDimension::D2,
-            format: wgpu::TextureFormat::Depth32Float,
-            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-            view_formats: &[],
-        });
         *self.depth_texture_view.borrow_mut() =
-            depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+            create_depth_texture_view(&self.device, width, height);
     }
 }
 
@@ -91,6 +77,31 @@ impl PartialEq for WgpuState {
 }
 
 use crate::common::constants::WGSL_SHADER;
+
+/// Build the depth attachment view sized to the current canvas dimensions.
+/// Shared by `init_wgpu` and `WgpuState::resize` so both paths stay in sync
+/// (same format, usage flags, and single-mip/single-sample configuration).
+fn create_depth_texture_view(
+    device: &wgpu::Device,
+    width: u32,
+    height: u32,
+) -> wgpu::TextureView {
+    let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
+        label: Some("Depth Texture"),
+        size: wgpu::Extent3d {
+            width,
+            height,
+            depth_or_array_layers: 1,
+        },
+        mip_level_count: 1,
+        sample_count: 1,
+        dimension: wgpu::TextureDimension::D2,
+        format: wgpu::TextureFormat::Depth32Float,
+        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+        view_formats: &[],
+    });
+    depth_texture.create_view(&wgpu::TextureViewDescriptor::default())
+}
 
 pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizError> {
     trace_span!("init_wgpu");
@@ -159,21 +170,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     };
     surface.configure(&device, &config);
 
-    let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
-        label: Some("Depth Texture"),
-        size: wgpu::Extent3d {
-            width: config.width,
-            height: config.height,
-            depth_or_array_layers: 1,
-        },
-        mip_level_count: 1,
-        sample_count: 1,
-        dimension: wgpu::TextureDimension::D2,
-        format: wgpu::TextureFormat::Depth32Float,
-        usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
-        view_formats: &[],
-    });
-    let depth_texture_view = depth_texture.create_view(&wgpu::TextureViewDescriptor::default());
+    let depth_texture_view = create_depth_texture_view(&device, config.width, config.height);
 
     let shader_module_descriptor = wgpu::ShaderModuleDescriptor {
         label: Some("shader"),
