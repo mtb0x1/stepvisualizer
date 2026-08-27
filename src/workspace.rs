@@ -1,7 +1,7 @@
 use crate::common::{
     FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
     convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
-    save_model, step_extract_wsgl_reqs,
+    save_model, extract_render_parts,
 };
 use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::trace_span;
@@ -153,7 +153,7 @@ fn spawn_tessellation(
 ) {
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
-        let renderable_parts = step_extract_wsgl_reqs(&file_id, &step_table, tolerance);
+        let renderable_parts = extract_render_parts(&file_id, &step_table, tolerance);
         let vertex_count = renderable_parts.iter().map(|p| p.vertices.len()).sum();
         let triangle_count = renderable_parts.iter().map(|p| p.indices.len() / 3).sum();
 

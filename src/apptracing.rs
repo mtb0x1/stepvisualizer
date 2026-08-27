@@ -141,7 +141,7 @@ impl AppTracerTrait for AppTracer {
 macro_rules! trace_span {
     ($name:expr) => {
         //-FIXME : for debug we log only on specific functions
-        //if $name == "step_extract_wsgl_reqs" || $name == "render_wgpu_on_canvas" {
+        //if $name == "extract_render_parts" || $name == "render_wgpu_on_canvas" {
         //tracing::error!("tracing enabled for _NAME_ {}", $name);
         let sp = tracing::span!(
             tracing::Level::INFO,

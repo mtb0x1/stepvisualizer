@@ -36,7 +36,7 @@ sequenceDiagram
     User->>App: Load STEP file
     App->>Workspace: on_file_change callback
     Workspace->>Storage: Read and hash file
-    Workspace->>Render: step_extract_wsgl_reqs
+    Workspace->>Render: extract_render_parts
     Note over Render: Tessellate → vertices/indices
     Render->>Storage: Cache render parts
     Workspace->>App: Update metadata, step_model

@@ -95,12 +95,12 @@ impl RenderablePart {
     }
 }
 
-pub fn step_extract_wsgl_reqs(
+pub fn extract_render_parts(
     file_id: &str,
     step_table: &truck_stepio::r#in::Table,
     tolerance: f64,
 ) -> Vec<RenderablePart> {
-    trace_span!("step_extract_wsgl_reqs");
+    trace_span!("extract_render_parts");
 
         if let Some(cached) = crate::common::cache::get_cached_parts(file_id) {
         return cached;
@@ -113,7 +113,7 @@ pub fn step_extract_wsgl_reqs(
     let table = step_table;
 
     let msg = format!(
-        "step_extract_wsgl_reqs => built table for section {} in {:.2} ms (shells: {})",
+        "extract_render_parts => built table for section {} in {:.2} ms (shells: {})",
         0,
         now_ms() - section_start,
         table.shell.len()
@@ -123,7 +123,7 @@ pub fn step_extract_wsgl_reqs(
     tessellate_table(&table, tolerance, &mut parts_to_render);
     let tessellate_ms = now_ms() - section_start;
     let msg = format!(
-        "step_extract_wsgl_reqs => tessellated {} parts in {:.2} ms",
+        "extract_render_parts => tessellated {} parts in {:.2} ms",
         parts_to_render.len(),
         tessellate_ms
     );
@@ -134,7 +134,7 @@ pub fn step_extract_wsgl_reqs(
     let triangles: usize = parts_to_render.iter().map(|p| p.indices.len() / 3).sum();
 
     let summary = format!(
-        "step_extract_wsgl_reqs => tessellation summary: {:.2} ms, parts={}, vertices={}, triangles={}",
+        "extract_render_parts => tessellation summary: {:.2} ms, parts={}, vertices={}, triangles={}",
         total_ms,
         parts_to_render.len(),
         vertices,
@@ -272,7 +272,7 @@ fn tessellate_table(
             Ok(cshell) => cshell,
             Err(err) => {
                 let msg = format!(
-                    "step_extract_wsgl_reqs => failed to compress shell {}: {}",
+                    "extract_render_parts => failed to compress shell {}: {}",
                     shell_index, err
                 );
                 AppTracer::warn(&msg);
@@ -310,7 +310,7 @@ fn tessellate_table(
         }
 
         let shell_msg = format!(
-            "step_extract_wsgl_reqs => shell {} processed (compress {:.2} ms, triangulation {:.2} ms, parts={})",
+            "extract_render_parts => shell {} processed (compress {:.2} ms, triangulation {:.2} ms, parts={})",
             shell_index,
             compress_ms,
             triangulation_ms,
