@@ -30,11 +30,6 @@ pub async fn render_wgpu_on_canvas(
 
     let canvas_width = config.borrow().width;
     let canvas_height = config.borrow().height;
-    // AppTracer::debug(&format!(
-    //     "Canvas dimensions: {}x{}",
-    //     canvas_width, canvas_height
-    // ));
-    // AppTracer::debug(&format!("Rendering {} parts", parts.len()));
 
     let mut min_x = f32::INFINITY;
     let mut min_y = f32::INFINITY;
@@ -69,11 +64,6 @@ pub async fn render_wgpu_on_canvas(
     let size_z = (max_z - min_z).max(0.1);
     let max_size = size_x.max(size_y).max(size_z);
 
-    // AppTracer::debug(&format!(
-    //     "Model bounds: ({:.2}, {:.2}, {:.2}) to ({:.2}, {:.2}, {:.2}), center: ({:.2}, {:.2}, {:.2})",
-    //     min_x, min_y, min_z, max_x, max_y, max_z, center_x, center_y, center_z
-    // ));
-
     let eye = compute_eye_position(camera);
     let view_matrix = create_look_at_matrix(eye, [0.0, 0.0, 0.0], [0.0, 1.0, 0.0]);
 
@@ -98,7 +88,6 @@ pub async fn render_wgpu_on_canvas(
         label: Some("Render Encoder"),
     });
 
-    let mut parts_drawn = 0;
     {
         let depth_texture_view = depth_texture_view.borrow();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
@@ -215,7 +204,10 @@ pub async fn render_wgpu_on_canvas(
                 });
             }
 
-            let gpu = cache[index].as_ref().expect("part GPU buffer slot populated");
+            let gpu = match cache[index].as_ref() {
+                Some(gpu) => gpu,
+                None => unreachable!("part GPU buffer slot is populated by the branch above"),
+            };
 
             let mvp_matrix =
                 multiply_matrices(&projection_matrix, &multiply_matrices(&view_matrix, &part.model_matrix));
@@ -227,12 +219,10 @@ pub async fn render_wgpu_on_canvas(
             render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
             render_pass.set_index_buffer(gpu.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..gpu.index_count as u32, 0, 0..1);
-            parts_drawn += 1;
         }
     }
 
     queue.submit(Some(encoder.finish()));
-    //AppTracer::debug(&format!("Rendering complete, {} parts drawn", parts_drawn));
     frame.present();
     Ok(())
 }
