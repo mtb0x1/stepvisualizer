@@ -112,9 +112,6 @@ fn url_query_param(key: &str) -> Option<String> {
 #[macro_export]
 macro_rules! trace_span {
     ($name:expr) => {
-        //-FIXME : for debug we log only on specific functions
-        //if $name == "extract_render_parts" || $name == "render_wgpu_on_canvas" {
-        //tracing::error!("tracing enabled for _NAME_ {}", $name);
         let sp = tracing::span!(
             tracing::Level::INFO,
             crate::common::constants::STEP_TRACER,
@@ -122,6 +119,5 @@ macro_rules! trace_span {
             $name
         );
         let _ = sp.entered();
-        //}
     };
 }

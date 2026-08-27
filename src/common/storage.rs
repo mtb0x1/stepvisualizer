@@ -30,7 +30,6 @@ pub fn load_index() -> Vec<FileIndexItem> {
 }
 
 fn model_key(id: &str) -> String {
-    trace_span!("model_key");
     format!("stepviz:model:{}", id)
 }
 
@@ -58,7 +57,6 @@ pub fn delete_model(id: &str) {
 }
 
 pub fn hash_text_to_id(text: &str) -> String {
-    trace_span!("hash_text_to_id");
     let mut hasher = DefaultHasher::new();
     std::hash::Hash::hash(&text, &mut hasher);
     format!("{:016x}", hasher.finish())

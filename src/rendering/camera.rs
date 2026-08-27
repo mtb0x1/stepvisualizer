@@ -1,4 +1,3 @@
-use crate::trace_span;
 #[derive(Clone, PartialEq, Debug)]
 pub struct CameraState {
     pub azimuth: f32,
@@ -22,7 +21,6 @@ impl Default for CameraState {
 }
 
 pub fn compute_eye_position(camera: &CameraState) -> [f32; 3] {
-    trace_span!("compute_eye_position");
     let azimuth = camera.azimuth;
     let elevation = camera.elevation;
     let distance = camera.distance;

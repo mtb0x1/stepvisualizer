@@ -14,7 +14,6 @@ pub struct LruCache {
 
 impl LruCache {
     pub fn new(capacity: usize) -> Self {
-        trace_span!("LruCache::new");
         Self {
             capacity,
             order: VecDeque::new(),
@@ -23,7 +22,6 @@ impl LruCache {
     }
 
     fn touch(&mut self, id: &str) {
-        trace_span!("LruCache::touch");
         if let Some(pos) = self.order.iter().position(|k| k == id) {
             self.order.remove(pos);
         }
@@ -31,7 +29,6 @@ impl LruCache {
     }
 
     pub fn get(&mut self, id: &str) -> Option<StepModel> {
-        trace_span!("LruCache::get");
         if self.map.contains_key(id) {
             self.touch(id);
         }
@@ -47,7 +44,6 @@ impl LruCache {
         id: &str,
         load: impl Fn(&str) -> Option<StepModel>,
     ) -> Option<StepModel> {
-        trace_span!("LruCache::get_or_load");
         if let Some(model) = self.get(id) {
             return Some(model);
         }
@@ -57,7 +53,6 @@ impl LruCache {
     }
 
     pub fn insert(&mut self, id: String, model: StepModel) {
-        trace_span!("LruCache::insert");
         if !self.map.contains_key(&id) && self.map.len() == self.capacity {
             if let Some(least) = self.order.pop_back() {
                 self.map.remove(&least);
@@ -68,7 +63,6 @@ impl LruCache {
     }
 
     pub fn remove(&mut self, id: &str) {
-        trace_span!("LruCache::remove");
         if let Some(pos) = self.order.iter().position(|k| k == id) {
             self.order.remove(pos);
         }
@@ -76,7 +70,6 @@ impl LruCache {
     }
 
     pub fn clear(&mut self) {
-        trace_span!("LruCache::clear");
         self.order.clear();
         self.map.clear();
     }

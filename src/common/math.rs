@@ -1,7 +1,5 @@
-use crate::trace_span;
 #[inline(always)]
 pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -> [f32; 16] {
-    trace_span!("create_perspective_matrix");
     let f = 1.0 / (fov_y / 2.0).tan();
     let nf = 1.0 / (near - far);
 
@@ -27,7 +25,6 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
 
 #[inline(always)]
 pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16] {
-    trace_span!("create_look_at_matrix");
     let f = [center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]];
     let f_len = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
     let f = [f[0] / f_len, f[1] / f_len, f[2] / f_len];
@@ -57,7 +54,6 @@ pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [
 
 #[inline(always)]
 pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
-    trace_span!("multiply_matrices");
     let mut result = [0.0; 16];
     for i in 0..4 {
         for j in 0..4 {
