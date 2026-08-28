@@ -264,6 +264,10 @@ function __wbg_get_imports() {
             const ret = arg0.gpu;
             return ret;
         },
+        __wbg_has_b3a6e6d0d28295fa: function() { return handleError(function (arg0, arg1) {
+            const ret = Reflect.has(arg0, arg1);
+            return ret;
+        }, arguments); },
         __wbg_host_f512e97ce1222138: function(arg0) {
             const ret = arg0.host;
             return ret;
