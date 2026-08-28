@@ -21,18 +21,25 @@ impl LruCache {
         }
     }
 
-    fn touch(&mut self, id: &str) {
+    // Capacity is tiny (CACHE_SIZE = 5), so a linear scan here is cheaper than
+    // the pointer bookkeeping a true O(1) linked-list LRU would require.
+    fn remove_from_order(&mut self, id: &str) {
         if let Some(pos) = self.order.iter().position(|k| k == id) {
             self.order.remove(pos);
         }
+    }
+
+    fn touch(&mut self, id: &str) {
+        self.remove_from_order(id);
         self.order.push_front(id.to_string());
     }
 
     pub fn get(&mut self, id: &str) -> Option<StepModel> {
-        if self.map.contains_key(id) {
+        let model = self.map.get(id).cloned();
+        if model.is_some() {
             self.touch(id);
         }
-        self.map.get(id).cloned()
+        model
     }
 
     // Memory cache is the single in-memory layer; `load` is the persistence
@@ -53,19 +60,27 @@ impl LruCache {
     }
 
     pub fn insert(&mut self, id: String, model: StepModel) {
-        if !self.map.contains_key(&id) && self.map.len() == self.capacity {
-            if let Some(least) = self.order.pop_back() {
-                self.map.remove(&least);
-            }
+        // Capacity 0 means "cache nothing": get_or_load then simply falls
+        // through to the persistence backend on every call.
+        if self.capacity == 0 {
+            return;
         }
         self.map.insert(id.clone(), model);
         self.touch(&id);
+        // `>` (not `==`) so any map/order desync self-heals on the next
+        // insertion instead of growing past capacity forever.
+        while self.map.len() > self.capacity {
+            match self.order.pop_back() {
+                Some(least) => {
+                    self.map.remove(&least);
+                }
+                None => break,
+            }
+        }
     }
 
     pub fn remove(&mut self, id: &str) {
-        if let Some(pos) = self.order.iter().position(|k| k == id) {
-            self.order.remove(pos);
-        }
+        self.remove_from_order(id);
         self.map.remove(id);
     }
 
