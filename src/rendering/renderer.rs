@@ -107,28 +107,10 @@ pub async fn render_wgpu_on_canvas(
     let far = max_size * 100.0;
     let projection_matrix = create_perspective_matrix(fov_y, aspect, near, far);
 
-    // wgpu 30 returns `CurrentSurfaceTexture` instead of a `Result`:
-    // - Success / Suboptimal hand us a presentable texture (Suboptimal also
-    //   hints the surface should be reconfigured soon),
-    // - Timeout / Occluded are transient states; skipping the frame is the
-    //   documented response,
-    // - Outdated / Lost / Validation are real failures the user should see.
     let frame = match surface.get_current_texture() {
-        wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-        wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
-            AppTracer::warn("Suboptimal surface texture; rendering frame, reconfigure soon");
-            frame
-        }
-        status @ (wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded) => {
-            AppTracer::warn(&format!(
-                "Skipping frame: transient surface state {status:?}"
-            ));
-            return Ok(());
-        }
-        status @ (wgpu::CurrentSurfaceTexture::Outdated
-        | wgpu::CurrentSurfaceTexture::Lost
-        | wgpu::CurrentSurfaceTexture::Validation) => {
-            let msg = format!("Failed to acquire surface texture: {status:?}");
+        Ok(frame) => frame,
+        Err(e) => {
+            let msg = format!("Failed to acquire swap chain texture: {e}");
             AppTracer::error(&msg);
             return Err(msg.into());
         }
@@ -168,8 +150,6 @@ pub async fn render_wgpu_on_canvas(
             }),
             occlusion_query_set: None,
             timestamp_writes: None,
-            // wgpu 30 addition; single-view render passes use `None`.
-            multiview_mask: None,
         });
 
         render_pass.set_pipeline(render_pipeline);
@@ -277,9 +257,7 @@ pub async fn render_wgpu_on_canvas(
     }
 
     queue.submit(Some(encoder.finish()));
-    // wgpu 30 moved presentation from `SurfaceTexture::present` to the queue,
-    // which consumes the texture.
-    queue.present(frame);
+    frame.present();
     fps_meter.record_frame();
     Ok(())
 }
