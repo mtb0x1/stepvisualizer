@@ -3,7 +3,10 @@ use std::rc::Rc;
 
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
-    common::{RenderablePart, create_look_at_matrix, create_perspective_matrix, multiply_matrices},
+    common::{
+        RenderablePart, create_look_at_matrix, create_perspective_matrix, multiply_matrices,
+        fps_meter::FpsMeter,
+    },
     error::StepVizError,
     rendering::camera::{CameraState, compute_eye_position},
     rendering::wgpu_state::WgpuState,
@@ -24,6 +27,7 @@ pub async fn render_wgpu_on_canvas(
     parts: Vec<RenderablePart>,
     visibility: &[bool],
     camera: &CameraState,
+    fps_meter: Rc<FpsMeter>,
 ) -> Result<(), StepVizError> {
     trace_span!("render_wgpu_on_canvas");
     let WgpuState {
@@ -276,5 +280,6 @@ pub async fn render_wgpu_on_canvas(
     // wgpu 30 moved presentation from `SurfaceTexture::present` to the queue,
     // which consumes the texture.
     queue.present(frame);
+    fps_meter.record_frame();
     Ok(())
 }

@@ -221,6 +221,28 @@ html, body {
     border-radius: 8px;
     font-size: 0.95em;
 }
+.fps-graph {
+    position: absolute;
+    bottom: 12px;
+    left: 12px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #fff;
+    padding: 0.3em 0.5em;
+    border-radius: 6px;
+    font-size: 0.8em;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    pointer-events: none;
+    user-select: none;
+}
+.fps-graph-label {
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+}
+.fps-graph-svg {
+    display: block;
+}
 .right-panel {
     width: 100%;
     height: 100%;

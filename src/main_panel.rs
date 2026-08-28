@@ -7,6 +7,8 @@ use crate::{
         renderer::render_wgpu_on_canvas,
         wgpu_state::{WgpuState, init_wgpu},
     },
+    common::fps_meter::FpsMeter,
+    components::fps_graph::FpsGraph,
     trace_span,
 };
 use wasm_bindgen::closure::Closure;
@@ -41,6 +43,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let last_mouse_pos = use_state(|| (0, 0));
     let canvas_size = use_state(|| (0u32, 0u32));
     let last_model_id = use_state(|| None::<String>);
+    let fps_meter = use_state(FpsMeter::new);
 
     {
         let canvas_ref = canvas_ref.clone();
@@ -105,6 +108,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         let step_model = props.step_model.clone();
         let part_visibility = props.part_visibility.clone();
         let last_model_id = last_model_id.clone();
+        let fps_meter = (*fps_meter).clone();
 
         use_effect_with(
             (
@@ -133,12 +137,14 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                         let camera_value = (**camera).clone();
                         let state = wgpu_state.clone();
                         let error_cb = render_error_cb.clone();
+                        let meter = fps_meter.clone();
                         spawn_local(async move {
                             if let Err(e) = render_wgpu_on_canvas(
                                 state,
                                 parts_vec,
                                 &vis_vec,
                                 &camera_value,
+                                meter,
                             )
                             .await
                             {
@@ -255,6 +261,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 { camera_toolbar }
             </div>
             { canvas_overlay }
+            <FpsGraph meter={(*fps_meter).clone()} />
         </div>
     }
 }
