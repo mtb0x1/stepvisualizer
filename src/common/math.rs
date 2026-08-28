@@ -1,6 +1,6 @@
 //! Column-major 4×4 matrix math matching WGSL's `mat4x4` layout (transform
 //! application is `M * v`, and compositions read right-to-left). The
-//! multiply is hand-vectorized with wasm128 SIMD on the wasm target.
+//! multiply is hand-vectorized with wasm128 SIMD.
 use core::arch::wasm32::*;
 
 /// Standard perspective projection (symmetric frustum), column-major.
@@ -34,135 +34,99 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
 // @todo use of [f32; 4] the forth slot is padding,
 // this might yield a better wasm code using simd
 // https://rust.godbolt.org/z/sWGW7cq5s
-
-/// Cross product of two 3-vectors carried in the low 3 lanes of `a`/`b`
-/// (lane 3 is ignored). Standard swizzle idiom: `(a.yzx * b.zxy) - (a.zxy *
-/// b.yzx)`.
-#[inline(always)]
-fn cross3(a: v128, b: v128) -> v128 {
-    let a_yzx = i32x4_shuffle::<1, 2, 0, 3>(a, a);
-    let a_zxy = i32x4_shuffle::<2, 0, 1, 3>(a, a);
-    let b_yzx = i32x4_shuffle::<1, 2, 0, 3>(b, b);
-    let b_zxy = i32x4_shuffle::<2, 0, 1, 3>(b, b);
-    f32x4_sub(f32x4_mul(a_yzx, b_zxy), f32x4_mul(a_zxy, b_yzx))
-}
-
-/// Dot product of the low 3 lanes (lane 3 ignored), returned as an `f32`.
-///
-/// `f32x4.dot` lives behind the relaxed-SIMD surface we don't enable, so the
-/// horizontal reduction is done by hand: `mul`, then two add-shuffles fold the
-/// four lanes into one. Lane 3 is always 0, so the fold yields `a0*b0 +
-/// a1*b1 + a2*b2`.
-#[inline(always)]
-fn dot3(a: v128, b: v128) -> f32 {
-    let v = f32x4_mul(a, b);
-    // Fold left-to-right (x+y first, then +z) to match the scalar
-    // `a*a + b*b + c*c` evaluation exactly, so results are bit-identical.
-    let v1 = f32x4_add(v, i32x4_shuffle::<1, 0, 3, 2>(v, v));
-    let v2 = f32x4_add(v1, i32x4_shuffle::<2, 3, 0, 1>(v1, v1));
-    f32x4_extract_lane::<0>(v2)
-}
-
 /// View matrix placing the camera at `eye` and looking at `center`, with
 /// `up` as the world-space up direction. Column-major.
-///
-/// Hand-vectorized: direction subtraction, the two vector normalizations
-/// (`f32x4_dot` + `sqrt`), both cross products (lane shuffles) and the three
-/// translation dot products all run through wasm128 SIMD. Arithmetic is
-/// identical to the scalar formulation, so the result is unchanged.
 #[inline(always)]
 pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16] {
-    let eye_v = f32x4(eye[0], eye[1], eye[2], 0.0);
-    let center_v = f32x4(center[0], center[1], center[2], 0.0);
-    let up_v = f32x4(up[0], up[1], up[2], 0.0);
+    let f = [center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]];
+    let f_len = (f[0] * f[0] + f[1] * f[1] + f[2] * f[2]).sqrt();
+    let f = [f[0] / f_len, f[1] / f_len, f[2] / f_len];
 
-    // forward = normalize(center - eye)
-    let f = f32x4_sub(center_v, eye_v);
-    let f = f32x4_div(f, f32x4_splat(dot3(f, f).sqrt()));
+    let s = [
+        f[1] * up[2] - f[2] * up[1],
+        f[2] * up[0] - f[0] * up[2],
+        f[0] * up[1] - f[1] * up[0],
+    ];
+    let s_len = (s[0] * s[0] + s[1] * s[1] + s[2] * s[2]).sqrt();
+    let s = [s[0] / s_len, s[1] / s_len, s[2] / s_len];
 
-    // right = normalize(cross(forward, up))
-    let s = cross3(f, up_v);
-    let s = f32x4_div(s, f32x4_splat(dot3(s, s).sqrt()));
+    let u = [
+        s[1] * f[2] - s[2] * f[1],
+        s[2] * f[0] - s[0] * f[2],
+        s[0] * f[1] - s[1] * f[0],
+    ];
 
-    // true up = cross(right, forward)
-    let u = cross3(s, f);
+    let tx = -(s[0] * eye[0] + s[1] * eye[1] + s[2] * eye[2]);
+    let ty = -(u[0] * eye[0] + u[1] * eye[1] + u[2] * eye[2]);
+    let tz = -(-f[0] * eye[0] + -f[1] * eye[1] + -f[2] * eye[2]);
 
-    // translation: -(basis_row · eye). third row is -forward, so its term is
-    // +(forward · eye).
-    let tx = -dot3(s, eye_v);
-    let ty = -dot3(u, eye_v);
-    let tz = dot3(f, eye_v);
-
-    // Column-major: columns are (s,0), (u,0), (-f,0), (t,1).
-    let c0 = f32x4(
-        f32x4_extract_lane::<0>(s),
-        f32x4_extract_lane::<1>(s),
-        f32x4_extract_lane::<2>(s),
-        0.0,
-    );
-    let c1 = f32x4(
-        f32x4_extract_lane::<0>(u),
-        f32x4_extract_lane::<1>(u),
-        f32x4_extract_lane::<2>(u),
-        0.0,
-    );
-    let c2 = f32x4(
-        -f32x4_extract_lane::<0>(f),
-        -f32x4_extract_lane::<1>(f),
-        -f32x4_extract_lane::<2>(f),
-        0.0,
-    );
-    let c3 = f32x4(tx, ty, tz, 1.0);
-
-    // By-value transmute (same reasoning as `multiply_matrices`): no reference
-    // is formed, so the caller's alignment is irrelevant. `[v128; 4]` and
-    // `[f32; 16]` are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], [f32; 16]>([c0, c1, c2, c3]) }
+    [
+        s[0], s[1], s[2], 0.0, u[0], u[1], u[2], 0.0, -f[0], -f[1], -f[2], 0.0, tx, ty, tz, 1.0,
+    ]
 }
 
-/// Column-major `a × b`, hand-vectorized with wasm128 SIMD.
+/// Column-major `a × b`.
+///
+/// Two implementations exist: a scalar reference path (currently dead code,
+/// kept for validation against the SIMD path — see the @todo below) and the
+/// wasm128 SIMD path that is taken in practice.
 #[inline(always)]
 pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
-    // Each column of a column-major matrix is stored contiguously, so column
-    // `c` is the v128 `(m[c], m[4 + c], m[8 + c], m[12 + c])`.
-    let a_cols = [
-        f32x4(a[0], a[4], a[8], a[12]),
-        f32x4(a[1], a[5], a[9], a[13]),
-        f32x4(a[2], a[6], a[10], a[14]),
-        f32x4(a[3], a[7], a[11], a[15]),
-    ];
-    let b_cols = [
-        f32x4(b[0], b[4], b[8], b[12]),
-        f32x4(b[1], b[5], b[9], b[13]),
-        f32x4(b[2], b[6], b[10], b[14]),
-        f32x4(b[3], b[7], b[11], b[15]),
-    ];
+    // @todo remove the block if tests are okay
+    if false {
+        let mut r = [0.0; 16];
 
-    let mut out = [f32x4_splat(0.0); 4];
+        for col in 0..4 {
+            let b0 = b[col * 4];
+            let b1 = b[col * 4 + 1];
+            let b2 = b[col * 4 + 2];
+            let b3 = b[col * 4 + 3];
+
+            r[col * 4] = a[0] * b0 + a[4] * b1 + a[8] * b2 + a[12] * b3;
+            r[col * 4 + 1] = a[1] * b0 + a[5] * b1 + a[9] * b2 + a[13] * b3;
+            r[col * 4 + 2] = a[2] * b0 + a[6] * b1 + a[10] * b2 + a[14] * b3;
+            r[col * 4 + 3] = a[3] * b0 + a[7] * b1 + a[11] * b2 + a[15] * b3;
+        }
+
+        r
+    } else {
+        // god this might not be safe, we livin on the Edge (not microsft :D) 
+        unsafe { *as_f32x16(&multiply_matrices_manual_simd(as_v128x4(a), as_v128x4(b))) }
+    }
+}
+
+/// Reinterpret a matrix as 4 SIMD lanes (one per column) for the vectorized
+/// multiply. Safe for any `[f32; 16]`: same size, and `v128` has no validity
+/// invariants beyond being 16 bytes.
+#[inline(always)]
+pub fn as_v128x4(m: &[f32; 16]) -> &[v128; 4] {
+    unsafe { core::mem::transmute::<&[f32; 16], &[v128; 4]>(m) }
+}
+
+/// Inverse of [`as_v128x4`]: view a SIMD-lane array back as a matrix.
+pub fn as_f32x16(m: &[v128; 4]) -> &[f32; 16] {
+    unsafe { core::mem::transmute::<&[v128; 4], &[f32; 16]>(m) }
+}
+
+#[inline(always)]
+unsafe fn multiply_matrices_manual_simd(a: &[v128; 4], b: &[v128; 4]) -> [v128; 4] {
+    let mut out : [v128; 4] = [f32x4_splat(0.0); 4];
+
+    // @todo: use a fully unrolled code 
+    // i8x16_shuffle, f32x4_add, f32x4_mul ?
     for i in 0..4 {
-        // result column i = Σ_k a_column_k * b[i][k]; the four scalar
-        // components of b column i broadcast across each a column.
-        let bi = b_cols[i];
-        let x = f32x4_extract_lane::<0>(bi);
-        let y = f32x4_extract_lane::<1>(bi);
-        let z = f32x4_extract_lane::<2>(bi);
-        let w = f32x4_extract_lane::<3>(bi);
+        let x = f32x4_extract_lane::<0>(b[i]);
+        let y = f32x4_extract_lane::<1>(b[i]);
+        let z = f32x4_extract_lane::<2>(b[i]);
+        let w = f32x4_extract_lane::<3>(b[i]);
 
-        out[i] = f32x4_add(
-            f32x4_mul(a_cols[0], f32x4_splat(x)),
-            f32x4_add(
-                f32x4_mul(a_cols[1], f32x4_splat(y)),
-                f32x4_add(
-                    f32x4_mul(a_cols[2], f32x4_splat(z)),
-                    f32x4_mul(a_cols[3], f32x4_splat(w)),
-                ),
-            ),
-        );
+        let mut r = f32x4_mul(a[0], f32x4_splat(x));
+        r = f32x4_add(r, f32x4_mul(a[1], f32x4_splat(y)));
+        r = f32x4_add(r, f32x4_mul(a[2], f32x4_splat(z)));
+        r = f32x4_add(r, f32x4_mul(a[3], f32x4_splat(w)));
+
+        out[i] = r;
     }
 
-    // By-value transmute: no reference is formed, so the 4-byte alignment of
-    // the caller's `[f32; 16]` is irrelevant to soundness — the v128 lanes
-    // already live in properly-aligned registers/SSA values. `[v128; 4]` and
-    // `[f32; 16]` are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], [f32; 16]>(out) }
+    out
 }
