@@ -31,19 +31,29 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
     ]
 }
 
-// @todo use of [f32; 4] the forth slot is padding,
-// this might yield a better wasm code using simd
+// @todo 
 // https://rust.godbolt.org/z/sWGW7cq5s
-/// Cross product of two 3-vectors carried in the low 3 lanes of `a`/`b`
-/// (lane 3 is ignored). Standard swizzle idiom: `(a.yzx * b.zxy) - (a.zxy *
-/// b.yzx)`.
+
+/// computes the 3 components cross product of two vectors packed into the
+/// low three lanes of the given `v128` SIMD values (interpreted as
+/// `(x, y, z, _)`). The fourth lane is ignored (typically `0.0`).
+///
+/// reslt is returned as a `v128` where lanes 0..2 contain the scalar
+/// cross product `a × b` and lane 3 holds the preserved fourth lane
+/// (usually `0.0`). should be same as scalar
+/// formulation `(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x)`.
 #[inline(always)]
-fn cross3(a: v128, b: v128) -> v128 {
+pub fn cross3(a: v128, b: v128) -> v128 {
+    // a_yzx * b - b_yzx * a, followed by a final shuffle
     let a_yzx = i32x4_shuffle::<1, 2, 0, 3>(a, a);
-    let a_zxy = i32x4_shuffle::<2, 0, 1, 3>(a, a);
     let b_yzx = i32x4_shuffle::<1, 2, 0, 3>(b, b);
-    let b_zxy = i32x4_shuffle::<2, 0, 1, 3>(b, b);
-    f32x4_sub(f32x4_mul(a_yzx, b_zxy), f32x4_mul(a_zxy, b_yzx))
+    
+    let mul1 = f32x4_mul(a_yzx, b);
+    let mul2 = f32x4_mul(b_yzx, a);
+    let sub = f32x4_sub(mul1, mul2);
+    
+    // Final shuffle converts (a_y*b_x - b_y*a_x, ...) to the correct output positions
+    i32x4_shuffle::<1, 2, 0, 3>(sub, sub)
 }
 
 /// Dot product of the low 3 lanes (lane 3 ignored), returned as an `f32`.
