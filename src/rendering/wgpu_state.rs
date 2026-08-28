@@ -56,8 +56,14 @@ pub struct WgpuState {
     pub config: RefCell<wgpu::SurfaceConfiguration>,
     pub render_pipeline: wgpu::RenderPipeline,
     pub bind_group_layout: wgpu::BindGroupLayout,
-    /// Depth texture view, sized to the canvas. Recreated on resize.
+    /// Depth texture view, sized to the canvas. Recreated on resize and kept
+    /// in sync with the surface's actual swapchain size (see `ensure_depth_texture`).
     pub depth_texture_view: RefCell<wgpu::TextureView>,
+    /// Dimensions of the currently allocated `depth_texture_view`. Tracked so
+    /// the renderer can detect when the surface swapchain size diverges from
+    /// the configured size (browser-driven resizes / zoom) and rebuild the
+    /// depth attachment to match, avoiding a depth/color size-mismatch error.
+    pub depth_size: RefCell<(u32, u32)>,
     /// Per-part GPU buffers, keyed by the part's position index in the frame's
     /// part list. Slots are (re)created lazily when missing or when the part's
     /// geometry size changes, and truncated to match the live part count.
@@ -80,6 +86,26 @@ impl WgpuState {
         }
         *self.depth_texture_view.borrow_mut() =
             create_depth_texture_view(&self.device, width, height);
+        *self.depth_size.borrow_mut() = (width, height);
+    }
+
+    /// Recreate the depth texture view when its size does not match the
+    /// surface's actual swapchain size. The surface texture returned by
+    /// `get_current_texture` can diverge from `config` after browser-driven
+    /// resizes (zoom, layout changes), which would otherwise make the depth
+    /// attachment smaller than the color attachment and fail validation.
+    /// Calling this each frame keeps the two in lockstep without paying for a
+    /// reallocation unless the size actually changed.
+    pub fn ensure_depth_texture(&self, width: u32, height: u32) {
+        if width == 0 || height == 0 {
+            return;
+        }
+        if *self.depth_size.borrow() == (width, height) {
+            return;
+        }
+        *self.depth_texture_view.borrow_mut() =
+            create_depth_texture_view(&self.device, width, height);
+        *self.depth_size.borrow_mut() = (width, height);
     }
 }
 
@@ -95,6 +121,7 @@ impl PartialEq for WgpuState {
             && self.render_pipeline == other.render_pipeline
             && self.bind_group_layout == other.bind_group_layout
             && self.depth_texture_view == other.depth_texture_view
+            && self.depth_size == other.depth_size
     }
 }
 
@@ -197,6 +224,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     surface.configure(&device, &config);
 
     let depth_texture_view = create_depth_texture_view(&device, config.width, config.height);
+    let depth_size = (config.width, config.height);
 
     let shader_module_descriptor = wgpu::ShaderModuleDescriptor {
         label: Some("shader"),
@@ -291,6 +319,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         render_pipeline,
         bind_group_layout,
         depth_texture_view: RefCell::new(depth_texture_view),
+        depth_size: RefCell::new(depth_size),
         part_buffers: RefCell::new(Vec::new()),
     })
 }

@@ -38,6 +38,7 @@ pub async fn render_wgpu_on_canvas(
         render_pipeline,
         bind_group_layout,
         depth_texture_view,
+        depth_size: _,
         part_buffers,
     } = &*state;
 
@@ -118,6 +119,11 @@ pub async fn render_wgpu_on_canvas(
     let view = frame
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
+    // Keep the depth attachment in lockstep with the surface's actual size:
+    // the swapchain texture can diverge from `config` after browser-driven
+    // resizes (zoom), which would otherwise make the depth attachment smaller
+    // than the color attachment and fail render-pass validation.
+    state.ensure_depth_texture(frame.texture.width(), frame.texture.height());
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Render Encoder"),
     });
