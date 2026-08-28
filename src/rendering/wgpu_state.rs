@@ -4,8 +4,25 @@ use crate::{
     trace_span,
 };
 use std::cell::RefCell;
+use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
 use wgpu::{self, SurfaceTarget};
+
+/// Whether the browser exposes the `navigator.gpu` entry point.
+///
+/// This gates the entire application, not just the viewport: wgpu's
+/// `BROWSER_WEBGPU` backend cannot create a surface at all without it, so
+/// probing first lets the app swap itself for an explanatory page instead of
+/// mounting a shell whose every feature dead-ends at the renderer.
+pub fn browser_has_webgpu() -> bool {
+    web_sys::window()
+        .map(|window| {
+            js_sys::Reflect::has(&window.navigator(), &JsValue::from_str("gpu")).unwrap_or(false)
+        })
+        // No JS window (e.g. non-browser embedding): treat as unsupported
+        // rather than letting the app mount and fail asynchronously later.
+        .unwrap_or(false)
+}
 
 /// GPU-side buffers for a single rendered part.
 ///

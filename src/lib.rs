@@ -3,6 +3,8 @@
 //! Parses STEP files in the browser (ruststep), tessellates the geometry
 //! (truck), and renders it with WebGPU. The UI is Yew (CSR); all app state
 //! is owned by the `workspace` hook and passed down to the panels as props.
+//! Browsers without WebGPU never get past [`App`]'s gate: the whole UI is
+//! replaced by the `WebGpuUnavailable` fallback page.
 //!
 //! Module map:
 //! - `workspace`: the app-wide state hook wiring parsing → storage → UI
@@ -25,15 +27,51 @@ mod rendering;
 mod right_panel;
 mod workspace;
 use apptracing::{AppTracer, AppTracerTrait};
+use common::constants::NO_WEBGPU_MSG;
 use components::upload_bar::UploadBar;
+use components::webgpu_unavailable::WebGpuUnavailable;
 use header::Header;
 use main_panel::AppStepviz;
 use right_panel::RightPanel as MetadataPanel;
+use rendering::wgpu_state::browser_has_webgpu;
 use workspace::use_step_workspace;
 
+/// Root component: a WebGPU gate in front of the real application.
+///
+/// The probe runs synchronously on first render. When the browser has no
+/// WebGPU, the entire app is swapped for [`WebGpuUnavailable`] — no workspace,
+/// canvas, observers, or upload handling ever mount, which is the graceful
+/// shutdown path. The probe passing only means `navigator.gpu` exists; a
+/// later adapter/device failure is routed to the same page via the
+/// `on_gpu_unavailable` callback.
 #[function_component(App)]
 fn app() -> Html {
     trace_span!("app");
+    // Single hook, called unconditionally before the early return, so hook
+    // order is stable across renders.
+    let gpu_unavailable = use_state(|| (!browser_has_webgpu()).then(|| NO_WEBGPU_MSG.to_string()));
+    if let Some(reason) = gpu_unavailable.as_ref() {
+        return html! { <WebGpuUnavailable reason={reason.clone()} /> };
+    }
+
+    let on_gpu_unavailable = {
+        let gpu_unavailable = gpu_unavailable.clone();
+        Callback::from(move |reason: String| gpu_unavailable.set(Some(reason)))
+    };
+
+    html! { <MainApp {on_gpu_unavailable} /> }
+}
+
+#[derive(Properties, PartialEq)]
+struct MainAppProps {
+    /// Fatal GPU failure channel from the viewport (init_wgpu errors).
+    on_gpu_unavailable: Callback<String>,
+}
+
+/// The application shell: workspace hook + header, sidebars, viewport.
+/// Mounted only after the WebGPU gate passes.
+#[function_component(MainApp)]
+fn main_app(props: &MainAppProps) -> Html {
     let workspace = use_step_workspace();
     let current_file_name = workspace
         .metadata
@@ -84,6 +122,7 @@ fn app() -> Html {
                     metadata={(*workspace.metadata).clone()}
                     part_visibility={(*workspace.part_visibility).clone()}
                     on_render_error={render_error_callback}
+                    on_gpu_unavailable={props.on_gpu_unavailable.clone()}
                 />
                 <div class="result-message">
                     { workspace.result.as_ref().map(|msg| msg.as_str()).unwrap_or("") }

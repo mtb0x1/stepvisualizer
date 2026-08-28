@@ -4,3 +4,4 @@ pub mod file_history_panel;
 pub mod meshes_panel;
 pub mod stepmesh_panel;
 pub mod upload_bar;
+pub mod webgpu_unavailable;

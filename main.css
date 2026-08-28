@@ -310,3 +310,46 @@ html, body {
 .back-button:hover {
     background: var(--hover-bg);
 }
+
+/* WebGPU-unavailable fallback page (replaces the whole app) */
+.webgpu-unavailable {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fafbfc;
+    padding: 2em;
+    box-sizing: border-box;
+}
+.webgpu-unavailable-card {
+    max-width: 34em;
+    text-align: center;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    padding: 2.5em 2em;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+.webgpu-unavailable-icon {
+    font-size: 2.2em;
+    color: #d97706;
+    margin-bottom: 0.5em;
+}
+.webgpu-unavailable-card h1 {
+    font-size: 1.3em;
+    margin: 0 0 0.8em 0;
+    color: #09090a;
+}
+.webgpu-unavailable-reason {
+    color: #7b7f8f;
+    font-size: 0.95em;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    margin: 0 0 1.2em 0;
+}
+.webgpu-unavailable-card p {
+    color: #3f3f46;
+    line-height: 1.5;
+    margin: 0.4em 0;
+}

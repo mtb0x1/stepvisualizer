@@ -1,7 +1,7 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
 use crate::{
-    common::{Metadata, StepModel},
+    common::{Metadata, StepModel, constants::WEBGPU_INIT_FAILED_MSG},
     rendering::{
         camera::{CAMERA_PRESETS, CameraPreset, CameraState},
         renderer::render_wgpu_on_canvas,
@@ -22,7 +22,11 @@ pub struct MainPanelProps {
     pub is_processing: bool,
     pub metadata: Option<Metadata>,
     pub part_visibility: Vec<bool>,
+    /// Transient per-frame errors, surfaced in the app's result message.
     pub on_render_error: Callback<String>,
+    /// Fatal GPU init errors: the app cannot render at all, so the whole
+    /// shell is replaced by the WebGPU-unavailable page.
+    pub on_gpu_unavailable: Callback<String>,
 }
 
 use std::rc::Rc;
@@ -41,7 +45,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     {
         let canvas_ref = canvas_ref.clone();
         let wgpu_state = wgpu_state.clone();
-        let render_error_cb = props.on_render_error.clone();
+        let gpu_unavailable_cb = props.on_gpu_unavailable.clone();
 
         use_effect_with((), move |_| {
             if let Some(canvas) = canvas_ref.cast::<HtmlCanvasElement>() {
@@ -51,7 +55,11 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                             wgpu_state.set(Some(Rc::new(state)));
                         }
                         Err(e) => {
-                            render_error_cb.emit(format!("WebGPU init failed: {e}"));
+                            // Init failure is fatal for the whole app (every
+                            // feature dead-ends at the renderer), so it goes
+                            // to the dedicated channel rather than the
+                            // transient per-frame error message.
+                            gpu_unavailable_cb.emit(format!("{}: {e}", WEBGPU_INIT_FAILED_MSG));
                         }
                     }
                 });

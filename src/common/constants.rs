@@ -73,6 +73,15 @@ pub const DEFAULT_TOLERANCE: f64 = 0.1;
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
 
+/// Fatal reason shown when the browser has no `navigator.gpu` at all.
+pub const NO_WEBGPU_MSG: &str = "This browser does not expose the WebGPU API \
+    (navigator.gpu is missing). Rendering 3D models is not possible.";
+/// Prefix for the fatal reason shown when `navigator.gpu` exists but GPU
+/// initialization (surface/adapter/device) fails; the underlying wgpu error
+/// is appended at the call site.
+pub const WEBGPU_INIT_FAILED_MSG: &str = "This browser exposes WebGPU, but the \
+    GPU could not be initialized";
+
 /// Per-part palette, cycled by part index (alpha forced to 1 at the use site).
 pub const COLORS: [[f32; 4]; 10] = [
     [0.8, 0.2, 0.2, 1.0],
