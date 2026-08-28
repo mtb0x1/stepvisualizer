@@ -1,3 +1,4 @@
+//! STEP file picker with its processing hint.
 use crate::trace_span;
 use web_sys::Event;
 use yew::prelude::*;

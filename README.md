@@ -74,7 +74,7 @@ sequenceDiagram
 
 ## Known Limitations
 
-- Complex STEP files may cause crashs or rendering issues
+- Complex STEP files may cause crashes or rendering issues
 - Large models may experience performance problems
 - Some STEP file features may not be fully supported
 
@@ -88,18 +88,16 @@ sequenceDiagram
 
 ## TODO
 
-- Tessellation : reduce precison to save memory and time.
-- Tessellation : allow user to select preferred precision (this need to be in range of allowed tolerance)
+- Tessellation: reduce precision to save memory and time.
+- Tessellation: allow user to select preferred precision (must stay within the allowed tolerance range).
 - Few FIXME and TODO are in the code, some are critical.
 - Add support for STEP file features that are not currently supported.
-- Clean up :
-   - panic should be replaced with error notification instead (on UI).
-   - ~~constants are in a separate file but not used.~~
-   - deduplicate code (some are in common, some are in rendering, alot of repetitve patterns).
-   - alot of `clone` and are most probably adding to perf issues.
-   - regorg components to make it more maintainable.
-   - some callbacks are not needed and/or triggred too often.
-   - Alternative to Yew : less conveluted and more performant ?
+- Unit tests for the pure logic (math, caches, parsing, mesh metrics).
+- Clean up:
+   - panics should be replaced with error notification instead (on UI).
+   - a lot of `clone` calls, most probably adding to perf issues.
+   - some callbacks are not needed and/or triggered too often.
+   - Alternative to Yew: less convoluted and more performant ?
    
 
 ## Screenshots

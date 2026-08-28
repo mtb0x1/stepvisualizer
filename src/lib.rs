@@ -1,3 +1,17 @@
+//! StepViz — a WebAssembly STEP file viewer.
+//!
+//! Parses STEP files in the browser (ruststep), tessellates the geometry
+//! (truck), and renders it with WebGPU. The UI is Yew (CSR); all app state
+//! is owned by the `workspace` hook and passed down to the panels as props.
+//!
+//! Module map:
+//! - `workspace`: the app-wide state hook wiring parsing → storage → UI
+//! - `main_panel`: the WebGPU viewport component (canvas, camera, render loop)
+//! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
+//! - `common`: domain types + pure logic (parsing, tessellation, caches, math)
+//! - `components`, `header`, `left_panel`, `right_panel`: UI panels
+//! - `apptracing`: URL-query-driven tracing setup
+//! - `error`: the crate-wide error type
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 mod apptracing;

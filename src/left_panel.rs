@@ -1,3 +1,4 @@
+//! Left sidebar: file history when nothing is selected, part list otherwise.
 use crate::common::types::StepModel;
 use crate::{
     common::FileIndexItem,

@@ -1,3 +1,5 @@
+//! Loaded-model panel: wraps the part list, show/hide-all controls, and the
+//! deselect action.
 use crate::common::types::StepModel;
 use crate::{
     components::meshes_panel::{MeshData, MeshesPanel},

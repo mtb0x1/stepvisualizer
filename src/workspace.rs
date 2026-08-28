@@ -1,3 +1,6 @@
+//! App-wide state: one hook ([`use_step_workspace`]) owning file parsing,
+//! recent-file history, and model interaction. Panels receive slices of
+//! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::{
     FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
     convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
@@ -16,6 +19,9 @@ use yew::prelude::*;
 
 use crate::common::constants::{CACHE_SIZE, DEFAULT_TOLERANCE, MAX_FILE_BYTES};
 
+/// All UI callbacks the panels consume, aggregated so a single struct can be
+/// passed down from [`StepWorkspace`]. Split internally into the file
+/// processor, history management, and per-model action groups.
 pub struct WorkspaceActions {
     pub on_file_change: Callback<Event>,
     pub on_item_click: Callback<String>,
@@ -29,6 +35,10 @@ pub struct WorkspaceActions {
     pub on_calculate_surface: Callback<()>,
 }
 
+/// State + actions returned by [`use_step_workspace`]: the single source of
+/// truth for loaded-file state. The handles are clones of the hook's
+/// internal `use_state` handles, so `set` calls from anywhere re-render the
+/// components that read them.
 pub struct StepWorkspace {
     pub result: UseStateHandle<Option<String>>,
     pub metadata: UseStateHandle<Option<Metadata>>,
@@ -57,6 +67,9 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
     (files_index, cache)
 }
 
+/// All `use_state` handles owned by the workspace, grouped so the
+/// sub-hooks (`use_file_processor`, `use_workspace_management`,
+/// `use_model_actions`) can receive them without a long parameter list.
 struct StateHandles {
     result: UseStateHandle<Option<String>>,
     metadata: UseStateHandle<Option<Metadata>>,
@@ -552,6 +565,9 @@ fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> Mod
     }
 }
 
+/// Mount point of the workspace: wires storage, file processing, history
+/// management, and per-model actions, and returns the aggregate state.
+/// Call once, in the root component.
 #[hook]
 pub fn use_step_workspace() -> StepWorkspace {
     trace_span!("use_step_workspace");

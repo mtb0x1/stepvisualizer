@@ -1,3 +1,6 @@
+//! Tracing setup: console formatter + performance-entry layers, opt-in via
+//! URL query parameters (`?tracing=on&level=trace`), plus the leveled
+//! logging helpers used across the crate.
 use tracing::Level;
 use web_sys::console;
 use tracing_subscriber::{
@@ -10,16 +13,27 @@ use tracing_subscriber::{
 };
 use tracing_web::{MakeConsoleWriter, performance_layer};
 
+/// Stateless façade over the tracing setup and the leveled helpers.
 pub struct AppTracer;
 
 use crate::common::constants::STEP_TRACER;
 
+/// Logging contract for the crate.
+///
+/// Implementations are stateless; the trait exists so call sites depend on
+/// the abstraction rather than a concrete logger, and so the helpers can be
+/// resolved statically.
 pub trait AppTracerTrait {
+    /// Install the global subscriber, but only when tracing is enabled via
+    /// URL (see [`AppTracerTrait::tracing_enabled_from_url`]).
     fn init();
     fn error(msg: &str);
     fn warn(msg: &str);
     fn debug(msg: &str);
+    /// Whether `?tracing=on|true|1` is present in the URL.
     fn tracing_enabled_from_url() -> bool;
+    /// The level selected by `?level=...`; `None` when tracing is disabled.
+    /// Defaults: TRACE when `level` is absent, INFO for unknown values.
     fn tracing_level_from_url() -> Option<Level>;
 }
 
@@ -109,12 +123,18 @@ fn url_query_param(key: &str) -> Option<String> {
     })
 }
 
+/// Open an INFO span named after the call site, entered for the remainder of
+/// the enclosing scope. Every span carries the `STEP_TRACER` prefix so it is
+/// recognizable in the console and in the performance panel.
+///
+/// Use for coarse milestones (file loaded, frame rendered) — not for hot
+/// inner loops, where span overhead would dominate.
 #[macro_export]
 macro_rules! trace_span {
     ($name:expr) => {
         let sp = tracing::span!(
             tracing::Level::INFO,
-            crate::common::constants::STEP_TRACER,
+            $crate::common::constants::STEP_TRACER,
             "{}",
             $name
         );

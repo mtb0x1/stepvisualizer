@@ -1,3 +1,4 @@
+//! Right sidebar: the metadata details panel.
 use crate::trace_span;
 use crate::{common::Metadata, components::details_panel::DetailsPanel};
 use yew::prelude::*;

@@ -1,3 +1,5 @@
+//! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
+//! and the effect that renders a frame whenever inputs change.
 use crate::{
     common::{Metadata, StepModel},
     rendering::{

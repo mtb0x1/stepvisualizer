@@ -1,9 +1,12 @@
+//! STEP header/metadata extraction on top of ruststep's AST.
 use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
 use super::types::{BoundingBox, StepHeader};
 
+/// Convert the STEP header section into the display-oriented [`StepHeader`].
+/// Fails when the records do not form a valid header.
 pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> {
     trace_span!("convert_header");
     let header_in: Header = Header::from_records(header_in)
@@ -23,10 +26,12 @@ pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> 
     })
 }
 
-// Units are declared as `(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))`
-// (a Complex entity) alongside sibling `PLANE_ANGLE_UNIT`/`SOLID_ANGLE_UNIT`
-// forms. We must prefer the length unit: a naive "first SI_UNIT wins" scan
-// returns the angle unit because it appears earlier in the file.
+/// Best-effort length-unit extraction as a display string ("mm", "in", ...).
+///
+/// Units are declared as `(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))`
+/// (a Complex entity) alongside sibling `PLANE_ANGLE_UNIT`/`SOLID_ANGLE_UNIT`
+/// forms. We must prefer the length unit: a naive "first SI_UNIT wins" scan
+/// returns the angle unit because it appears earlier in the file.
 pub fn parse_units(exchange: &Exchange) -> Option<String> {
     trace_span!("parse_units");
     let mut fallback: Option<String> = None;
@@ -65,6 +70,9 @@ pub fn parse_units(exchange: &Exchange) -> Option<String> {
     fallback
 }
 
+/// Axis-aligned bounds over all `CARTESIAN_POINT`s in the table. Placement
+/// transforms are ignored, so this is an approximation — good enough for a
+/// pre-load size preview. `None` when the table has no points.
 pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<BoundingBox> {
     trace_span!("compute_bounding_box");
     let mut min = [f64::INFINITY; 3];

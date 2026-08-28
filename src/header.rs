@@ -1,3 +1,4 @@
+//! Top bar showing the loaded file's name.
 use crate::trace_span;
 use yew::prelude::*;
 

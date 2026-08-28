@@ -1,3 +1,4 @@
+//! Recent-files list with per-item load and delete, plus clear-history.
 use crate::common::FileIndexItem;
 use crate::trace_span;
 use yew::prelude::*;

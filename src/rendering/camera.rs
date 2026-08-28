@@ -1,3 +1,7 @@
+//! Orbit camera state and its toolbar view presets.
+/// Orbit camera: azimuth/elevation (radians) and distance around a target
+/// point. Dragging mutates the angles, zooming the distance; the target is
+/// normally the model center and never moves.
 #[derive(Clone, PartialEq, Debug)]
 pub struct CameraState {
     pub azimuth: f32,
@@ -76,6 +80,7 @@ impl CameraPreset {
     }
 }
 
+/// Spherical-to-Cartesian eye position for an orbit camera state.
 pub fn compute_eye_position(camera: &CameraState) -> [f32; 3] {
     let azimuth = camera.azimuth;
     let elevation = camera.elevation;

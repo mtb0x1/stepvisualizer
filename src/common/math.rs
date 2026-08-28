@@ -1,5 +1,11 @@
+//! Column-major 4×4 matrix math matching WGSL's `mat4x4` layout (transform
+//! application is `M * v`, and compositions read right-to-left). The
+//! multiply is hand-vectorized with wasm128 SIMD.
 use core::arch::wasm32::*;
 
+/// Standard perspective projection (symmetric frustum), column-major.
+/// `fov_y` is the vertical field of view in radians; `aspect` is
+/// width / height.
 #[inline(always)]
 pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -> [f32; 16] {
     let f = 1.0 / (fov_y / 2.0).tan();
@@ -28,6 +34,8 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
 // @todo use of [f32; 4] the forth slot is padding,
 // this might yield a better wasm code using simd
 // https://rust.godbolt.org/z/sWGW7cq5s
+/// View matrix placing the camera at `eye` and looking at `center`, with
+/// `up` as the world-space up direction. Column-major.
 #[inline(always)]
 pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16] {
     let f = [center[0] - eye[0], center[1] - eye[1], center[2] - eye[2]];
@@ -57,6 +65,11 @@ pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [
     ]
 }
 
+/// Column-major `a × b`.
+///
+/// Two implementations exist: a scalar reference path (currently dead code,
+/// kept for validation against the SIMD path — see the @todo below) and the
+/// wasm128 SIMD path that is taken in practice.
 #[inline(always)]
 pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     // @todo remove the block if tests are okay
@@ -82,11 +95,15 @@ pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     }
 }
 
+/// Reinterpret a matrix as 4 SIMD lanes (one per column) for the vectorized
+/// multiply. Safe for any `[f32; 16]`: same size, and `v128` has no validity
+/// invariants beyond being 16 bytes.
 #[inline(always)]
 pub fn as_v128x4(m: &[f32; 16]) -> &[v128; 4] {
     unsafe { core::mem::transmute::<&[f32; 16], &[v128; 4]>(m) }
 }
 
+/// Inverse of [`as_v128x4`]: view a SIMD-lane array back as a matrix.
 pub fn as_f32x16(m: &[v128; 4]) -> &[f32; 16] {
     unsafe { core::mem::transmute::<&[v128; 4], &[f32; 16]>(m) }
 }

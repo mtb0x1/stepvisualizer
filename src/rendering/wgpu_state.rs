@@ -25,6 +25,11 @@ pub struct PartGpu {
     pub bind_group: wgpu::BindGroup,
 }
 
+/// Owned WebGPU context for one canvas: device/queue/surface, pipeline and
+/// bind group layout, plus interior-mutable per-frame state (surface config,
+/// depth view, per-part buffer cache). Shared as `Rc<WgpuState>`; the
+/// `RefCell` fields let `resize` and the renderer mutate it without unique
+/// ownership.
 pub struct WgpuState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
@@ -103,6 +108,10 @@ fn create_depth_texture_view(
     depth_texture.create_view(&wgpu::TextureViewDescriptor::default())
 }
 
+/// Create the full WebGPU context for `canvas`: surface, adapter
+/// (high-performance preference), device, depth texture, and the shader +
+/// render pipeline. Fails with a descriptive [`StepVizError`] on any GPU
+/// init step (no WebGPU support, adapter/device request failure, ...).
 pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizError> {
     trace_span!("init_wgpu");
 

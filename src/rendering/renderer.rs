@@ -1,3 +1,4 @@
+//! The per-frame renderer: turns parts + camera into a presented frame.
 use std::rc::Rc;
 
 use crate::{
@@ -11,6 +12,13 @@ use crate::{
 use bytemuck::cast_slice;
 use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
+/// Render one frame of `parts` onto the canvas owned by `state`.
+///
+/// The camera is framed on the visible parts' bounding box (hidden parts may
+/// leave the remaining geometry off the model's baked-at-origin center).
+/// Per-part GPU buffers are reused across frames and only reallocated when
+/// a part's geometry size changes; MVP/model/color uniforms are rewritten
+/// every frame; each visible part is one indexed draw.
 pub async fn render_wgpu_on_canvas(
     state: Rc<WgpuState>,
     parts: Vec<RenderablePart>,

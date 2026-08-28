@@ -1,3 +1,6 @@
+//! Domain types and pure logic shared across the app: STEP parsing,
+//! tessellation, persistence, caching, and matrix math. No Yew code lives
+//! here, so most of it is unit-testable on the host target as well.
 pub mod cache;
 pub mod constants;
 pub mod math;

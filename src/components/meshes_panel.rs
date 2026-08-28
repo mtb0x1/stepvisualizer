@@ -1,3 +1,4 @@
+//! Part list of the loaded model with per-part visibility toggles.
 use crate::trace_span;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;

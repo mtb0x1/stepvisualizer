@@ -1,3 +1,5 @@
+//! Tessellation of STEP geometry into GPU-ready triangle meshes, plus the
+//! per-part mesh type the renderer and metric calculations operate on.
 use crate::{apptracing::{AppTracer, AppTracerTrait}, trace_span};
 use bytemuck::{Pod, Zeroable};
 
@@ -7,6 +9,8 @@ use truck_meshalgo::prelude::*;
 
 use crate::common::constants::COLORS;
 
+/// Vertex layout shared with the render pipeline: position + normal, both
+/// `Float32x3`.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
 pub struct GpuVertex {
@@ -14,6 +18,9 @@ pub struct GpuVertex {
     pub normal: [f32; 3],
 }
 
+/// One tessellated part (typically one shell): vertex/index buffers plus the
+/// per-part model matrix and color. Serializable, so whole models round-trip
+/// through localStorage without re-tessellating.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
@@ -94,6 +101,12 @@ impl RenderablePart {
     }
 }
 
+/// Tessellate `step_table` into renderable parts — or return the cached
+/// result for `file_id` when it was computed earlier this session.
+///
+/// `tolerance` is the triangulation tolerance (smaller = finer, slower).
+/// The whole-model centering translation is baked into each part's model
+/// matrix so geometry stays immutable across frames.
 pub fn extract_render_parts(
     file_id: &str,
     step_table: &truck_stepio::r#in::Table,
@@ -155,6 +168,7 @@ pub fn extract_render_parts(
     parts_to_render
 }
 
+/// Bounding-box center across all parts; `[0,0,0]` when there is no geometry.
 fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
@@ -256,6 +270,9 @@ fn emit_face_indices(
     }
 }
 
+/// Tessellate every shell in the table, producing one `RenderablePart` per
+/// non-empty shell. Part colors cycle through [`COLORS`]; a shell that fails
+/// to compress is skipped with a warning instead of failing the whole file.
 fn tessellate_table(
     table: &truck_stepio::r#in::Table,
     tolerance: f64,

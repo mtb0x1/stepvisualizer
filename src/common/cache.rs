@@ -1,3 +1,6 @@
+//! Two cache layers behind one module: an LRU over parsed `StepModel`s
+//! (backed by localStorage for persistence) and a session-only thread-local
+//! cache of tessellated `RenderablePart` lists.
 use crate::trace_span;
 use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
@@ -6,6 +9,8 @@ use std::rc::Rc;
 use super::render::RenderablePart;
 use super::types::StepModel;
 
+/// LRU over parsed models. Cheap to clone: `StepModel` moves, no `Rc`
+/// indirection, and the working set is bounded by `capacity`.
 pub struct LruCache {
     capacity: usize,
     order: VecDeque<String>,
@@ -13,6 +18,9 @@ pub struct LruCache {
 }
 
 impl LruCache {
+    /// New cache holding at most `capacity` models. `capacity == 0` caches
+    /// nothing: [`get_or_load`](Self::get_or_load) then falls through to the
+    /// backend on every call.
     pub fn new(capacity: usize) -> Self {
         Self {
             capacity,
@@ -34,6 +42,7 @@ impl LruCache {
         self.order.push_front(id.to_string());
     }
 
+    /// Clone of the model under `id`, promoting it to most-recently-used.
     pub fn get(&mut self, id: &str) -> Option<StepModel> {
         let model = self.map.get(id).cloned();
         if model.is_some() {
@@ -42,10 +51,12 @@ impl LruCache {
         model
     }
 
-    // Memory cache is the single in-memory layer; `load` is the persistence
-    // backend (e.g. localStorage). On a miss we fall through to the backend,
-    // promote the result into the cache, and return it. This removes the
-    // duplicated get-or-load branching that previously lived at every caller.
+    /// Memory cache hit, else persistence backend, else `None`.
+    ///
+    /// Memory is the single in-memory layer; `load` is the persistence
+    /// backend (e.g. localStorage). On a miss we fall through to the backend,
+    /// promote the result into the cache, and return it. This removes the
+    /// duplicated get-or-load branching that previously lived at every caller.
     pub fn get_or_load(
         &mut self,
         id: &str,
@@ -59,6 +70,8 @@ impl LruCache {
         Some(loaded)
     }
 
+    /// Insert or replace a model, then evict least-recently-used entries
+    /// beyond capacity.
     pub fn insert(&mut self, id: String, model: StepModel) {
         // Capacity 0 means "cache nothing": get_or_load then simply falls
         // through to the persistence backend on every call.
@@ -79,11 +92,13 @@ impl LruCache {
         }
     }
 
+    /// Drop a model from the cache (the persisted copy, if any, remains).
     pub fn remove(&mut self, id: &str) {
         self.remove_from_order(id);
         self.map.remove(id);
     }
 
+    /// Drop everything (persisted copies, if any, remain).
     pub fn clear(&mut self) {
         self.order.clear();
         self.map.clear();
@@ -104,11 +119,14 @@ thread_local! {
         RefCell::new(HashMap::new());
 }
 
+/// Tessellated geometry for `file_id`, if previously computed this session.
 pub fn get_cached_parts(file_id: &str) -> Option<Vec<RenderablePart>> {
     trace_span!("get_cached_parts");
     RENDER_PART_CACHE.with(|cache| cache.borrow().get(file_id).map(|parts| (**parts).clone()))
 }
 
+/// Store tessellated geometry for `file_id` (cloned in; the cache owns its
+/// copy). Unbounded — the working set is already bounded by the LRU above.
 pub fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
     trace_span!("cache_parts");
     let rc = Rc::new(parts.to_vec());
@@ -117,6 +135,7 @@ pub fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
     });
 }
 
+/// Forget the tessellated geometry for one file (e.g. after model deletion).
 pub fn drop_cached_parts(file_id: &str) {
     trace_span!("drop_cached_parts");
     RENDER_PART_CACHE.with(|cache| {
@@ -124,6 +143,7 @@ pub fn drop_cached_parts(file_id: &str) {
     });
 }
 
+/// Forget all tessellated geometry (e.g. after clearing history).
 pub fn clear_cached_parts() {
     trace_span!("clear_cached_parts");
     RENDER_PART_CACHE.with(|cache| {
