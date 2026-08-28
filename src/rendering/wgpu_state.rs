@@ -132,12 +132,14 @@ fn create_depth_texture_view(
 pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizError> {
     trace_span!("init_wgpu");
 
-    let instance_descriptor = wgpu::InstanceDescriptor {
+    // wgpu 30 dropped `Default` for `InstanceDescriptor` (the new `display`
+    // field has no universal default), so start from the display-less
+    // constructor; the canvas reaches wgpu via `create_surface` below. The
+    // descriptor is now also consumed by value.
+    let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
         backends: wgpu::Backends::BROWSER_WEBGPU,
-        ..Default::default()
-    };
-
-    let instance = wgpu::Instance::new(&instance_descriptor);
+        ..wgpu::InstanceDescriptor::new_without_display_handle()
+    });
 
     let target = SurfaceTarget::Canvas(canvas.clone());
     let surface = match instance.create_surface(target) {
@@ -156,6 +158,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
             power_preference: wgpu::PowerPreference::HighPerformance,
             force_fallback_adapter: false,
             compatible_surface: Some(&surface),
+            // Anti-fingerprinting measure (reports bucketed instead of exact
+            // adapter limits); keep it off so we see the real limits.
+            apply_limit_buckets: false,
         })
         .await
     {
@@ -192,6 +197,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         present_mode: wgpu::PresentMode::Fifo,
         desired_maximum_frame_latency: 1,
         alpha_mode: wgpu::CompositeAlphaMode::Auto,
+        // Required in wgpu 30. `Auto` reproduces the historical behavior
+        // (the presentation engine keeps treating the canvas as sRGB).
+        color_space: wgpu::SurfaceColorSpace::Auto,
         view_formats: vec![],
     };
     surface.configure(&device, &config);
@@ -242,8 +250,11 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Pipeline Layout"),
-        bind_group_layouts: &[&bind_group_layout],
-        push_constant_ranges: &[],
+        // wgpu 30: each layout slot is optional (None skips that set), and
+        // `immediate_size` replaces `push_constant_ranges` (we use neither
+        // feature, so a single mandatory layout and zero immediate bytes).
+        bind_group_layouts: &[Some(&bind_group_layout)],
+        immediate_size: 0,
     });
 
     let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
@@ -254,12 +265,14 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
             compilation_options: wgpu::PipelineCompilationOptions::default(),
             module: &shader,
             entry_point: Some("vs_main"),
-            buffers: &[wgpu::VertexBufferLayout {
+            // wgpu 30: each vertex buffer slot is optional (None skips the
+            // slot); ours stays mandatory.
+            buffers: &[Some(wgpu::VertexBufferLayout {
                 array_stride: std::mem::size_of::<crate::common::GpuVertex>()
                     as wgpu::BufferAddress,
                 step_mode: wgpu::VertexStepMode::Vertex,
                 attributes: &wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3],
-            }],
+            })],
         },
         fragment: Some(wgpu::FragmentState {
             compilation_options: wgpu::PipelineCompilationOptions::default(),
@@ -274,13 +287,17 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         primitive: wgpu::PrimitiveState::default(),
         depth_stencil: Some(wgpu::DepthStencilState {
             format: wgpu::TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: wgpu::CompareFunction::Less,
+            // wgpu 30 makes the depth options optional (None disables the
+            // depth aspect); we keep depth testing and writes as before.
+            depth_write_enabled: Some(true),
+            depth_compare: Some(wgpu::CompareFunction::Less),
             stencil: wgpu::StencilState::default(),
             bias: wgpu::DepthBiasState::default(),
         }),
         multisample: wgpu::MultisampleState::default(),
-        multiview: None,
+        // wgpu 30 replaced `multiview` with `multiview_mask`; single-view
+        // rendering uses `None`.
+        multiview_mask: None,
     });
 
     Ok(WgpuState {
