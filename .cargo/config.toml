@@ -1,1 +1,2 @@
-rustflags = ["-C", "target-feature=+simd128,+relaxed-simd"]
+[target.wasm32-unknown-unknown]
+rustflags = ["-C", "target-feature=+simd128"]

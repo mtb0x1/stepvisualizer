@@ -1,4 +1,3 @@
 [toolchain]
 targets = ["wasm32-unknown-unknown"]
-features = ["simd"]
 channel = "nightly"
