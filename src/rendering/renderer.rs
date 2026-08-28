@@ -95,8 +95,15 @@ pub async fn render_wgpu_on_canvas(
         (min_z + max_z) * 0.5,
     ];
 
+    // The camera distance is expressed for a reference model of size ~1 (see
+    // `CameraState::DEFAULT`). Real models span arbitrary coordinate scales, so
+    // scaling the orbit distance by the visible extent keeps the framing
+    // identical regardless of model size — without it, a large model would
+    // swallow the camera (eye ends up inside the geometry).
+    let fit_distance = camera.distance * max_size;
     let camera_target = CameraState {
         target: view_target,
+        distance: fit_distance,
         ..(*camera).clone()
     };
     let eye = compute_eye_position(&camera_target);
