@@ -90,34 +90,29 @@ fn main_app(props: &MainAppProps) -> Html {
         <div class="app-container">
             <Header file_name={current_file_name} />
 
-            // Left Sidebar
+            // Left Sidebar: file history and model parts
             <aside class="sidebar sidebar-left">
-            <crate::left_panel::LeftPanel
-                files_index={(*workspace.files_index).clone()}
-                selected_file={(*workspace.selected_file).clone()}
-                model={(*workspace.step_model).clone()}
-                on_item_click={workspace.actions.on_item_click.clone()}
-                on_delete={workspace.actions.on_delete.clone()}
-                on_deselect={workspace.actions.on_deselect.clone()}
-                on_clear_history={workspace.actions.on_clear_history.clone()}
-                on_visibility_change={workspace.actions.on_visibility_change.clone()}
-                on_show_all={workspace.actions.on_show_all.clone()}
-                on_hide_all={workspace.actions.on_hide_all.clone()}
-            />
+                <crate::left_panel::LeftPanel
+                    files_index={(*workspace.files_index).clone()}
+                    selected_file={(*workspace.selected_file).clone()}
+                    model={(*workspace.step_model).clone()}
+                    on_item_click={workspace.actions.on_item_click.clone()}
+                    on_delete={workspace.actions.on_delete.clone()}
+                    on_deselect={workspace.actions.on_deselect.clone()}
+                    on_clear_history={workspace.actions.on_clear_history.clone()}
+                    on_visibility_change={workspace.actions.on_visibility_change.clone()}
+                    on_show_all={workspace.actions.on_show_all.clone()}
+                    on_hide_all={workspace.actions.on_hide_all.clone()}
+                />
             </aside>
 
-            // Main Viewport
+            // Main Viewport: file upload and 3D WebGPU canvas
             <main class="main-viewport">
                 <UploadBar
                     is_processing={*workspace.is_processing}
                     on_file_change={workspace.actions.on_file_change.clone()}
                 />
 
-                //FIXME : invistigate the window resize issue
-                // when window is resized, the canvas doesn't resize properly
-                // i mean the scene resizes and it causes distortion in the rendering
-                // this might be due to the canvas not being properly notified of size changes
-                // consider adding a resize observer or force re-render on window resize
                 <AppStepviz
                     step_model={(*workspace.step_model).clone()}
                     is_processing={*workspace.is_processing}
@@ -131,13 +126,13 @@ fn main_app(props: &MainAppProps) -> Html {
                 </div>
             </main>
 
-            // Right Sidebar
+            // Right Sidebar: model metadata and calculated metrics
             <aside class="sidebar sidebar-right">
-            <MetadataPanel
-                metadata={(*workspace.metadata).clone()}
-                on_calculate_volume={workspace.actions.on_calculate_volume.clone()}
-                on_calculate_surface={workspace.actions.on_calculate_surface.clone()}
-            />
+                <MetadataPanel
+                    metadata={(*workspace.metadata).clone()}
+                    on_calculate_volume={workspace.actions.on_calculate_volume.clone()}
+                    on_calculate_surface={workspace.actions.on_calculate_surface.clone()}
+                />
             </aside>
         </div>
     }

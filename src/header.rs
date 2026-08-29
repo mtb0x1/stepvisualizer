@@ -11,17 +11,11 @@ pub struct HeaderProps {
 #[function_component(Header)]
 pub fn header(props: &HeaderProps) -> Html {
     trace_span!("header");
+    let display_name = props.file_name.as_deref().unwrap_or_default();
     html! {
         <header class="app-header">
-            // <div class="header-toolbar">
-            //     <i class="fas fa-folder-open"></i>
-            //     <i class="fas fa-save"></i>
-            //     <span class="divider" />
-            //     <i class="fas fa-undo"></i>
-            //     <i class="fas fa-redo"></i>
-            // </div>
             <div class="file-name">
-                { props.file_name.clone().unwrap_or_default() }
+                { display_name }
             </div>
             <div class="header-toolbar" />
         </header>
