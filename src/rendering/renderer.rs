@@ -243,7 +243,7 @@ pub async fn render_wgpu_on_canvas(
                 gpu.uniforms_uploaded = true;
             }
 
-            render_pass.set_bind_group(0, &gpu.bind_group, &[]);
+            render_pass.set_bind_group(1, &gpu.bind_group, &[]);
             render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
             render_pass.set_index_buffer(gpu.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
             render_pass.draw_indexed(0..gpu.index_count as u32, 0, 0..1);
