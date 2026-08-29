@@ -32,6 +32,13 @@ pub struct MainPanelProps {
     pub on_gpu_unavailable: Callback<String>,
 }
 
+/// Screen coordinate of an ongoing pointer drag interaction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct DragState {
+    last_x: i32,
+    last_y: i32,
+}
+
 use std::rc::Rc;
 
 #[function_component(AppStepviz)]
@@ -40,8 +47,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let canvas_ref = use_node_ref();
     let wgpu_state = use_state(|| None::<Rc<WgpuState>>);
     let camera_state = use_state(CameraState::default);
-    let is_dragging = use_state(|| false);
-    let last_mouse_pos = use_state(|| (0, 0));
+    let drag_state = use_state(|| None::<DragState>);
     let canvas_size = use_state(|| ViewportSize::ZERO);
     let last_model_id = use_state(|| None::<FileId>);
     let fps_meter = use_state(FpsMeter::new);
@@ -207,38 +213,50 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         Html::default()
     };
     let on_mouse_down = {
-        let is_dragging = is_dragging.clone();
-        let last_mouse_pos = last_mouse_pos.clone();
+        let drag_state = drag_state.clone();
         Callback::from(move |e: MouseEvent| {
-            is_dragging.set(true);
-            last_mouse_pos.set((e.client_x(), e.client_y()));
+            drag_state.set(Some(DragState {
+                last_x: e.client_x(),
+                last_y: e.client_y(),
+            }));
         })
     };
 
     let on_mouse_up = {
-        let is_dragging = is_dragging.clone();
+        let drag_state = drag_state.clone();
         Callback::from(move |_| {
-            is_dragging.set(false);
+            drag_state.set(None);
+        })
+    };
+
+    let on_mouse_leave = {
+        let drag_state = drag_state.clone();
+        Callback::from(move |_| {
+            drag_state.set(None);
         })
     };
 
     let on_mouse_move = {
-        let is_dragging = is_dragging.clone();
-        let last_mouse_pos = last_mouse_pos.clone();
+        let drag_state = drag_state.clone();
         let camera_state = camera_state.clone();
         Callback::from(move |e: MouseEvent| {
-            if *is_dragging {
-                let (last_x, last_y) = *last_mouse_pos;
-                let dx = e.client_x() - last_x;
-                let dy = e.client_y() - last_y;
-                last_mouse_pos.set((e.client_x(), e.client_y()));
-
-                let mut new_camera_state = (*camera_state).clone();
-                new_camera_state.azimuth -= dx as f32 * 0.01;
-                new_camera_state.elevation =
-                    (new_camera_state.elevation - dy as f32 * 0.01).clamp(-1.57, 1.57);
-                camera_state.set(new_camera_state);
+            if let Some(drag) = *drag_state {
+                let dx = (e.client_x() - drag.last_x) as f32;
+                let dy = (e.client_y() - drag.last_y) as f32;
+                drag_state.set(Some(DragState {
+                    last_x: e.client_x(),
+                    last_y: e.client_y(),
+                }));
+                camera_state.set(camera_state.orbit(dx, dy));
             }
+        })
+    };
+
+    let on_wheel = {
+        let camera_state = camera_state.clone();
+        Callback::from(move |e: WheelEvent| {
+            let factor = if e.delta_y() > 0.0 { 1.1 } else { 0.9 };
+            camera_state.set(camera_state.zoom(factor));
         })
     };
 
@@ -250,12 +268,9 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 class="main-panel-canvas"
                 onmousedown={on_mouse_down}
                 onmouseup={on_mouse_up}
+                onmouseleave={on_mouse_leave}
                 onmousemove={on_mouse_move}
-                onwheel={Callback::from(move |e: WheelEvent| {
-                    let mut new_camera_state = (*camera_state).clone();
-                    new_camera_state.distance *= if e.delta_y() > 0.0 { 1.1 } else { 0.9 };
-                    camera_state.set(new_camera_state);
-                })}
+                onwheel={on_wheel}
             />
             <div class="canvas-ui">
                 { stats_overlay }

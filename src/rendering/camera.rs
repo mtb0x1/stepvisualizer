@@ -29,6 +29,22 @@ impl CameraState {
     pub fn eye_position(&self) -> [f32; 3] {
         spherical_to_cartesian(self.azimuth, self.elevation, self.distance, self.target)
     }
+
+    /// Rotate the camera around the target using mouse delta coordinates in pixels.
+    pub fn orbit(&self, delta_x: f32, delta_y: f32) -> Self {
+        let max_elev = std::f32::consts::FRAC_PI_2 - 0.001;
+        let mut next = self.clone();
+        next.azimuth -= delta_x * 0.01;
+        next.elevation = (next.elevation - delta_y * 0.01).clamp(-max_elev, max_elev);
+        next
+    }
+
+    /// Zoom camera distance by a multiplicative factor (clamped to positive distances).
+    pub fn zoom(&self, factor: f32) -> Self {
+        let mut next = self.clone();
+        next.distance = (next.distance * factor).max(0.01);
+        next
+    }
 }
 
 impl Default for CameraState {
