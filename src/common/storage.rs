@@ -68,14 +68,16 @@ pub fn delete_model(id: &str) {
     LocalStorage::delete(key);
 }
 
-/// Content-based model identity (16 hex chars) used as the localStorage key.
-/// Uses a stable FNV-1a hash so that compiler upgrades do not change the hashes
-/// and orphan previously saved localStorage items.
-pub fn hash_text_to_id(text: &str) -> FileId {
-    let mut hash: u64 = 0xcbf29ce484222325;
-    for b in text.bytes() {
-        hash ^= b as u64;
-        hash = hash.wrapping_mul(0x100000001b3);
+/// Remove all persisted models and the file index from localStorage.
+pub fn clear_all_storage(items: &[FileIndexItem]) {
+    trace_span!("clear_all_storage");
+    for item in items {
+        delete_model(&item.id);
     }
-    FileId(format!("{:016x}", hash))
+    save_index(&[]);
+}
+
+/// Content-based model identity (16 hex chars) used as the localStorage key.
+pub fn hash_text_to_id(text: &str) -> FileId {
+    FileId::from_content(text)
 }

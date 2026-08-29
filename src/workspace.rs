@@ -3,9 +3,9 @@
 //! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
-    FileId, FileIndexItem, LruCache, Metadata, StepModel, compute_bounding_box, convert_header,
-    delete_model, extract_render_parts, hash_text_to_id, load_index, load_model, parse_units,
-    save_index, save_model,
+    FileId, FileIndexItem, LruCache, Metadata, StepModel, clear_all_storage, compute_bounding_box,
+    convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
+    parse_units, save_index, save_model,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -212,6 +212,17 @@ fn spawn_tessellation(
     });
 }
 
+/// Mutates the history file index in state and persists it to localStorage.
+fn update_and_persist_index(
+    files_index: &UseStateHandle<Vec<FileIndexItem>>,
+    mut update: impl FnMut(&mut Vec<FileIndexItem>),
+) {
+    let mut list = (**files_index).clone();
+    update(&mut list);
+    files_index.set(list.clone());
+    save_index(&list);
+}
+
 #[hook]
 fn use_file_processor(
     states: &StateHandles,
@@ -264,6 +275,18 @@ fn use_file_processor(
                 Err(err) => return fail(err),
             };
 
+            if let Some(cached_model) = cache.borrow_mut().get_or_load(&id, load_model) {
+                let model_rc = Rc::new(cached_model);
+                states_for_reader.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
+                update_and_persist_index(&files_index, |list| {
+                    if let Some(pos) = list.iter().position(|i| i.id == id) {
+                        let item = list.remove(pos);
+                        list.insert(0, item);
+                    }
+                });
+                return;
+            }
+
             states_for_reader.metadata.set(Some(meta.clone()));
             states_for_reader.selected_file.set(Some(id.clone()));
             states_for_reader.set_result("Tessellating geometry for 3D view...", false);
@@ -277,19 +300,18 @@ fn use_file_processor(
             );
 
             // Record the file in the history index (most recent first).
-            let mut list = (*files_index).clone();
-            list.retain(|i| i.id != id);
-            list.insert(
-                0,
-                FileIndexItem {
-                    id: id.clone(),
-                    name: meta.header.file_name.clone(),
-                    entity_count: meta.entity_count,
-                    time_stamp: meta.header.time_stamp.clone(),
-                },
-            );
-            files_index.set(list.clone());
-            save_index(&list);
+            update_and_persist_index(&files_index, |list| {
+                list.retain(|i| i.id != id);
+                list.insert(
+                    0,
+                    FileIndexItem {
+                        id: id.clone(),
+                        name: meta.header.file_name.clone(),
+                        entity_count: meta.entity_count,
+                        time_stamp: meta.header.time_stamp.clone(),
+                    },
+                );
+            });
         });
         states.file_reader.set(Some(reader));
     })
@@ -320,13 +342,12 @@ fn use_workspace_management(
                 Some(model) => {
                     let model_rc = Rc::new(model);
                     states.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
-                    let mut list = (*files_index).clone();
-                    if let Some(pos) = list.iter().position(|i| i.id == id) {
-                        let item = list.remove(pos);
-                        list.insert(0, item);
-                        files_index.set(list.clone());
-                        save_index(&list);
-                    }
+                    update_and_persist_index(&files_index, |list| {
+                        if let Some(pos) = list.iter().position(|i| i.id == id) {
+                            let item = list.remove(pos);
+                            list.insert(0, item);
+                        }
+                    });
                 }
                 None => {
                     states.set_result("Cached data missing.", true);
@@ -358,10 +379,9 @@ fn use_workspace_management(
             drop_cached_parts(&delete_id);
 
             delete_model(&delete_id);
-            let mut list = (*files_index).clone();
-            list.retain(|i| i.id != delete_id);
-            files_index.set(list.clone());
-            save_index(&list);
+            update_and_persist_index(&files_index, |list| {
+                list.retain(|i| i.id != delete_id);
+            });
             if states.selected_file.as_ref() == Some(&delete_id) {
                 states.clear_model_state();
             }
@@ -390,10 +410,7 @@ fn use_workspace_management(
                 return;
             }
 
-            let existing = (*files_index).clone();
-            for item in &existing {
-                delete_model(&item.id);
-            }
+            clear_all_storage(&files_index);
 
             {
                 let mut cache_mut = cache.borrow_mut();
@@ -404,7 +421,6 @@ fn use_workspace_management(
             clear_cached_parts();
 
             files_index.set(Vec::new());
-            save_index(&[]);
             states.clear_model_state();
             states.set_result("Cleared cached files.", false);
         })
