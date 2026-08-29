@@ -14,6 +14,10 @@ const _: () = assert!(
 );
 /// localStorage key of the recent-files index (Vec<FileIndexItem>).
 pub const LS_INDEX_KEY: &str = "stepviz:index";
+/// Prefix on every persisted-model localStorage key (`stepviz:model:<id>`),
+/// kept alongside `LS_INDEX_KEY` so the key format is documented in one place
+/// rather than hard-coded in `storage.rs::model_key`.
+pub const LS_MODEL_KEY_PREFIX: &str = "stepviz:model:";
 /// Placeholder shown for missing metadata fields in the UI.
 pub const NA: &str = "N/A";
 /// Prefix on every tracing message/span, so logs are greppable in the console.
@@ -78,6 +82,14 @@ pub const NEAR_PLANE: f32 = 0.1;
 pub const DEFAULT_TOLERANCE: f64 = 0.1;
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
+
+/// GPU adapter power preference requested at init.
+///
+/// `HighPerformance` favours the discrete GPU for higher, steadier frame rates,
+/// at the cost of battery life. For an interactive 3D viewer that trade-off is
+/// the right default; switch to `wgpu::PowerPreference::LowPower` if power draw
+/// on mobile/portables matters more than frame rate.
+pub const POWER_PREFERENCE: wgpu::PowerPreference = wgpu::PowerPreference::HighPerformance;
 
 /// Fatal reason shown when the browser has no `navigator.gpu` at all.
 pub const NO_WEBGPU_MSG: &str = "This browser does not expose the WebGPU API \

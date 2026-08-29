@@ -10,7 +10,7 @@ use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 
 use super::types::{FileIndexItem, StepModel};
 
-use crate::common::constants::LS_INDEX_KEY;
+use crate::common::constants::{LS_INDEX_KEY, LS_MODEL_KEY_PREFIX};
 
 /// Persist the recent-files index. Failure is logged, not propagated.
 pub fn save_index(index: &[FileIndexItem]) {
@@ -38,7 +38,7 @@ pub fn load_index() -> Vec<FileIndexItem> {
 }
 
 fn model_key(id: &str) -> String {
-    format!("stepviz:model:{}", id)
+    format!("{}{}", LS_MODEL_KEY_PREFIX, id)
 }
 
 /// Persist a whole model under its id. Models can be large; a quota

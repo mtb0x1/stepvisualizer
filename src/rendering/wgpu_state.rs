@@ -129,7 +129,7 @@ impl PartialEq for WgpuState {
     }
 }
 
-use crate::common::constants::WGSL_SHADER;
+use crate::common::constants::{POWER_PREFERENCE, WGSL_SHADER};
 
 /// Build the depth attachment view sized to the current canvas dimensions.
 /// Shared by `init_wgpu` and `WgpuState::resize` so both paths stay in sync
@@ -178,11 +178,11 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         }
     };
 
-    //FIXME : we request an adapter with the surface
-    // and activate high performance mode ? (does it make sense for all hardwares, who knows)
     let adapter = match instance
         .request_adapter(&wgpu::RequestAdapterOptions {
-            power_preference: wgpu::PowerPreference::HighPerformance,
+            // Named in `constants.rs::POWER_PREFERENCE` so the trade-off (frame
+            // rate vs. battery) is documented and adjustable in one place.
+            power_preference: POWER_PREFERENCE,
             force_fallback_adapter: false,
             compatible_surface: Some(&surface),
             // Anti-fingerprinting measure (reports bucketed instead of exact
