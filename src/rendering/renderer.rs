@@ -4,8 +4,8 @@ use std::rc::Rc;
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
     common::{
-        RenderablePart, create_look_at_matrix, create_perspective_matrix, fps_meter::FpsMeter,
-        multiply_matrices,
+        RenderablePart, create_look_at_matrix, create_perspective_matrix,
+        fps_meter::FpsMeter, multiply_matrices,
     },
     error::StepVizError,
     rendering::camera::{CameraState, compute_eye_position},

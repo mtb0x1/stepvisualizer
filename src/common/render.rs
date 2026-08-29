@@ -11,6 +11,7 @@ use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
 use crate::common::constants::COLORS;
+use crate::common::math::Mat4;
 use crate::common::time::now_ms;
 
 /// Vertex layout shared with the render pipeline: position + normal, both
@@ -29,7 +30,7 @@ pub struct GpuVertex {
 pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
     pub indices: Vec<u32>,
-    pub model_matrix: [f32; 16],
+    pub model_matrix: Mat4,
     pub color: [f32; 4],
 }
 
@@ -38,9 +39,7 @@ impl Default for RenderablePart {
         Self {
             vertices: Vec::new(),
             indices: Vec::new(),
-            model_matrix: [
-                1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-            ],
+            model_matrix: Mat4::IDENTITY,
             color: [0.8, 0.8, 0.8, 1.0],
         }
     }
@@ -163,9 +162,9 @@ pub fn extract_render_parts(
     // immutable across frames so the renderer no longer needs to mutate it.
     let center = compute_parts_center(&parts_to_render);
     for part in &mut parts_to_render {
-        part.model_matrix[12] -= center[0];
-        part.model_matrix[13] -= center[1];
-        part.model_matrix[14] -= center[2];
+        part.model_matrix.0[12] -= center[0];
+        part.model_matrix.0[13] -= center[1];
+        part.model_matrix.0[14] -= center[2];
     }
 
     crate::common::cache::cache_parts(file_id, &parts_to_render);
@@ -303,9 +302,7 @@ fn tessellate_table(
     parts_to_render: &mut Vec<RenderablePart>,
 ) {
     for (shell_index, shell) in table.shell.values().enumerate() {
-        let model_matrix: [f32; 16] = [
-            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
-        ];
+        let model_matrix = Mat4::IDENTITY;
 
         let compress_start = now_ms();
         let cshell = match table.to_compressed_shell(shell) {

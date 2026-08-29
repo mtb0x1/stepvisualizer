@@ -3,15 +3,37 @@
 //! multiply is hand-vectorized with wasm128 SIMD.
 use core::arch::wasm32::*;
 
+use bytemuck::{Pod, Zeroable};
+use serde::{Deserialize, Serialize};
+
+/// Column-major 4×4 matrix, matching WGSL's `mat4x4<f32>` layout. Wraps the raw
+/// `[f32; 16]` so the type system distinguishes the model/view/projection
+/// matrices from plain arrays and prevents passing the wrong matrix to the GPU
+/// (a common, silent bug with bare `[f32; 16]`).
+///
+/// `repr(transparent)` keeps the on-the-wire layout identical to `[f32; 16]`,
+/// so `bytemuck::bytes_of` yields the same 64 bytes and serde serializes it as
+/// the flat 16-element array (preserving localStorage compatibility).
+#[repr(transparent)]
+#[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
+pub struct Mat4(pub [f32; 16]);
+
+impl Mat4 {
+    /// Identity matrix.
+    pub const IDENTITY: Mat4 = Mat4([
+        1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
+    ]);
+}
+
 /// Standard perspective projection (symmetric frustum), column-major.
 /// `fov_y` is the vertical field of view in radians; `aspect` is
 /// width / height.
 #[inline(always)]
-pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -> [f32; 16] {
+pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -> Mat4 {
     let f = 1.0 / (fov_y / 2.0).tan();
     let nf = 1.0 / (near - far);
 
-    [
+    Mat4([
         f / aspect,
         0.0,
         0.0,
@@ -28,7 +50,7 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
         0.0,
         (2.0 * far * near) * nf,
         0.0,
-    ]
+    ])
 }
 
 // @todo
@@ -79,7 +101,7 @@ fn dot3(a: v128, b: v128) -> f32 {
 /// translation dot products all run through wasm128 SIMD. Arithmetic is
 /// identical to the scalar formulation, so the result is unchanged.
 #[inline(always)]
-pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [f32; 16] {
+pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> Mat4 {
     let eye_v = f32x4(eye[0], eye[1], eye[2], 0.0);
     let center_v = f32x4(center[0], center[1], center[2], 0.0);
     let up_v = f32x4(up[0], up[1], up[2], 0.0);
@@ -124,13 +146,13 @@ pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> [
 
     // By-value transmute (same reasoning as `multiply_matrices`): no reference
     // is formed, so the caller's alignment is irrelevant. `[v128; 4]` and
-    // `[f32; 16]` are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], [f32; 16]>([c0, c1, c2, c3]) }
+    // `Mat4` (transparent over `[f32; 16]`) are both 64 bytes.
+    unsafe { core::mem::transmute::<[v128; 4], Mat4>([c0, c1, c2, c3]) }
 }
 
 /// Column-major `a × b`, hand-vectorized with wasm128 SIMD.
 #[inline(always)]
-pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
+pub fn multiply_matrices(a: &Mat4, b: &Mat4) -> Mat4 {
     // In column-major layout each column is contiguous, so column `c` is the
     // v128 `(m[4*c], m[4*c + 1], m[4*c + 2], m[4*c + 3])`. Building the lanes
     // by value (rather than transmuting a `&[f32; 16]` reference to `&[v128; 4]`)
@@ -138,16 +160,16 @@ pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     // 4-byte aligned while `v128` requires 16-byte alignment, which traps on
     // wasm `v128.load`.
     let a_cols = [
-        f32x4(a[0], a[1], a[2], a[3]),
-        f32x4(a[4], a[5], a[6], a[7]),
-        f32x4(a[8], a[9], a[10], a[11]),
-        f32x4(a[12], a[13], a[14], a[15]),
+        f32x4(a.0[0], a.0[1], a.0[2], a.0[3]),
+        f32x4(a.0[4], a.0[5], a.0[6], a.0[7]),
+        f32x4(a.0[8], a.0[9], a.0[10], a.0[11]),
+        f32x4(a.0[12], a.0[13], a.0[14], a.0[15]),
     ];
     let b_cols = [
-        f32x4(b[0], b[1], b[2], b[3]),
-        f32x4(b[4], b[5], b[6], b[7]),
-        f32x4(b[8], b[9], b[10], b[11]),
-        f32x4(b[12], b[13], b[14], b[15]),
+        f32x4(b.0[0], b.0[1], b.0[2], b.0[3]),
+        f32x4(b.0[4], b.0[5], b.0[6], b.0[7]),
+        f32x4(b.0[8], b.0[9], b.0[10], b.0[11]),
+        f32x4(b.0[12], b.0[13], b.0[14], b.0[15]),
     ];
 
     let mut out = [f32x4_splat(0.0); 4];
@@ -175,6 +197,6 @@ pub fn multiply_matrices(a: &[f32; 16], b: &[f32; 16]) -> [f32; 16] {
     // By-value transmute: no reference is formed, so the 4-byte alignment of
     // the caller's `[f32; 16]` is irrelevant to soundness — the v128 lanes
     // already live in properly-aligned registers/SSA values. `[v128; 4]` and
-    // `[f32; 16]` are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], [f32; 16]>(out) }
+    // `Mat4` (transparent over `[f32; 16]`) are both 64 bytes.
+    unsafe { core::mem::transmute::<[v128; 4], Mat4>(out) }
 }
