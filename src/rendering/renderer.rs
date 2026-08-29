@@ -36,7 +36,9 @@ pub async fn render_wgpu_on_canvas(
         surface,
         config,
         render_pipeline,
-        bind_group_layout,
+        global_bind_group,
+        view_proj_buffer,
+        part_bind_group_layout,
         depth_texture_view,
         depth_size: _,
         part_buffers,
@@ -111,11 +113,16 @@ pub async fn render_wgpu_on_canvas(
     let view = frame
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
-    // Keep the depth attachment in lockstep with the surface's actual size:
-    // the swapchain texture can diverge from `config` after browser-driven
-    // resizes (zoom), which would otherwise make the depth attachment smaller
-    // than the color attachment and fail render-pass validation.
+
     state.ensure_depth_texture(frame.texture.width(), frame.texture.height());
+    
+    let view_proj_matrix = multiply_matrices(&projection_matrix, &view_matrix);
+    queue.write_buffer(
+        view_proj_buffer,
+        0,
+        bytemuck::bytes_of(&view_proj_matrix),
+    );
+
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Render Encoder"),
     });
@@ -136,7 +143,7 @@ pub async fn render_wgpu_on_canvas(
                     }),
                     store: wgpu::StoreOp::Store,
                 },
-                depth_slice: Some(0),
+                depth_slice: None,
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                 view: &depth_texture_view,
@@ -148,14 +155,12 @@ pub async fn render_wgpu_on_canvas(
             }),
             occlusion_query_set: None,
             timestamp_writes: None,
-            // wgpu 30 addition; single-view render passes use `None`.
             multiview_mask: None,
         });
 
         render_pass.set_pipeline(render_pipeline);
+        render_pass.set_bind_group(0, global_bind_group, &[]);
 
-        // Keep the buffer cache sized to the live part list. Truncating only
-        // drops tail slots, so surviving parts keep their allocated buffers.
         let mut cache = part_buffers.borrow_mut();
         cache.truncate(parts.len());
 
@@ -164,7 +169,6 @@ pub async fn render_wgpu_on_canvas(
                 continue;
             }
             if part.indices.is_empty() {
-                AppTracer::warn("Skipping render of part with empty indices");
                 continue;
             }
 
@@ -172,8 +176,6 @@ pub async fn render_wgpu_on_canvas(
                 cache.push(None);
             }
 
-            // (Re)allocate geometry + uniform buffers only when the slot is
-            // empty or the part's geometry size has changed; otherwise reuse.
             let vertex_count = part.vertices.len();
             let index_count = part.indices.len();
             let needs_recreate = match cache[index].as_ref() {
@@ -191,11 +193,6 @@ pub async fn render_wgpu_on_canvas(
                     contents: cast_slice(&part.indices),
                     usage: wgpu::BufferUsages::INDEX,
                 });
-                let mvp_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some("MVP Uniform Buffer"),
-                    contents: bytemuck::bytes_of(&[0.0f32; 16]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
                 let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
                     label: Some("Model Uniform Buffer"),
                     contents: bytemuck::bytes_of(&[0.0f32; 16]),
@@ -208,22 +205,18 @@ pub async fn render_wgpu_on_canvas(
                 });
 
                 let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: bind_group_layout,
+                    layout: part_bind_group_layout,
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: mvp_buffer.as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
                             resource: model_buffer.as_entire_binding(),
                         },
                         wgpu::BindGroupEntry {
-                            binding: 2,
+                            binding: 1,
                             resource: color_buffer.as_entire_binding(),
                         },
                     ],
-                    label: Some("bind_group"),
+                    label: Some("part_bind_group"),
                 });
 
                 cache[index] = Some(crate::rendering::wgpu_state::PartGpu {
@@ -231,7 +224,6 @@ pub async fn render_wgpu_on_canvas(
                     index_buffer,
                     vertex_count,
                     index_count,
-                    mvp_buffer,
                     model_buffer,
                     color_buffer,
                     bind_group,
@@ -244,12 +236,7 @@ pub async fn render_wgpu_on_canvas(
                 None => unreachable!("part GPU buffer slot is populated by the branch above"),
             };
 
-            let mvp_matrix = multiply_matrices(
-                &projection_matrix,
-                &multiply_matrices(&view_matrix, &part.model_matrix),
-            );
-            queue.write_buffer(&gpu.mvp_buffer, 0, bytemuck::bytes_of(&mvp_matrix));
-            
+
             if !gpu.uniforms_uploaded {
                 queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
                 queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
