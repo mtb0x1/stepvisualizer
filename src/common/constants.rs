@@ -52,29 +52,29 @@ var out: VertexOutput;
     return out;
 }
 
-    @fragment
-    fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-        let norm_len = length(in.normal);
-        let norm = select(in.normal / norm_len, vec3<f32>(0.0, 1.0, 0.0), norm_len < 1e-6);
-        
-        // Primary light from top-right-front
-        let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
-        let diffuse = max(dot(norm, light_dir), 0.0);
-        
-        // Secondary "back" light to reveal details in shadows
-        let light_dir_back = normalize(vec3<f32>(-1.0, -0.5, -1.0));
-        let diffuse_back = max(dot(norm, light_dir_back), 0.0);
-        
-        // Base ambient light level
-        let ambient = 0.2;
-        
-        // Combine lighting components
-        let intensity = ambient + 0.6 * diffuse + 0.2 * diffuse_back;
-        
-        let shaded_color = color.xyz * intensity;
-        return vec4<f32>(shaded_color, 1.0);
-    }
-    "#;
+@fragment
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let norm_len = length(in.normal);
+    let norm = select(in.normal / norm_len, vec3<f32>(0.0, 1.0, 0.0), norm_len < 1e-6);
+
+    // Primary light from top-right-front
+    let light_dir = normalize(vec3<f32>(1.0, 1.0, 1.0));
+    let diffuse = max(dot(norm, light_dir), 0.0);
+
+    // Secondary "back" light to reveal details in shadows
+    let light_dir_back = normalize(vec3<f32>(-1.0, -0.5, -1.0));
+    let diffuse_back = max(dot(norm, light_dir_back), 0.0);
+
+    // Base ambient light level
+    let ambient = 0.2;
+
+    // Combine lighting components
+    let intensity = ambient + 0.6 * diffuse + 0.2 * diffuse_back;
+
+    let shaded_color = color.xyz * intensity;
+    return vec4<f32>(shaded_color, 1.0);
+}
+"#;
 
 /// Projection near plane (far plane is derived per frame from model size).
 pub const NEAR_PLANE: f32 = 0.1;
