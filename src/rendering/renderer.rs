@@ -45,44 +45,11 @@ pub async fn render_wgpu_on_canvas(
     let canvas_width = config.borrow().width;
     let canvas_height = config.borrow().height;
 
-    let mut min_x = f32::INFINITY;
-    let mut min_y = f32::INFINITY;
-    let mut min_z = f32::INFINITY;
-    let mut max_x = f32::NEG_INFINITY;
-    let mut max_y = f32::NEG_INFINITY;
-    let mut max_z = f32::NEG_INFINITY;
-    let mut visible_count = 0;
+    let (min, max) = crate::common::render::visible_bounds(&parts, visibility)
+        .unwrap_or(([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
 
-    // Frame on the visible subset only: when parts are hidden the remaining
-    // geometry may sit off the (baked-at-origin) model center, so we derive
-    // the orbit target from the visible bounding box instead of the origin.
-    for (index, part) in parts.iter().enumerate() {
-        if !visibility.get(index).copied().unwrap_or(true) {
-            continue;
-        }
-        if part.vertices.is_empty() {
-            continue;
-        }
-        visible_count += 1;
-        for vertex in &part.vertices {
-            let pos = vertex.position;
-            min_x = min_x.min(pos[0]);
-            min_y = min_y.min(pos[1]);
-            min_z = min_z.min(pos[2]);
-            max_x = max_x.max(pos[0]);
-            max_y = max_y.max(pos[1]);
-            max_z = max_z.max(pos[2]);
-        }
-    }
-
-    if visible_count == 0 {
-        min_x = -1.0;
-        max_x = 1.0;
-        min_y = -1.0;
-        max_y = 1.0;
-        min_z = -1.0;
-        max_z = 1.0;
-    }
+    let (min_x, min_y, min_z) = (min[0], min[1], min[2]);
+    let (max_x, max_y, max_z) = (max[0], max[1], max[2]);
 
     let size_x = (max_x - min_x).max(0.1);
     let size_y = (max_y - min_y).max(0.1);

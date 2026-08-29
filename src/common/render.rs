@@ -171,11 +171,21 @@ pub fn extract_render_parts(
     parts_to_render
 }
 
-/// Bounding-box center across all parts; `[0,0,0]` when there is no geometry.
-fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
+/// Bounding box over a subset of parts, taking `visibility` into account.
+/// Returns `None` if no geometry is visible.
+pub fn visible_bounds(
+    parts: &[RenderablePart],
+    visibility: &[bool],
+) -> Option<([f32; 3], [f32; 3])> {
     let mut min = [f32::INFINITY; 3];
     let mut max = [f32::NEG_INFINITY; 3];
-    for part in parts {
+    let mut visible_count = 0;
+
+    for (index, part) in parts.iter().enumerate() {
+        if !visibility.get(index).copied().unwrap_or(true) || part.vertices.is_empty() {
+            continue;
+        }
+        visible_count += 1;
         for vertex in &part.vertices {
             for i in 0..3 {
                 min[i] = min[i].min(vertex.position[i]);
@@ -183,14 +193,24 @@ fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
             }
         }
     }
-    if parts.is_empty() || min[0] == f32::INFINITY {
-        return [0.0, 0.0, 0.0];
+
+    if visible_count == 0 || min[0] == f32::INFINITY {
+        None
+    } else {
+        Some((min, max))
     }
-    [
-        (min[0] + max[0]) * 0.5,
-        (min[1] + max[1]) * 0.5,
-        (min[2] + max[2]) * 0.5,
-    ]
+}
+
+/// Bounding-box center across all parts; `[0,0,0]` when there is no geometry.
+fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
+    match visible_bounds(parts, &[]) {
+        Some((min, max)) => [
+            (min[0] + max[0]) * 0.5,
+            (min[1] + max[1]) * 0.5,
+            (min[2] + max[2]) * 0.5,
+        ],
+        None => [0.0, 0.0, 0.0],
+    }
 }
 
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
