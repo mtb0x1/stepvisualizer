@@ -106,6 +106,21 @@ fn fail_load(
     is_processing.set(false);
 }
 
+/// Reset the loaded-model UI state: clear selection, metadata, model, and part
+/// visibility. Shared by deselect, delete (when the deleted file was selected),
+/// and clear-history so the four-line reset lives in one place.
+fn clear_model_state(
+    selected_file: &UseStateHandle<Option<String>>,
+    metadata: &UseStateHandle<Option<Metadata>>,
+    step_model: &UseStateHandle<Option<Rc<StepModel>>>,
+    part_visibility: &UseStateHandle<Vec<bool>>,
+) {
+    selected_file.set(None);
+    metadata.set(None);
+    step_model.set(None);
+    part_visibility.set(Vec::new());
+}
+
 /// Returns the first data section carrying usable STEP content, or a
 /// user-facing message explaining why the file has none.
 fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, String> {
@@ -412,10 +427,12 @@ fn use_workspace_management(
             files_index.set(list.clone());
             save_index(&list);
             if selected_file_state.as_ref() == Some(&delete_id) {
-                selected_file_state.set(None);
-                metadata_state.set(None);
-                step_model_state.set(None);
-                part_visibility_state.set(Vec::new());
+                clear_model_state(
+                    &selected_file_state,
+                    &metadata_state,
+                    &step_model_state,
+                    &part_visibility_state,
+                );
             }
             result_is_error_state.set(false);
             result_state.set(Some("Removed file from list.".to_string()));
@@ -428,10 +445,12 @@ fn use_workspace_management(
         let step_model_state = states.step_model.clone();
         let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |_| {
-            selected_file_state.set(None);
-            metadata_state.set(None);
-            step_model_state.set(None);
-            part_visibility_state.set(Vec::new());
+            clear_model_state(
+                &selected_file_state,
+                &metadata_state,
+                &step_model_state,
+                &part_visibility_state,
+            );
         })
     };
 
@@ -470,10 +489,12 @@ fn use_workspace_management(
 
             files_index_state.set(Vec::new());
             save_index(&[]);
-            metadata_state.set(None);
-            step_model_state.set(None);
-            selected_file_state.set(None);
-            part_visibility_state.set(Vec::new());
+            clear_model_state(
+                &selected_file_state,
+                &metadata_state,
+                &step_model_state,
+                &part_visibility_state,
+            );
             result_is_error_state.set(false);
             result_state.set(Some("Cleared cached files.".to_string()));
         })
