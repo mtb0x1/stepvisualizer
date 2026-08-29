@@ -73,6 +73,7 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
 /// All `use_state` handles owned by the workspace, grouped so the
 /// sub-hooks (`use_file_processor`, `use_workspace_management`,
 /// `use_model_actions`) can receive them without a long parameter list.
+#[derive(Clone)]
 struct StateHandles {
     result: UseStateHandle<Option<String>>,
     result_is_error: UseStateHandle<bool>,
@@ -84,42 +85,49 @@ struct StateHandles {
     file_reader: UseStateHandle<Option<FileReader>>,
 }
 
+impl StateHandles {
+    /// Resets the UI after a failed load: surface `err` as an error, clear stale
+    /// metadata, and drop the processing flag.
+    fn fail_load(&self, err: impl std::fmt::Display) {
+        self.result_is_error.set(true);
+        self.result.set(Some(err.to_string()));
+        self.metadata.set(None);
+        self.is_processing.set(false);
+    }
+
+    /// Reset the loaded-model UI state: clear selection, metadata, model, and part
+    /// visibility. Shared by deselect, delete (when the deleted file was selected),
+    /// and clear-history so the four-line reset lives in one place.
+    fn clear_model_state(&self) {
+        self.selected_file.set(None);
+        self.metadata.set(None);
+        self.step_model.set(None);
+        self.part_visibility.set(Vec::new());
+    }
+
+    /// Update status message and error flag.
+    fn set_result(&self, msg: impl Into<String>, is_error: bool) {
+        self.result_is_error.set(is_error);
+        self.result.set(Some(msg.into()));
+    }
+
+    /// Sets the active loaded model across all related state handles.
+    fn set_loaded_model(&self, model: Rc<StepModel>, file_id: FileId, status_msg: &str) {
+        let part_visibility = model.part_visibility.clone();
+        self.metadata.set(Some(model.metadata.clone()));
+        self.step_model.set(Some(model));
+        self.part_visibility.set(part_visibility);
+        self.selected_file.set(Some(file_id));
+        self.set_result(status_msg, false);
+    }
+}
+
 /// Extracts the first selected file from an `<input type="file">` change event.
 fn input_file(event: &Event) -> Option<web_sys::File> {
     let input: HtmlInputElement = event
         .target()
         .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())?;
     input.files()?.get(0)
-}
-
-/// Resets the UI after a failed load: surface `err` as an error, clear stale
-/// metadata, and drop the processing flag. Every failure path funnels through here.
-fn fail_load(
-    err: impl std::fmt::Display,
-    result: &UseStateHandle<Option<String>>,
-    result_is_error: &UseStateHandle<bool>,
-    metadata: &UseStateHandle<Option<Metadata>>,
-    is_processing: &UseStateHandle<bool>,
-) {
-    result_is_error.set(true);
-    result.set(Some(err.to_string()));
-    metadata.set(None);
-    is_processing.set(false);
-}
-
-/// Reset the loaded-model UI state: clear selection, metadata, model, and part
-/// visibility. Shared by deselect, delete (when the deleted file was selected),
-/// and clear-history so the four-line reset lives in one place.
-fn clear_model_state(
-    selected_file: &UseStateHandle<Option<FileId>>,
-    metadata: &UseStateHandle<Option<Metadata>>,
-    step_model: &UseStateHandle<Option<Rc<StepModel>>>,
-    part_visibility: &UseStateHandle<Vec<bool>>,
-) {
-    selected_file.set(None);
-    metadata.set(None);
-    step_model.set(None);
-    part_visibility.set(Vec::new());
 }
 
 /// Returns the first data section carrying usable STEP content, or a
@@ -166,17 +174,6 @@ fn build_initial_metadata(
     Ok((meta, hash_text_to_id(text)))
 }
 
-/// UI state targets that receive the results of the async tessellation pass.
-struct TessellationTargets {
-    metadata: UseStateHandle<Option<Metadata>>,
-    step_model: UseStateHandle<Option<Rc<StepModel>>>,
-    part_visibility: UseStateHandle<Vec<bool>>,
-    result: UseStateHandle<Option<String>>,
-    result_is_error: UseStateHandle<bool>,
-    is_processing: UseStateHandle<bool>,
-    cache: Rc<RefCell<LruCache>>,
-}
-
 /// Spawns the async tessellation pass: tessellates the STEP table, wraps the
 /// result in a `StepModel`, persists it to the cache and localStorage, then
 /// publishes the updated metadata and model to the UI.
@@ -184,7 +181,8 @@ fn spawn_tessellation(
     step_table: truck_stepio::r#in::Table,
     file_id: FileId,
     meta: Metadata,
-    targets: TessellationTargets,
+    states: StateHandles,
+    cache: Rc<RefCell<LruCache>>,
 ) {
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
@@ -205,19 +203,16 @@ fn spawn_tessellation(
         };
 
         {
-            let mut cache_ref = targets.cache.borrow_mut();
+            let mut cache_ref = cache.borrow_mut();
             cache_ref.insert(file_id.clone(), model.clone());
         }
         save_model(&model);
 
-        targets.metadata.set(Some(updated_meta));
-        targets.step_model.set(Some(Rc::new(model)));
-        targets.part_visibility.set(vec![true; part_count]);
-        targets.result_is_error.set(false);
-        targets
-            .result
-            .set(Some("Parsed STEP file successfully.".to_string()));
-        targets.is_processing.set(false);
+        states.metadata.set(Some(updated_meta));
+        states.step_model.set(Some(Rc::new(model)));
+        states.part_visibility.set(vec![true; part_count]);
+        states.set_result("Parsed STEP file successfully.", false);
+        states.is_processing.set(false);
     });
 }
 
@@ -227,66 +222,33 @@ fn use_file_processor(
     files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
 ) -> Callback<Event> {
-    let result_handle = states.result.clone();
-    let result_is_error_handle = states.result_is_error.clone();
-    let metadata_handle = states.metadata.clone();
-    let file_reader_handle = states.file_reader.clone();
-    let files_index_handle = files_index.clone();
-    let cache_handle = cache.clone();
-    let step_model_handle = states.step_model.clone();
-    let selected_file_handle = states.selected_file.clone();
-    let part_visibility_handle = states.part_visibility.clone();
-    let is_processing_handle = states.is_processing.clone();
+    let states = states.clone();
 
     Callback::from(move |event: Event| {
         trace_span!("on_file_change callback");
         let Some(web_file) = input_file(&event) else {
-            is_processing_handle.set(false);
+            states.is_processing.set(false);
             return;
         };
 
-        is_processing_handle.set(true);
+        states.is_processing.set(true);
         if web_file.size() > MAX_FILE_BYTES {
-            fail_load(
-                StepVizError::FileTooLarge {
-                    size_bytes: web_file.size(),
-                    max_bytes: MAX_FILE_BYTES,
-                },
-                &result_handle,
-                &result_is_error_handle,
-                &metadata_handle,
-                &is_processing_handle,
-            );
+            states.fail_load(StepVizError::FileTooLarge {
+                size_bytes: web_file.size(),
+                max_bytes: MAX_FILE_BYTES,
+            });
             return;
         }
 
         let name = web_file.name();
         let file = File::from(web_file);
 
-        // Clone the handles the reader callback will own: the outer closure
-        // must stay `Fn` (it is invoked for every file-selection event), so it
-        // cannot move its own captures into the one-shot reader callback.
-        let result_state = result_handle.clone();
-        let result_is_error_state = result_is_error_handle.clone();
-        let metadata_state = metadata_handle.clone();
-        let processing_state = is_processing_handle.clone();
-        let selected_file_state = selected_file_handle.clone();
-        let step_model_state = step_model_handle.clone();
-        let part_visibility_state = part_visibility_handle.clone();
-        let cache_state = cache_handle.clone();
-        let files_index_state = files_index_handle.clone();
+        let states_for_reader = states.clone();
+        let cache = cache.clone();
+        let files_index = files_index.clone();
 
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
-            // Every early exit below resets the UI the same way.
-            let fail = |err: StepVizError| {
-                fail_load(
-                    err,
-                    &result_state,
-                    &result_is_error_state,
-                    &metadata_state,
-                    &processing_state,
-                );
-            };
+            let fail = |err: StepVizError| states_for_reader.fail_load(err);
 
             let text = match res {
                 Ok(text) => text,
@@ -306,28 +268,20 @@ fn use_file_processor(
                 Err(err) => return fail(err),
             };
 
-            metadata_state.set(Some(meta.clone()));
-            selected_file_state.set(Some(id.clone()));
-            result_is_error_state.set(false);
-            result_state.set(Some("Tessellating geometry for 3D view...".to_string()));
+            states_for_reader.metadata.set(Some(meta.clone()));
+            states_for_reader.selected_file.set(Some(id.clone()));
+            states_for_reader.set_result("Tessellating geometry for 3D view...", false);
 
             spawn_tessellation(
                 step_table,
                 id.clone(),
                 meta.clone(),
-                TessellationTargets {
-                    metadata: metadata_state.clone(),
-                    step_model: step_model_state.clone(),
-                    part_visibility: part_visibility_state.clone(),
-                    result: result_state.clone(),
-                    result_is_error: result_is_error_state.clone(),
-                    is_processing: processing_state.clone(),
-                    cache: cache_state.clone(),
-                },
+                states_for_reader.clone(),
+                cache.clone(),
             );
 
             // Record the file in the history index (most recent first).
-            let mut list = (*files_index_state).clone();
+            let mut list = (*files_index).clone();
             list.retain(|i| i.id != id);
             list.insert(
                 0,
@@ -338,10 +292,10 @@ fn use_file_processor(
                     time_stamp: meta.header.time_stamp.clone(),
                 },
             );
-            files_index_state.set(list.clone());
+            files_index.set(list.clone());
             save_index(&list);
         });
-        file_reader_handle.set(Some(reader));
+        states.file_reader.set(Some(reader));
     })
 }
 
@@ -360,38 +314,26 @@ fn use_workspace_management(
     cache: Rc<RefCell<LruCache>>,
 ) -> WorkspaceManagementActions {
     let on_item_click = {
-        let files_index_state = files_index.clone();
-        let metadata_state = states.metadata.clone();
-        let result_state = states.result.clone();
-        let result_is_error_state = states.result_is_error.clone();
-        let cache_state = cache.clone();
-        let step_model_state = states.step_model.clone();
-        let selected_file_state = states.selected_file.clone();
-        let part_visibility_state = states.part_visibility.clone();
+        let files_index = files_index.clone();
+        let states = states.clone();
+        let cache = cache.clone();
         Callback::from(move |id: FileId| {
-            let maybe_model = cache_state.borrow_mut().get_or_load(&id, load_model);
+            let maybe_model = cache.borrow_mut().get_or_load(&id, load_model);
 
             match maybe_model {
                 Some(model) => {
                     let model_rc = Rc::new(model);
-                    let part_visibility = model_rc.part_visibility.clone();
-                    metadata_state.set(Some(model_rc.metadata.clone()));
-                    step_model_state.set(Some(model_rc));
-                    part_visibility_state.set(part_visibility);
-                    selected_file_state.set(Some(id.clone()));
-                    result_is_error_state.set(false);
-                    result_state.set(Some("Loaded from cache".to_string()));
-                    let mut list = (*files_index_state).clone();
+                    states.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
+                    let mut list = (*files_index).clone();
                     if let Some(pos) = list.iter().position(|i| i.id == id) {
                         let item = list.remove(pos);
                         list.insert(0, item);
-                        files_index_state.set(list.clone());
+                        files_index.set(list.clone());
                         save_index(&list);
                     }
                 }
                 None => {
-                    result_is_error_state.set(true);
-                    result_state.set(Some("Cached data missing.".to_string()));
+                    states.set_result("Cached data missing.", true);
                 }
             }
         })
@@ -399,25 +341,19 @@ fn use_workspace_management(
 
     let on_delete = {
         let files_index = files_index.clone();
-        let result_state = states.result.clone();
-        let result_is_error_state = states.result_is_error.clone();
-        let cache_handle = cache.clone();
-        let selected_file_state = states.selected_file.clone();
-        let metadata_state = states.metadata.clone();
-        let step_model_state = states.step_model.clone();
-        let part_visibility_state = states.part_visibility.clone();
+        let states = states.clone();
+        let cache = cache.clone();
         Callback::from(move |delete_id: FileId| {
             if let Some(window) = web_sys::window()
                 && let Ok(false) = window.confirm_with_message(
                     "Remove this file from history? This action cannot be undone.",
                 )
             {
-                result_is_error_state.set(false);
-                result_state.set(Some("Deletion cancelled.".to_string()));
+                states.set_result("Deletion cancelled.", false);
                 return;
             }
             {
-                let mut c = cache_handle.borrow_mut();
+                let mut c = cache.borrow_mut();
                 c.remove(&delete_id);
             }
 
@@ -430,77 +366,51 @@ fn use_workspace_management(
             list.retain(|i| i.id != delete_id);
             files_index.set(list.clone());
             save_index(&list);
-            if selected_file_state.as_ref() == Some(&delete_id) {
-                clear_model_state(
-                    &selected_file_state,
-                    &metadata_state,
-                    &step_model_state,
-                    &part_visibility_state,
-                );
+            if states.selected_file.as_ref() == Some(&delete_id) {
+                states.clear_model_state();
             }
-            result_is_error_state.set(false);
-            result_state.set(Some("Removed file from list.".to_string()));
+            states.set_result("Removed file from list.", false);
         })
     };
 
     let on_deselect = {
-        let selected_file_state = states.selected_file.clone();
-        let metadata_state = states.metadata.clone();
-        let step_model_state = states.step_model.clone();
-        let part_visibility_state = states.part_visibility.clone();
+        let states = states.clone();
         Callback::from(move |_| {
-            clear_model_state(
-                &selected_file_state,
-                &metadata_state,
-                &step_model_state,
-                &part_visibility_state,
-            );
+            states.clear_model_state();
         })
     };
 
     let on_clear_history = {
-        let files_index_state = files_index.clone();
-        let result_state = states.result.clone();
-        let result_is_error_state = states.result_is_error.clone();
-        let cache_handle = cache.clone();
-        let metadata_state = states.metadata.clone();
-        let step_model_state = states.step_model.clone();
-        let selected_file_state = states.selected_file.clone();
-        let part_visibility_state = states.part_visibility.clone();
+        let files_index = files_index.clone();
+        let states = states.clone();
+        let cache = cache.clone();
         Callback::from(move |_| {
             if let Some(window) = web_sys::window()
                 && let Ok(false) = window.confirm_with_message(
                     "Clear all cached files? This removes local copies and history.",
                 )
             {
-                result_is_error_state.set(false);
-                result_state.set(Some("Clear history cancelled.".to_string()));
+                states.set_result("Clear history cancelled.", false);
                 return;
             }
 
-            let existing = (*files_index_state).clone();
+            let existing = (*files_index).clone();
             for item in &existing {
                 delete_model(&item.id);
             }
 
             {
-                let mut cache_mut = cache_handle.borrow_mut();
+                let mut cache_mut = cache.borrow_mut();
                 cache_mut.clear();
             }
 
             // Drop every cached tessellation alongside the model cache.
             clear_cached_parts();
 
-            files_index_state.set(Vec::new());
+            files_index.set(Vec::new());
             save_index(&[]);
-            clear_model_state(
-                &selected_file_state,
-                &metadata_state,
-                &step_model_state,
-                &part_visibility_state,
-            );
-            result_is_error_state.set(false);
-            result_state.set(Some("Cleared cached files.".to_string()));
+            states.clear_model_state();
+            states.set_result("Cleared cached files.", false);
         })
     };
 
@@ -516,18 +426,17 @@ fn use_workspace_management(
 // `Metadata`, then persists and republishes the model. Shared by the volume and
 // surface-area actions which differ only in the metric and the field written.
 fn recompute_and_store_metric(
-    step_model: &UseStateHandle<Option<Rc<StepModel>>>,
-    metadata: &UseStateHandle<Option<Metadata>>,
+    states: &StateHandles,
     cache: &Rc<RefCell<LruCache>>,
     compute: impl Fn(&RenderablePart) -> f64,
     apply: impl Fn(&mut Metadata, f64),
 ) {
-    if let Some(model) = step_model.as_ref() {
+    if let Some(model) = states.step_model.as_ref() {
         let total: f64 = model.render_parts.iter().map(compute).sum();
 
         let mut new_meta = model.metadata.clone();
         apply(&mut new_meta, total);
-        metadata.set(Some(new_meta.clone()));
+        states.metadata.set(Some(new_meta.clone()));
 
         let mut new_model = (**model).clone();
         new_model.metadata = new_meta;
@@ -538,7 +447,7 @@ fn recompute_and_store_metric(
         }
         save_model(&new_model);
 
-        step_model.set(Some(Rc::new(new_model)));
+        states.step_model.set(Some(Rc::new(new_model)));
     }
 }
 
@@ -579,13 +488,11 @@ fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> Mod
     };
 
     let on_calculate_volume = {
-        let step_model = states.step_model.clone();
-        let metadata = states.metadata.clone();
+        let states = states.clone();
         let cache = cache.clone();
         Callback::from(move |_| {
             recompute_and_store_metric(
-                &step_model,
-                &metadata,
+                &states,
                 &cache,
                 |p| p.calculate_volume(),
                 |meta, value| meta.volume = Some(value),
@@ -594,13 +501,11 @@ fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> Mod
     };
 
     let on_calculate_surface = {
-        let step_model = states.step_model.clone();
-        let metadata = states.metadata.clone();
+        let states = states.clone();
         let cache = cache.clone();
         Callback::from(move |_| {
             recompute_and_store_metric(
-                &step_model,
-                &metadata,
+                &states,
                 &cache,
                 |p| p.calculate_surface_area(),
                 |meta, value| meta.surface_area = Some(value),
