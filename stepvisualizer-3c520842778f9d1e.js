@@ -905,7 +905,13 @@ function __wbg_get_imports() {
         __wbg_set_required_limits_837f62d865e7cfac: function(arg0, arg1) {
             arg0.requiredLimits = arg1;
         },
+        __wbg_set_resource_8fd8658b30d86ecf: function(arg0, arg1) {
+            arg0.resource = arg1;
+        },
         __wbg_set_resource_gpu_buffer_binding_33099b25da65b610: function(arg0, arg1) {
+            arg0.resource = arg1;
+        },
+        __wbg_set_resource_gpu_texture_view_4cffe7bc7c8e5cbe: function(arg0, arg1) {
             arg0.resource = arg1;
         },
         __wbg_set_sample_count_481c255a12054e1d: function(arg0, arg1) {
@@ -919,6 +925,9 @@ function __wbg_get_imports() {
         },
         __wbg_set_shader_location_3fb9f6a012eba494: function(arg0, arg1) {
             arg0.shaderLocation = arg1 >>> 0;
+        },
+        __wbg_set_size_f64_2f591b0654540477: function(arg0, arg1) {
+            arg0.size = arg1;
         },
         __wbg_set_size_f64_e844c985b8f95261: function(arg0, arg1) {
             arg0.size = arg1;
@@ -1155,7 +1164,7 @@ function __wbg_get_imports() {
             return ret;
         },
         __wbindgen_cast_0000000000000007: function(arg0, arg1) {
-            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Ref(NamedExternref("Event"))], shim_idx: 67, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
+            // Cast intrinsic for `Closure(Closure { owned: true, function: Function { arguments: [Ref(NamedExternref("Event"))], shim_idx: 66, ret: Unit, inner_ret: Some(Unit) }, mutable: true }) -> Externref`.
             const ret = makeMutClosure(arg0, arg1, wasm_bindgen_6975dd9e3dce9ffb___convert__closures________invoke___web_sys_f3e051000f3799ac___features__gen_Event__Event______true_);
             return ret;
         },
