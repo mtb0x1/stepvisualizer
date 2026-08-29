@@ -2,7 +2,7 @@
 //! and the effect that renders a frame whenever inputs change.
 use crate::{
     common::fps_meter::FpsMeter,
-    common::{Metadata, StepModel, constants::WEBGPU_INIT_FAILED_MSG},
+    common::{FileId, Metadata, StepModel, constants::WEBGPU_INIT_FAILED_MSG},
     components::fps_graph::FpsGraph,
     rendering::{
         camera::{CAMERA_PRESETS, CameraPreset, CameraState},
@@ -43,7 +43,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let is_dragging = use_state(|| false);
     let last_mouse_pos = use_state(|| (0, 0));
     let canvas_size = use_state(|| (0u32, 0u32));
-    let last_model_id = use_state(|| None::<String>);
+    let last_model_id = use_state(|| None::<FileId>);
     let fps_meter = use_state(FpsMeter::new);
 
     {

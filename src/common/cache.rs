@@ -8,14 +8,14 @@ use std::rc::Rc;
 
 use super::constants::CACHE_SIZE;
 use super::render::RenderablePart;
-use super::types::StepModel;
+use super::types::{FileId, StepModel};
 
 /// LRU over parsed models. Cheap to clone: `StepModel` moves, no `Rc`
 /// indirection, and the working set is bounded by `capacity`.
 pub struct LruCache {
     capacity: usize,
-    order: VecDeque<String>,
-    map: HashMap<String, StepModel>,
+    order: VecDeque<FileId>,
+    map: HashMap<FileId, StepModel>,
 }
 
 impl LruCache {
@@ -33,14 +33,14 @@ impl LruCache {
     // Capacity is tiny (CACHE_SIZE = 5), so a linear scan here is cheaper than
     // the pointer bookkeeping a true O(1) linked-list LRU would require.
     fn remove_from_order(&mut self, id: &str) {
-        if let Some(pos) = self.order.iter().position(|k| k == id) {
+        if let Some(pos) = self.order.iter().position(|k| k.as_str() == id) {
             self.order.remove(pos);
         }
     }
 
     fn touch(&mut self, id: &str) {
         self.remove_from_order(id);
-        self.order.push_front(id.to_string());
+        self.order.push_front(FileId::from(id));
     }
 
     /// Clone of the model under `id`, promoting it to most-recently-used.
@@ -67,20 +67,21 @@ impl LruCache {
             return Some(model);
         }
         let loaded = load(id)?;
-        self.insert(id.to_string(), loaded.clone());
+        self.insert(FileId::from(id), loaded.clone());
         Some(loaded)
     }
 
     /// Insert or replace a model, then evict least-recently-used entries
     /// beyond capacity.
-    pub fn insert(&mut self, id: String, model: StepModel) {
+    pub fn insert(&mut self, id: FileId, model: StepModel) {
         // Capacity 0 means "cache nothing": get_or_load then simply falls
         // through to the persistence backend on every call.
         if self.capacity == 0 {
             return;
         }
-        self.map.insert(id.clone(), model);
-        self.touch(&id);
+        let id_str = id.to_string();
+        self.map.insert(id, model);
+        self.touch(&id_str);
         // `>` (not `==`) so any map/order desync self-heals on the next
         // insertion instead of growing past capacity forever.
         while self.map.len() > self.capacity {
@@ -116,23 +117,23 @@ impl LruCache {
 // ---------------------------------------------------------------------------
 
 thread_local! {
-    static RENDER_PART_CACHE: RefCell<HashMap<String, Rc<Vec<RenderablePart>>>> =
+    static RENDER_PART_CACHE: RefCell<HashMap<FileId, Rc<Vec<RenderablePart>>>> =
         RefCell::new(HashMap::new());
     // Recency order mirroring `RENDER_PART_CACHE` so the geometry cache can be
     // bounded by the same `CACHE_SIZE` as the model LRU. A separate LRU-style
     // eviction keeps the GPU-ready geometry from growing without bound even
     // though the model LRU above evicts `StepModel`s, not this cache.
-    static RENDER_PART_ORDER: RefCell<VecDeque<String>> = RefCell::new(VecDeque::new());
+    static RENDER_PART_ORDER: RefCell<VecDeque<FileId>> = RefCell::new(VecDeque::new());
 }
 
 /// Promote `file_id` to most-recently-used in the recency order (no-op if absent).
 fn touch_render_parts(file_id: &str) {
     RENDER_PART_ORDER.with(|order| {
         let mut order = order.borrow_mut();
-        if let Some(pos) = order.iter().position(|k| k == file_id) {
+        if let Some(pos) = order.iter().position(|k| k.as_str() == file_id) {
             order.remove(pos);
         }
-        order.push_back(file_id.to_string());
+        order.push_back(FileId::from(file_id));
     });
 }
 
@@ -171,7 +172,7 @@ pub fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
     trace_span!("cache_parts");
     let rc = Rc::new(parts.to_vec());
     RENDER_PART_CACHE.with(|cache| {
-        cache.borrow_mut().insert(file_id.to_string(), rc);
+        cache.borrow_mut().insert(FileId::from(file_id), rc);
     });
     touch_render_parts(file_id);
     evict_render_parts();
@@ -184,7 +185,7 @@ pub fn drop_cached_parts(file_id: &str) {
         cache.borrow_mut().remove(file_id);
     });
     RENDER_PART_ORDER.with(|order| {
-        if let Some(pos) = order.borrow().iter().position(|k| k == file_id) {
+        if let Some(pos) = order.borrow().iter().position(|k| k.as_str() == file_id) {
             order.borrow_mut().remove(pos);
         }
     });

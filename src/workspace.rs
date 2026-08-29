@@ -3,7 +3,7 @@
 //! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
-    FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
+    FileId, FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
     convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
     parse_units, save_index, save_model,
 };
@@ -25,8 +25,8 @@ use crate::common::constants::{CACHE_SIZE, DEFAULT_TOLERANCE, MAX_FILE_BYTES};
 /// processor, history management, and per-model action groups.
 pub struct WorkspaceActions {
     pub on_file_change: Callback<Event>,
-    pub on_item_click: Callback<String>,
-    pub on_delete: Callback<String>,
+    pub on_item_click: Callback<FileId>,
+    pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
     pub on_clear_history: Callback<()>,
     pub on_visibility_change: Callback<(usize, bool)>,
@@ -46,7 +46,7 @@ pub struct StepWorkspace {
     pub result_is_error: UseStateHandle<bool>,
     pub metadata: UseStateHandle<Option<Metadata>>,
     pub files_index: UseStateHandle<Vec<FileIndexItem>>,
-    pub selected_file: UseStateHandle<Option<String>>,
+    pub selected_file: UseStateHandle<Option<FileId>>,
     pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
     pub part_visibility: UseStateHandle<Vec<bool>>,
     pub is_processing: UseStateHandle<bool>,
@@ -79,7 +79,7 @@ struct StateHandles {
     metadata: UseStateHandle<Option<Metadata>>,
     step_model: UseStateHandle<Option<Rc<StepModel>>>,
     part_visibility: UseStateHandle<Vec<bool>>,
-    selected_file: UseStateHandle<Option<String>>,
+    selected_file: UseStateHandle<Option<FileId>>,
     is_processing: UseStateHandle<bool>,
     file_reader: UseStateHandle<Option<FileReader>>,
 }
@@ -111,7 +111,7 @@ fn fail_load(
 /// visibility. Shared by deselect, delete (when the deleted file was selected),
 /// and clear-history so the four-line reset lives in one place.
 fn clear_model_state(
-    selected_file: &UseStateHandle<Option<String>>,
+    selected_file: &UseStateHandle<Option<FileId>>,
     metadata: &UseStateHandle<Option<Metadata>>,
     step_model: &UseStateHandle<Option<Rc<StepModel>>>,
     part_visibility: &UseStateHandle<Vec<bool>>,
@@ -143,7 +143,7 @@ fn build_initial_metadata(
     parsed: &Exchange,
     step_table: &truck_stepio::r#in::Table,
     text: &str,
-) -> Result<(Metadata, String), StepVizError> {
+) -> Result<(Metadata, FileId), StepVizError> {
     let entity_count: usize = parsed
         .data
         .iter()
@@ -182,7 +182,7 @@ struct TessellationTargets {
 /// publishes the updated metadata and model to the UI.
 fn spawn_tessellation(
     step_table: truck_stepio::r#in::Table,
-    file_id: String,
+    file_id: FileId,
     meta: Metadata,
     targets: TessellationTargets,
 ) {
@@ -347,8 +347,8 @@ fn use_file_processor(
 
 /// History-management callbacks returned by `use_workspace_management`.
 pub struct WorkspaceManagementActions {
-    pub on_item_click: Callback<String>,
-    pub on_delete: Callback<String>,
+    pub on_item_click: Callback<FileId>,
+    pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
     pub on_clear_history: Callback<()>,
 }
@@ -368,7 +368,7 @@ fn use_workspace_management(
         let step_model_state = states.step_model.clone();
         let selected_file_state = states.selected_file.clone();
         let part_visibility_state = states.part_visibility.clone();
-        Callback::from(move |id: String| {
+        Callback::from(move |id: FileId| {
             let maybe_model = cache_state.borrow_mut().get_or_load(&id, load_model);
 
             match maybe_model {
@@ -406,7 +406,7 @@ fn use_workspace_management(
         let metadata_state = states.metadata.clone();
         let step_model_state = states.step_model.clone();
         let part_visibility_state = states.part_visibility.clone();
-        Callback::from(move |delete_id: String| {
+        Callback::from(move |delete_id: FileId| {
             if let Some(window) = web_sys::window()
                 && let Ok(false) = window.confirm_with_message(
                     "Remove this file from history? This action cannot be undone.",
@@ -630,7 +630,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         file_reader: use_state(|| None::<FileReader>),
         step_model: use_state(|| None::<Rc<StepModel>>),
         part_visibility: use_state(Vec::new),
-        selected_file: use_state(|| None::<String>),
+        selected_file: use_state(|| None::<FileId>),
         is_processing: use_state(|| false),
     };
 

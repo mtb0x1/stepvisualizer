@@ -1,7 +1,7 @@
 //! Left sidebar: file history when nothing is selected, part list otherwise.
 use crate::common::types::StepModel;
 use crate::{
-    common::FileIndexItem,
+    common::{FileId, FileIndexItem},
     components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel},
     trace_span,
 };
@@ -11,10 +11,10 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct LeftPanelProps {
     pub files_index: Vec<FileIndexItem>,
-    pub selected_file: Option<String>,
+    pub selected_file: Option<FileId>,
     pub model: Option<Rc<StepModel>>,
-    pub on_item_click: Callback<String>,
-    pub on_delete: Callback<String>,
+    pub on_item_click: Callback<FileId>,
+    pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
     pub on_clear_history: Callback<()>,
     pub on_visibility_change: Callback<(usize, bool)>,

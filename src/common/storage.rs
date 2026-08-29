@@ -8,7 +8,7 @@ use crate::{
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 
 
-use super::types::{FileIndexItem, StepModel};
+use super::types::{FileId, FileIndexItem, StepModel};
 
 use crate::common::constants::{LS_INDEX_KEY, LS_MODEL_KEY_PREFIX};
 
@@ -71,11 +71,11 @@ pub fn delete_model(id: &str) {
 /// Content-based model identity (16 hex chars) used as the localStorage key.
 /// Uses a stable FNV-1a hash so that compiler upgrades do not change the hashes
 /// and orphan previously saved localStorage items.
-pub fn hash_text_to_id(text: &str) -> String {
+pub fn hash_text_to_id(text: &str) -> FileId {
     let mut hash: u64 = 0xcbf29ce484222325;
     for b in text.bytes() {
         hash ^= b as u64;
         hash = hash.wrapping_mul(0x100000001b3);
     }
-    format!("{:016x}", hash)
+    FileId(format!("{:016x}", hash))
 }

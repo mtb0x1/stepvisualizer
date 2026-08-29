@@ -1,13 +1,13 @@
 //! Recent-files list with per-item load and delete, plus clear-history.
-use crate::common::FileIndexItem;
+use crate::common::{FileId, FileIndexItem};
 use crate::trace_span;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct FileHistoryPanelProps {
     pub files_index: Vec<FileIndexItem>,
-    pub on_item_click: Callback<String>,
-    pub on_delete: Callback<String>,
+    pub on_item_click: Callback<FileId>,
+    pub on_delete: Callback<FileId>,
     pub on_clear_history: Callback<()>,
 }
 
