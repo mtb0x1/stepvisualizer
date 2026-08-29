@@ -28,7 +28,7 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                 .enumerate()
                 .filter(|(_, part)| !part.vertices.is_empty() && !part.indices.is_empty())
                 .map(|(i, part)| MeshData {
-                    id: i.to_string(),
+                    index: i,
                     name: format!("Mesh {}", i + 1),
                     triangle_count: part.indices.len() / 3,
                     vertex_count: part.vertices.len(),
@@ -37,15 +37,6 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                 .collect()
         })
     });
-
-    let on_visibility_change = {
-        let cb = props.on_visibility_change.clone();
-        Callback::from(move |(id, visible): (String, bool)| {
-            if let Ok(index) = id.parse::<usize>() {
-                cb.emit((index, visible));
-            }
-        })
-    };
 
     html! {
         <div class="panel panel-meshes">
@@ -58,7 +49,7 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                 </button>
                 <MeshesPanel
                     meshes={(*meshes).clone()}
-                    on_visibility_change={on_visibility_change}
+                    on_visibility_change={props.on_visibility_change.clone()}
                     on_show_all={props.on_show_all.clone()}
                     on_hide_all={props.on_hide_all.clone()}
                 />

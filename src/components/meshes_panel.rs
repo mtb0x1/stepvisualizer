@@ -5,22 +5,22 @@ use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct MeshItemProps {
-    pub id: String,
+    pub index: usize,
     pub name: String,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
-    pub on_toggle_visibility: Callback<(String, bool)>,
+    pub on_toggle_visibility: Callback<(usize, bool)>,
 }
 
 #[function_component(MeshItem)]
 fn mesh_item(props: &MeshItemProps) -> Html {
     let on_visibility_change = {
-        let id = props.id.clone();
+        let index = props.index;
         let on_toggle = props.on_toggle_visibility.clone();
         Callback::from(move |e: Event| {
             if let Some(input) = e.target_dyn_into::<HtmlInputElement>() {
-                on_toggle.emit((id.clone(), input.checked()));
+                on_toggle.emit((index, input.checked()));
             }
         })
     };
@@ -50,14 +50,14 @@ fn mesh_item(props: &MeshItemProps) -> Html {
 #[derive(Properties, PartialEq)]
 pub struct MeshesPanelProps {
     pub meshes: Vec<MeshData>,
-    pub on_visibility_change: Callback<(String, bool)>,
+    pub on_visibility_change: Callback<(usize, bool)>,
     pub on_show_all: Callback<()>,
     pub on_hide_all: Callback<()>,
 }
 
 #[derive(Clone, Debug, PartialEq, Properties)]
 pub struct MeshData {
-    pub id: String,
+    pub index: usize,
     pub name: String,
     pub triangle_count: usize,
     pub vertex_count: usize,
@@ -77,7 +77,7 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
         .map(|mesh| {
             html! {
                 <MeshItem
-                    id={mesh.id.clone()}
+                    index={mesh.index}
                     name={mesh.name.clone()}
                     triangle_count={mesh.triangle_count}
                     vertex_count={mesh.vertex_count}
