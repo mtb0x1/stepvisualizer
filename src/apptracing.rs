@@ -23,12 +23,14 @@ use crate::common::constants::STEP_TRACER;
 /// Implementations are stateless; the trait exists so call sites depend on
 /// the abstraction rather than a concrete logger, and so the helpers can be
 /// resolved statically.
+#[allow(dead_code)]
 pub trait AppTracerTrait {
     /// Install the global subscriber, but only when tracing is enabled via
     /// URL (see [`AppTracerTrait::tracing_enabled_from_url`]).
     fn init();
     fn error(msg: &str);
     fn warn(msg: &str);
+    fn info(msg: &str);
     fn debug(msg: &str);
     /// Whether `?tracing=on|true|1` is present in the URL.
     fn tracing_enabled_from_url() -> bool;
@@ -90,6 +92,10 @@ impl AppTracerTrait for AppTracer {
         tracing::debug!("{} {}", STEP_TRACER, message);
     }
 
+    fn info(message: &str) {
+        tracing::info!("{} {}", STEP_TRACER, message);
+    }
+
     fn error(message: &str) {
         tracing::error!("{} {}", STEP_TRACER, message);
     }
@@ -135,6 +141,7 @@ macro_rules! trace_span {
             "{}",
             $name
         );
-        let _ = sp.entered();
+        // don't use let _ =, it will drop the guard immediately
+        let _entered = sp.entered();
     };
 }
