@@ -110,15 +110,15 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                         if let Some(bb) = &meta.bounding_box {
                             <div class="detail-item">
                                 <dt class="detail-label">{ "Size X :" }</dt>
-                                <dd>{ format!("{:.2}", bb.max[0] - bb.min[0]) }</dd>
+                                <dd>{ format!("{:.2}", bb.size_x()) }</dd>
                             </div>
                             <div class="detail-item">
                                 <dt class="detail-label">{ "Size Y :" }</dt>
-                                <dd>{ format!("{:.2}", bb.max[1] - bb.min[1]) }</dd>
+                                <dd>{ format!("{:.2}", bb.size_y()) }</dd>
                             </div>
                             <div class="detail-item">
                                 <dt class="detail-label">{ "Size Z :" }</dt>
-                                <dd>{ format!("{:.2}", bb.max[2] - bb.min[2]) }</dd>
+                                <dd>{ format!("{:.2}", bb.size_z()) }</dd>
                             </div>
                         }
                         <div class="detail-item">

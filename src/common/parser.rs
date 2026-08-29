@@ -75,19 +75,16 @@ pub fn parse_units(exchange: &Exchange) -> Option<String> {
 /// pre-load size preview. `None` when the table has no points.
 pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<BoundingBox> {
     trace_span!("compute_bounding_box");
-    let mut min = [f64::INFINITY; 3];
-    let mut max = [f64::NEG_INFINITY; 3];
+    let mut bbox = BoundingBox::EMPTY;
 
-    let values = step_table.cartesian_point.values();
-    for value in values {
+    for value in step_table.cartesian_point.values() {
         let coords = &value.coordinates;
-        for i in 0..coords.len() {
-            min[i] = min[i].min(coords[i]);
-            max[i] = max[i].max(coords[i]);
+        if coords.len() >= 3 {
+            bbox.expand_point([coords[0], coords[1], coords[2]]);
         }
     }
-    if min[0].is_finite() {
-        Some(BoundingBox { min, max })
+    if bbox.is_valid() {
+        Some(bbox)
     } else {
         None
     }

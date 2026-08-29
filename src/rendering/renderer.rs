@@ -4,7 +4,7 @@ use std::rc::Rc;
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
     common::{
-        RenderablePart, create_look_at_matrix, create_perspective_matrix,
+        BoundingBox, RenderablePart, create_look_at_matrix, create_perspective_matrix,
         fps_meter::FpsMeter, multiply_matrices,
     },
     error::StepVizError,
@@ -47,22 +47,11 @@ pub async fn render_wgpu_on_canvas(
     let canvas_width = config.borrow().width;
     let canvas_height = config.borrow().height;
 
-    let (min, max) = crate::common::render::visible_bounds(&parts, visibility)
-        .unwrap_or(([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
+    let bounds = crate::common::render::visible_bounds(&parts, visibility)
+        .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
 
-    let (min_x, min_y, min_z) = (min[0], min[1], min[2]);
-    let (max_x, max_y, max_z) = (max[0], max[1], max[2]);
-
-    let size_x = (max_x - min_x).max(0.1);
-    let size_y = (max_y - min_y).max(0.1);
-    let size_z = (max_z - min_z).max(0.1);
-    let max_size = size_x.max(size_y).max(size_z);
-
-    let view_target = [
-        (min_x + max_x) * 0.5,
-        (min_y + max_y) * 0.5,
-        (min_z + max_z) * 0.5,
-    ];
+    let max_size = bounds.max_extent_f32().max(0.1);
+    let view_target = bounds.center_f32();
 
     // The camera distance is expressed for a reference model of size ~1 (see
     // `CameraState::DEFAULT`). Real models span arbitrary coordinate scales, so

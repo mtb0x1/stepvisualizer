@@ -104,11 +104,100 @@ pub struct FileIndexItem {
     pub time_stamp: String,
 }
 
-/// Axis-aligned bounds in model coordinates.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+/// Axis-aligned bounds in 3D space.
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct BoundingBox {
     pub min: [f64; 3],
     pub max: [f64; 3],
+}
+
+#[allow(dead_code)]
+impl BoundingBox {
+    /// An empty/inverted bounding box ready to be expanded.
+    pub const EMPTY: Self = Self {
+        min: [f64::INFINITY; 3],
+        max: [f64::NEG_INFINITY; 3],
+    };
+
+    /// Create a bounding box with the given min and max coordinates.
+    pub fn new(min: [f64; 3], max: [f64; 3]) -> Self {
+        Self { min, max }
+    }
+
+    /// True if the bounding box has valid, finite dimensions.
+    pub fn is_valid(&self) -> bool {
+        self.min[0].is_finite()
+            && self.max[0].is_finite()
+            && self.min[0] <= self.max[0]
+            && self.min[1] <= self.max[1]
+            && self.min[2] <= self.max[2]
+    }
+
+    /// Center point of the bounding box as f64.
+    pub fn center(&self) -> [f64; 3] {
+        [
+            (self.min[0] + self.max[0]) * 0.5,
+            (self.min[1] + self.max[1]) * 0.5,
+            (self.min[2] + self.max[2]) * 0.5,
+        ]
+    }
+
+    /// Center point converted to `[f32; 3]` for GPU and camera framing.
+    pub fn center_f32(&self) -> [f32; 3] {
+        let c = self.center();
+        [c[0] as f32, c[1] as f32, c[2] as f32]
+    }
+
+    /// Dimensions (width, height, depth) as f64.
+    pub fn size(&self) -> [f64; 3] {
+        [
+            (self.max[0] - self.min[0]).max(0.0),
+            (self.max[1] - self.min[1]).max(0.0),
+            (self.max[2] - self.min[2]).max(0.0),
+        ]
+    }
+
+    /// Size along the X axis.
+    pub fn size_x(&self) -> f64 {
+        (self.max[0] - self.min[0]).max(0.0)
+    }
+
+    /// Size along the Y axis.
+    pub fn size_y(&self) -> f64 {
+        (self.max[1] - self.min[1]).max(0.0)
+    }
+
+    /// Size along the Z axis.
+    pub fn size_z(&self) -> f64 {
+        (self.max[2] - self.min[2]).max(0.0)
+    }
+
+    /// Maximum dimension across X, Y, Z as f64.
+    pub fn max_extent(&self) -> f64 {
+        let s = self.size();
+        s[0].max(s[1]).max(s[2])
+    }
+
+    /// Maximum dimension converted to f32.
+    pub fn max_extent_f32(&self) -> f32 {
+        self.max_extent() as f32
+    }
+
+    /// Expands this bounding box to include the given 3D point.
+    pub fn expand_point(&mut self, p: [f64; 3]) {
+        for i in 0..3 {
+            self.min[i] = self.min[i].min(p[i]);
+            self.max[i] = self.max[i].max(p[i]);
+        }
+    }
+
+    /// Expands this bounding box to include another bounding box.
+    pub fn expand_box(&mut self, other: &BoundingBox) {
+        for i in 0..3 {
+            self.min[i] = self.min[i].min(other.min[i]);
+            self.max[i] = self.max[i].max(other.max[i]);
+        }
+    }
 }
 
 /// A fully processed STEP file: identity, metadata, tessellated parts, and

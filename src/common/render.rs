@@ -13,6 +13,7 @@ use truck_meshalgo::prelude::*;
 use crate::common::constants::COLORS;
 use crate::common::math::Mat4;
 use crate::common::time::now_ms;
+use crate::common::types::BoundingBox;
 
 /// Vertex layout shared with the render pipeline: position + normal, both
 /// `Float32x3`.
@@ -176,9 +177,8 @@ pub fn extract_render_parts(
 pub fn visible_bounds(
     parts: &[RenderablePart],
     visibility: &[bool],
-) -> Option<([f32; 3], [f32; 3])> {
-    let mut min = [f32::INFINITY; 3];
-    let mut max = [f32::NEG_INFINITY; 3];
+) -> Option<BoundingBox> {
+    let mut bbox = BoundingBox::EMPTY;
     let mut visible_count = 0;
 
     for (index, part) in parts.iter().enumerate() {
@@ -187,30 +187,26 @@ pub fn visible_bounds(
         }
         visible_count += 1;
         for vertex in &part.vertices {
-            for i in 0..3 {
-                min[i] = min[i].min(vertex.position[i]);
-                max[i] = max[i].max(vertex.position[i]);
-            }
+            bbox.expand_point([
+                vertex.position[0] as f64,
+                vertex.position[1] as f64,
+                vertex.position[2] as f64,
+            ]);
         }
     }
 
-    if visible_count == 0 || min[0] == f32::INFINITY {
-        None
+    if visible_count > 0 && bbox.is_valid() {
+        Some(bbox)
     } else {
-        Some((min, max))
+        None
     }
 }
 
 /// Bounding-box center across all parts; `[0,0,0]` when there is no geometry.
 fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
-    match visible_bounds(parts, &[]) {
-        Some((min, max)) => [
-            (min[0] + max[0]) * 0.5,
-            (min[1] + max[1]) * 0.5,
-            (min[2] + max[2]) * 0.5,
-        ],
-        None => [0.0, 0.0, 0.0],
-    }
+    visible_bounds(parts, &[])
+        .map(|b| b.center_f32())
+        .unwrap_or([0.0, 0.0, 0.0])
 }
 
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
