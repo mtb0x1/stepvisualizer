@@ -30,8 +30,8 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                 .map(|(i, part)| MeshData {
                     index: i,
                     name: format!("Mesh {}", i + 1),
-                    triangle_count: part.indices.len() / 3,
-                    vertex_count: part.vertices.len(),
+                    triangle_count: part.triangle_count(),
+                    vertex_count: part.vertex_count(),
                     visible: m.part_visibility.get(i).copied().unwrap_or(true),
                 })
                 .collect()

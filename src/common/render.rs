@@ -47,6 +47,23 @@ impl Default for RenderablePart {
 }
 
 impl RenderablePart {
+    /// Returns the number of triangles in this part.
+    pub fn triangle_count(&self) -> usize {
+        self.indices.len() / 3
+    }
+
+    /// Returns the number of vertices in this part.
+    pub fn vertex_count(&self) -> usize {
+        self.vertices.len()
+    }
+
+    /// Translates the part's model matrix by `offset`.
+    pub fn translate(&mut self, offset: [f32; 3]) {
+        self.model_matrix.0[12] += offset[0];
+        self.model_matrix.0[13] += offset[1];
+        self.model_matrix.0[14] += offset[2];
+    }
+
     /// Iterate over the triangles referenced by the index buffer.
     ///
     /// Malformed entries are skipped: an incomplete trailing triple (the index
@@ -152,8 +169,8 @@ pub fn extract_render_parts(
     AppTracer::debug(&msg);
 
     let total_ms = now_ms() - total_start;
-    let vertices: usize = parts_to_render.iter().map(|p| p.vertices.len()).sum();
-    let triangles: usize = parts_to_render.iter().map(|p| p.indices.len() / 3).sum();
+    let vertices: usize = parts_to_render.iter().map(|p| p.vertex_count()).sum();
+    let triangles: usize = parts_to_render.iter().map(|p| p.triangle_count()).sum();
 
     let summary = format!(
         "extract_render_parts => tessellation summary: {:.2} ms, parts={}, vertices={}, triangles={}",
@@ -168,10 +185,9 @@ pub fn extract_render_parts(
     // translation into each part's model matrix. This keeps the geometry
     // immutable across frames so the renderer no longer needs to mutate it.
     let center = compute_parts_center(&parts_to_render);
+    let offset = [-center[0], -center[1], -center[2]];
     for part in &mut parts_to_render {
-        part.model_matrix.0[12] -= center[0];
-        part.model_matrix.0[13] -= center[1];
-        part.model_matrix.0[14] -= center[2];
+        part.translate(offset);
     }
 
     crate::common::cache::cache_parts(file_id, &parts_to_render);

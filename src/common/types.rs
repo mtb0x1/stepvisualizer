@@ -322,12 +322,12 @@ pub struct StepModel {
 impl StepModel {
     /// Compute total vertex count across all render parts.
     pub fn total_vertices(&self) -> usize {
-        self.render_parts.iter().map(|p| p.vertices.len()).sum()
+        self.render_parts.iter().map(|p| p.vertex_count()).sum()
     }
 
     /// Compute total triangle count across all render parts.
     pub fn total_triangles(&self) -> usize {
-        self.render_parts.iter().map(|p| p.indices.len() / 3).sum()
+        self.render_parts.iter().map(|p| p.triangle_count()).sum()
     }
 
     /// Calculate total volume across all render parts.
