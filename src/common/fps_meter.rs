@@ -28,7 +28,8 @@ pub struct FpsMeter {
 
 struct FpsInner {
     /// Timestamps (performance.now ms) of frames within the sliding window.
-    frame_times: Vec<f64>,
+    /// Append-only and older-first, so aging out is an O(1) `pop_front`.
+    frame_times: VecDeque<f64>,
     /// Recent FPS snapshots for the sparkline, oldest first.
     samples: VecDeque<f32>,
     /// performance.now ms of the last snapshot push.
@@ -39,7 +40,7 @@ impl FpsMeter {
     pub fn new() -> Rc<Self> {
         Rc::new(Self {
             inner: RefCell::new(FpsInner {
-                frame_times: Vec::with_capacity(64),
+                frame_times: VecDeque::with_capacity(64),
                 samples: VecDeque::with_capacity(MAX_SAMPLES),
                 last_sample_at: 0.0,
             }),
@@ -50,16 +51,18 @@ impl FpsMeter {
     pub fn record_frame(&self) {
         let now = now_ms();
         let mut inner = self.inner.borrow_mut();
-        inner.frame_times.push(now);
+        inner.frame_times.push_back(now);
 
-        // Drop timestamps that have aged out of the sliding window.
+        // Drop timestamps that have aged out of the sliding window. `frame_times`
+        // is kept oldest-first, so eviction is an O(1) `pop_front` (not the O(n)
+        // `Vec::remove(0)` this replaced).
         let cutoff = now - WINDOW_MS;
         while inner
             .frame_times
-            .first()
+            .front()
             .is_some_and(|&oldest| oldest < cutoff)
         {
-            inner.frame_times.remove(0);
+            inner.frame_times.pop_front();
         }
 
         // Snapshot the rate at most every SAMPLE_INTERVAL_MS so the graph
@@ -78,7 +81,7 @@ impl FpsMeter {
     pub fn current_fps(&self) -> f32 {
         let inner = self.inner.borrow();
         let now = now_ms();
-        match inner.frame_times.last() {
+        match inner.frame_times.back() {
             Some(&newest) if now - newest <= IDLE_TIMEOUT_MS => {
                 Self::fps_from_times(&inner.frame_times, now)
             }
@@ -91,13 +94,13 @@ impl FpsMeter {
         self.inner.borrow().samples.iter().copied().collect()
     }
 
-    /// FPS from a slice of frame timestamps: frames-per-second across the span
-    /// from the first to `now`. Needs at least two frames to be meaningful.
-    fn fps_from_times(times: &[f64], now: f64) -> f32 {
+    /// FPS from a deque of frame timestamps: frames-per-second across the span
+    /// from the first (oldest) to `now`. Needs at least two frames to be meaningful.
+    fn fps_from_times(times: &VecDeque<f64>, now: f64) -> f32 {
         if times.len() < 2 {
             return 0.0;
         }
-        let span = now - times[0];
+        let span = now - *times.front().unwrap();
         if span <= 0.0 {
             return 0.0;
         }
