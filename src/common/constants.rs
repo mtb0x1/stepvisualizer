@@ -7,11 +7,7 @@ pub const CACHE_SIZE: usize = 5;
 /// Upload guard: STEP is a text format, so this caps both memory and parse time.
 /// Stored as `f64` because `web_sys::File::size()` returns `f64`. 20MB fits perfectly
 /// within the contiguous integer range of `f64` (up to 2^53), so there is no precision loss.
-pub const MAX_FILE_BYTES: f64 = 20.0 * 1024.0 * 1024.0; // 20mb max (text file ...)
-const _: () = assert!(
-    MAX_FILE_BYTES == 20971520.0,
-    "MAX_FILE_BYTES must exactly represent 20MB"
-);
+pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file ...)
 /// localStorage key of the recent-files index (Vec<FileIndexItem>).
 pub const LS_INDEX_KEY: &str = "stepviz:index";
 /// Prefix on every persisted-model localStorage key (`stepviz:model:<id>`),
