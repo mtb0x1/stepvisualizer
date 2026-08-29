@@ -12,9 +12,7 @@ pub mod time;
 pub mod types;
 
 pub use cache::LruCache;
-pub use math::{
-    Mat4, create_look_at_matrix, create_perspective_matrix, multiply_matrices,
-};
+pub use math::{create_look_at_matrix, create_perspective_matrix, multiply_matrices};
 pub use parser::{compute_bounding_box, convert_header, parse_units};
 pub use render::{GpuVertex, RenderablePart, extract_render_parts};
 pub use storage::{delete_model, hash_text_to_id, load_index, load_model, save_index, save_model};
