@@ -123,7 +123,7 @@ thread_local! {
     // bounded by the same `CACHE_SIZE` as the model LRU. A separate LRU-style
     // eviction keeps the GPU-ready geometry from growing without bound even
     // though the model LRU above evicts `StepModel`s, not this cache.
-    static RENDER_PART_ORDER: RefCell<VecDeque<FileId>> = RefCell::new(VecDeque::new());
+    static RENDER_PART_ORDER: RefCell<VecDeque<FileId>> = const { RefCell::new(VecDeque::new()) };
 }
 
 /// Promote `file_id` to most-recently-used in the recency order (no-op if absent).

@@ -141,7 +141,7 @@ impl LengthUnit {
     }
 
     /// Scale factor to convert a value in this unit to base SI metres.
-    pub fn to_metres_scale(&self) -> f64 {
+    pub fn to_metres_scale(self) -> f64 {
         match self {
             Self::Millimetre => 1e-3,
             Self::Centimetre => 1e-2,
@@ -349,7 +349,9 @@ impl StepModel {
 
     /// Calculate total surface area across all render parts.
     pub fn calculate_total_surface_area(&self) -> f64 {
-        self.render_parts.iter().map(|p| p.calculate_surface_area()).sum()
+        self.render_parts
+            .iter()
+            .map(|p| p.calculate_surface_area())
+            .sum()
     }
 }
-

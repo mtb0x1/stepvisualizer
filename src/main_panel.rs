@@ -1,5 +1,6 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
+use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::{
     common::fps_meter::FpsMeter,
     common::{FileId, Metadata, StepModel, ViewportSize, constants::WEBGPU_INIT_FAILED_MSG},
@@ -16,7 +17,6 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlCanvasElement, ResizeObserver};
 use yew::prelude::*;
-use crate::apptracing::{AppTracer, AppTracerTrait};
 
 #[derive(Properties, PartialEq)]
 pub struct MainPanelProps {

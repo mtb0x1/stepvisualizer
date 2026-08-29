@@ -9,8 +9,8 @@ use super::types::{BoundingBox, LengthUnit, StepHeader};
 /// Fails when the records do not form a valid header.
 pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> {
     trace_span!("convert_header");
-    let header_in: Header = Header::from_records(header_in)
-        .map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
+    let header_in: Header =
+        Header::from_records(header_in).map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
     let file_description = header_in.file_description.description;
     Ok(StepHeader {
         file_description: file_description.join("; "),

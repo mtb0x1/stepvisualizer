@@ -1,7 +1,7 @@
 //! Metadata panel: header fields, geometry stats, and volume/surface-area
 //! calculate actions.
-use crate::common::{BoundingBox, Metadata};
 use crate::common::constants::NA;
+use crate::common::{BoundingBox, Metadata};
 use crate::trace_span;
 use yew::prelude::*;
 
@@ -24,11 +24,7 @@ fn detail_row(label: &'static str, value: impl Into<Html>) -> Html {
 
 /// Helper to format a string value, defaulting to `N/A` if empty.
 fn format_or_na(val: &str) -> &str {
-    if val.is_empty() {
-        NA
-    } else {
-        val
-    }
+    if val.is_empty() { NA } else { val }
 }
 
 /// Helper to format a list of strings, defaulting to `N/A` if empty.

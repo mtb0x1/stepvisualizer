@@ -72,4 +72,3 @@ impl From<&str> for StepVizError {
         StepVizError::Generic(msg.to_string())
     }
 }
-

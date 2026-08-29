@@ -7,7 +7,6 @@ use crate::{
 };
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 
-
 use super::types::{FileId, FileIndexItem, StepModel};
 
 use crate::common::constants::{LS_INDEX_KEY, LS_MODEL_KEY_PREFIX};

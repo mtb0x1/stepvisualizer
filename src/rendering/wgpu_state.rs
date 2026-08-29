@@ -8,7 +8,10 @@ use bytemuck::cast_slice;
 use std::cell::RefCell;
 use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
-use wgpu::{self, SurfaceTarget, util::{BufferInitDescriptor, DeviceExt}};
+use wgpu::{
+    self, SurfaceTarget,
+    util::{BufferInitDescriptor, DeviceExt},
+};
 
 /// Whether the browser exposes the `navigator.gpu` entry point.
 ///
@@ -103,7 +106,11 @@ impl PartGpu {
     /// Upload model transform and RGBA color uniforms to the GPU queue once per part.
     pub fn upload_uniforms(&mut self, queue: &wgpu::Queue, part: &RenderablePart) {
         if !self.uniforms_uploaded {
-            queue.write_buffer(&self.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
+            queue.write_buffer(
+                &self.model_buffer,
+                0,
+                bytemuck::bytes_of(&part.model_matrix),
+            );
             queue.write_buffer(&self.color_buffer, 0, bytemuck::bytes_of(&part.color));
             self.uniforms_uploaded = true;
         }
@@ -303,9 +310,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         source: wgpu::ShaderSource::Wgsl(WGSL_SHADER.into()),
     };
     let shader = device.create_shader_module(shader_module_descriptor);
-    let global_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
+    let global_bind_group_layout =
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[wgpu::BindGroupLayoutEntry {
                 binding: 0,
                 visibility: wgpu::ShaderStages::VERTEX,
                 ty: wgpu::BindingType::Buffer {
@@ -314,10 +321,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
                     min_binding_size: std::num::NonZeroU64::new(64),
                 },
                 count: None,
-            },
-        ],
-        label: Some("global_bind_group_layout"),
-    });
+            }],
+            label: Some("global_bind_group_layout"),
+        });
 
     let view_proj_buffer = device.create_buffer(&wgpu::BufferDescriptor {
         label: Some("View Projection Buffer"),
@@ -335,39 +341,43 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         label: Some("global_bind_group"),
     });
 
-    let part_bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        entries: &[
-            wgpu::BindGroupLayoutEntry {
-                binding: 0,
-                visibility: wgpu::ShaderStages::VERTEX,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    min_binding_size: std::num::NonZeroU64::new(64),
+    let part_bind_group_layout =
+        device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::VERTEX,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: std::num::NonZeroU64::new(64),
+                    },
+                    count: None,
                 },
-                count: None,
-            },
-            wgpu::BindGroupLayoutEntry {
-                binding: 1,
-                visibility: wgpu::ShaderStages::FRAGMENT,
-                ty: wgpu::BindingType::Buffer {
-                    ty: wgpu::BufferBindingType::Uniform,
-                    has_dynamic_offset: false,
-                    // vec4<f32> is exactly 16 bytes.
-                    min_binding_size: std::num::NonZeroU64::new(16),
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        // vec4<f32> is exactly 16 bytes.
+                        min_binding_size: std::num::NonZeroU64::new(16),
+                    },
+                    count: None,
                 },
-                count: None,
-            },
-        ],
-        label: Some("part_bind_group_layout"),
-    });
+            ],
+            label: Some("part_bind_group_layout"),
+        });
 
     let render_pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
         label: Some("Pipeline Layout"),
         // wgpu 30: each layout slot is optional (None skips that set), and
         // `immediate_size` replaces `push_constant_ranges` (we use neither
         // feature, so a single mandatory layout and zero immediate bytes).
-        bind_group_layouts: &[Some(&global_bind_group_layout), Some(&part_bind_group_layout)],
+        bind_group_layouts: &[
+            Some(&global_bind_group_layout),
+            Some(&part_bind_group_layout),
+        ],
         immediate_size: 0,
     });
 

@@ -196,10 +196,7 @@ pub fn extract_render_parts(
 
 /// Bounding box over a subset of parts, taking `visibility` into account.
 /// Returns `None` if no geometry is visible.
-pub fn visible_bounds(
-    parts: &[RenderablePart],
-    visibility: &[bool],
-) -> Option<BoundingBox> {
+pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<BoundingBox> {
     let mut bbox = BoundingBox::EMPTY;
     let mut visible_count = 0;
 
@@ -391,4 +388,3 @@ fn tessellate_table(
         AppTracer::debug(&shell_msg);
     }
 }
-
