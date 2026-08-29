@@ -41,6 +41,8 @@ pub struct WorkspaceActions {
 /// components that read them.
 pub struct StepWorkspace {
     pub result: UseStateHandle<Option<String>>,
+    /// `true` when the current `result` message is an error (drives CSS class).
+    pub result_is_error: UseStateHandle<bool>,
     pub metadata: UseStateHandle<Option<Metadata>>,
     pub files_index: UseStateHandle<Vec<FileIndexItem>>,
     pub selected_file: UseStateHandle<Option<String>>,
@@ -72,6 +74,7 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
 /// `use_model_actions`) can receive them without a long parameter list.
 struct StateHandles {
     result: UseStateHandle<Option<String>>,
+    result_is_error: UseStateHandle<bool>,
     metadata: UseStateHandle<Option<Metadata>>,
     step_model: UseStateHandle<Option<Rc<StepModel>>>,
     part_visibility: UseStateHandle<Vec<bool>>,
@@ -88,14 +91,16 @@ fn input_file(event: &Event) -> Option<web_sys::File> {
     input.files()?.get(0)
 }
 
-/// Resets the UI after a failed load: surface `msg`, clear stale metadata,
-/// and drop the processing flag. Every failure path funnels through here.
+/// Resets the UI after a failed load: surface `msg` as an error, clear stale
+/// metadata, and drop the processing flag. Every failure path funnels through here.
 fn fail_load(
     msg: String,
     result: &UseStateHandle<Option<String>>,
+    result_is_error: &UseStateHandle<bool>,
     metadata: &UseStateHandle<Option<Metadata>>,
     is_processing: &UseStateHandle<bool>,
 ) {
+    result_is_error.set(true);
     result.set(Some(msg));
     metadata.set(None);
     is_processing.set(false);
@@ -151,6 +156,7 @@ struct TessellationTargets {
     step_model: UseStateHandle<Option<Rc<StepModel>>>,
     part_visibility: UseStateHandle<Vec<bool>>,
     result: UseStateHandle<Option<String>>,
+    result_is_error: UseStateHandle<bool>,
     is_processing: UseStateHandle<bool>,
     cache: Rc<RefCell<LruCache>>,
 }
@@ -191,6 +197,7 @@ fn spawn_tessellation(
         targets.metadata.set(Some(updated_meta));
         targets.step_model.set(Some(Rc::new(model)));
         targets.part_visibility.set(vec![true; part_count]);
+        targets.result_is_error.set(false);
         targets
             .result
             .set(Some("Parsed STEP file successfully.".to_string()));
@@ -205,6 +212,7 @@ fn use_file_processor(
     cache: Rc<RefCell<LruCache>>,
 ) -> Callback<Event> {
     let result_handle = states.result.clone();
+    let result_is_error_handle = states.result_is_error.clone();
     let metadata_handle = states.metadata.clone();
     let file_reader_handle = states.file_reader.clone();
     let files_index_handle = files_index.clone();
@@ -226,6 +234,7 @@ fn use_file_processor(
             fail_load(
                 "File too large. Maximum allowed is 20 MB.".to_string(),
                 &result_handle,
+                &result_is_error_handle,
                 &metadata_handle,
                 &is_processing_handle,
             );
@@ -239,6 +248,7 @@ fn use_file_processor(
         // must stay `Fn` (it is invoked for every file-selection event), so it
         // cannot move its own captures into the one-shot reader callback.
         let result_state = result_handle.clone();
+        let result_is_error_state = result_is_error_handle.clone();
         let metadata_state = metadata_handle.clone();
         let processing_state = is_processing_handle.clone();
         let selected_file_state = selected_file_handle.clone();
@@ -250,7 +260,13 @@ fn use_file_processor(
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
             // Every early exit below resets the UI the same way.
             let fail = |msg: String| {
-                fail_load(msg, &result_state, &metadata_state, &processing_state);
+                fail_load(
+                    msg,
+                    &result_state,
+                    &result_is_error_state,
+                    &metadata_state,
+                    &processing_state,
+                );
             };
 
             let text = match res {
@@ -273,6 +289,7 @@ fn use_file_processor(
 
             metadata_state.set(Some(meta.clone()));
             selected_file_state.set(Some(id.clone()));
+            result_is_error_state.set(false);
             result_state.set(Some("Tessellating geometry for 3D view...".to_string()));
 
             spawn_tessellation(
@@ -284,6 +301,7 @@ fn use_file_processor(
                     step_model: step_model_state.clone(),
                     part_visibility: part_visibility_state.clone(),
                     result: result_state.clone(),
+                    result_is_error: result_is_error_state.clone(),
                     is_processing: processing_state.clone(),
                     cache: cache_state.clone(),
                 },
@@ -326,6 +344,7 @@ fn use_workspace_management(
         let files_index_state = files_index.clone();
         let metadata_state = states.metadata.clone();
         let result_state = states.result.clone();
+        let result_is_error_state = states.result_is_error.clone();
         let cache_state = cache.clone();
         let step_model_state = states.step_model.clone();
         let selected_file_state = states.selected_file.clone();
@@ -341,6 +360,7 @@ fn use_workspace_management(
                     step_model_state.set(Some(model_rc));
                     part_visibility_state.set(part_visibility);
                     selected_file_state.set(Some(id.clone()));
+                    result_is_error_state.set(false);
                     result_state.set(Some("Loaded from cache".to_string()));
                     let mut list = (*files_index_state).clone();
                     if let Some(pos) = list.iter().position(|i| i.id == id) {
@@ -351,6 +371,7 @@ fn use_workspace_management(
                     }
                 }
                 None => {
+                    result_is_error_state.set(true);
                     result_state.set(Some("Cached data missing.".to_string()));
                 }
             }
@@ -360,6 +381,7 @@ fn use_workspace_management(
     let on_delete = {
         let files_index = files_index.clone();
         let result_state = states.result.clone();
+        let result_is_error_state = states.result_is_error.clone();
         let cache_handle = cache.clone();
         let selected_file_state = states.selected_file.clone();
         let metadata_state = states.metadata.clone();
@@ -371,6 +393,7 @@ fn use_workspace_management(
                     "Remove this file from history? This action cannot be undone.",
                 )
             {
+                result_is_error_state.set(false);
                 result_state.set(Some("Deletion cancelled.".to_string()));
                 return;
             }
@@ -394,6 +417,7 @@ fn use_workspace_management(
                 step_model_state.set(None);
                 part_visibility_state.set(Vec::new());
             }
+            result_is_error_state.set(false);
             result_state.set(Some("Removed file from list.".to_string()));
         })
     };
@@ -414,6 +438,7 @@ fn use_workspace_management(
     let on_clear_history = {
         let files_index_state = files_index.clone();
         let result_state = states.result.clone();
+        let result_is_error_state = states.result_is_error.clone();
         let cache_handle = cache.clone();
         let metadata_state = states.metadata.clone();
         let step_model_state = states.step_model.clone();
@@ -425,6 +450,7 @@ fn use_workspace_management(
                     "Clear all cached files? This removes local copies and history.",
                 )
             {
+                result_is_error_state.set(false);
                 result_state.set(Some("Clear history cancelled.".to_string()));
                 return;
             }
@@ -448,6 +474,7 @@ fn use_workspace_management(
             step_model_state.set(None);
             selected_file_state.set(None);
             part_visibility_state.set(Vec::new());
+            result_is_error_state.set(false);
             result_state.set(Some("Cleared cached files.".to_string()));
         })
     };
@@ -573,6 +600,7 @@ pub fn use_step_workspace() -> StepWorkspace {
     trace_span!("use_step_workspace");
     let states = StateHandles {
         result: use_state(|| None::<String>),
+        result_is_error: use_state(|| false),
         metadata: use_state(|| None::<Metadata>),
         file_reader: use_state(|| None::<FileReader>),
         step_model: use_state(|| None::<Rc<StepModel>>),
@@ -591,6 +619,7 @@ pub fn use_step_workspace() -> StepWorkspace {
 
     StepWorkspace {
         result: states.result.clone(),
+        result_is_error: states.result_is_error.clone(),
         metadata: states.metadata.clone(),
         files_index,
         selected_file: states.selected_file.clone(),

@@ -79,7 +79,9 @@ fn main_app(props: &MainAppProps) -> Html {
         .map(|m| m.header.file_name.clone());
     let render_error_callback = {
         let result = workspace.result.clone();
+        let result_is_error = workspace.result_is_error.clone();
         Callback::from(move |msg: String| {
+            result_is_error.set(true);
             result.set(Some(msg));
         })
     };
@@ -124,7 +126,7 @@ fn main_app(props: &MainAppProps) -> Html {
                     on_render_error={render_error_callback}
                     on_gpu_unavailable={props.on_gpu_unavailable.clone()}
                 />
-                <div class="result-message">
+                <div class={if *workspace.result_is_error { "result-message result-error" } else { "result-message result-success" }}>
                     { workspace.result.as_ref().map(|msg| msg.as_str()).unwrap_or("") }
                 </div>
             </main>
