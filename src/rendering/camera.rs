@@ -1,4 +1,6 @@
 //! Orbit camera state and its toolbar view presets.
+use crate::common::spherical_to_cartesian;
+
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
 /// point. Dragging mutates the angles, zooming the distance; the target is
 /// normally the model center and never moves.
@@ -22,6 +24,11 @@ impl CameraState {
         distance: 3.0,
         target: [0.0, 0.0, 0.0],
     };
+
+    /// Computes the 3D eye position in world space for this orbit camera.
+    pub fn eye_position(&self) -> [f32; 3] {
+        spherical_to_cartesian(self.azimuth, self.elevation, self.distance, self.target)
+    }
 }
 
 impl Default for CameraState {
@@ -78,17 +85,4 @@ impl CameraPreset {
             target: current.target,
         }
     }
-}
-
-/// Spherical-to-Cartesian eye position for an orbit camera state.
-pub fn compute_eye_position(camera: &CameraState) -> [f32; 3] {
-    let azimuth = camera.azimuth;
-    let elevation = camera.elevation;
-    let distance = camera.distance;
-
-    let eye_x = camera.target[0] + distance * azimuth.cos() * elevation.cos();
-    let eye_y = camera.target[1] + distance * elevation.sin();
-    let eye_z = camera.target[2] + distance * azimuth.sin() * elevation.cos();
-
-    [eye_x, eye_y, eye_z]
 }

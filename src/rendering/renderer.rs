@@ -8,7 +8,7 @@ use crate::{
         fps_meter::FpsMeter, multiply_matrices,
     },
     error::StepVizError,
-    rendering::camera::{CameraState, compute_eye_position},
+    rendering::camera::CameraState,
     rendering::wgpu_state::WgpuState,
     trace_span,
 };
@@ -64,7 +64,7 @@ pub async fn render_wgpu_on_canvas(
         distance: fit_distance,
         ..(*camera).clone()
     };
-    let eye = compute_eye_position(&camera_target);
+    let eye = camera_target.eye_position();
     let view_matrix = create_look_at_matrix(eye, view_target, [0.0, 1.0, 0.0]);
 
     let aspect = canvas_width as f32 / canvas_height as f32;

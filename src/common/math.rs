@@ -53,6 +53,22 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
     ])
 }
 
+/// Converts spherical coordinates (azimuth, elevation, distance) around a
+/// `target` center into Cartesian 3D coordinates `[x, y, z]`.
+#[inline(always)]
+pub fn spherical_to_cartesian(
+    azimuth: f32,
+    elevation: f32,
+    distance: f32,
+    target: [f32; 3],
+) -> [f32; 3] {
+    [
+        target[0] + distance * azimuth.cos() * elevation.cos(),
+        target[1] + distance * elevation.sin(),
+        target[2] + distance * azimuth.sin() * elevation.cos(),
+    ]
+}
+
 // @todo
 // https://rust.godbolt.org/z/sWGW7cq5s
 
