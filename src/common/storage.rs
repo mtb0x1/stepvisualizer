@@ -6,8 +6,7 @@ use crate::{
     trace_span,
 };
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
-use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
+
 
 use super::types::{FileIndexItem, StepModel};
 
@@ -70,10 +69,13 @@ pub fn delete_model(id: &str) {
 }
 
 /// Content-based model identity (16 hex chars) used as the localStorage key.
-/// `DefaultHasher` is deterministic within a build; it is not stable across
-/// compiler versions and not cryptographic — both fine for cache aliasing.
+/// Uses a stable FNV-1a hash so that compiler upgrades do not change the hashes
+/// and orphan previously saved localStorage items.
 pub fn hash_text_to_id(text: &str) -> String {
-    let mut hasher = DefaultHasher::new();
-    std::hash::Hash::hash(&text, &mut hasher);
-    format!("{:016x}", hasher.finish())
+    let mut hash: u64 = 0xcbf29ce484222325;
+    for b in text.bytes() {
+        hash ^= b as u64;
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{:016x}", hash)
 }
