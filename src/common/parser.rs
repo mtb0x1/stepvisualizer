@@ -3,7 +3,7 @@ use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
-use super::types::{BoundingBox, StepHeader};
+use super::types::{BoundingBox, LengthUnit, StepHeader};
 
 /// Convert the STEP header section into the display-oriented [`StepHeader`].
 /// Fails when the records do not form a valid header.
@@ -22,19 +22,19 @@ pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> 
         preprocessor_version: header_in.file_name.preprocessor_version,
         originating_system: header_in.file_name.originating_system,
         authorization: header_in.file_name.authorization,
-        file_schema: header_in.file_schema.schema.join("; "),
+        file_schema: header_in.file_schema.schema.join(", "),
     })
 }
 
-/// Best-effort length-unit extraction as a display string ("mm", "in", ...).
+/// Parse unit system (e.g. `LengthUnit::Millimetre`) from the exchange structure.
 ///
 /// Units are declared as `(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))`
 /// (a Complex entity) alongside sibling `PLANE_ANGLE_UNIT`/`SOLID_ANGLE_UNIT`
 /// forms. We must prefer the length unit: a naive "first SI_UNIT wins" scan
 /// returns the angle unit because it appears earlier in the file.
-pub fn parse_units(exchange: &Exchange) -> Option<String> {
+pub fn parse_units(exchange: &Exchange) -> Option<LengthUnit> {
     trace_span!("parse_units");
-    let mut fallback: Option<String> = None;
+    let mut fallback: Option<LengthUnit> = None;
     for section in &exchange.data {
         for entity in &section.entities {
             match entity {
@@ -106,7 +106,7 @@ fn param_to_enum(param: &Parameter) -> Option<&str> {
     }
 }
 
-fn unit_from_record(record: &Record) -> Option<String> {
+fn unit_from_record(record: &Record) -> Option<LengthUnit> {
     if !record.name.eq_ignore_ascii_case("SI_UNIT") {
         return None;
     }
@@ -115,18 +115,5 @@ fn unit_from_record(record: &Record) -> Option<String> {
     let unit = params.get(1).and_then(param_to_enum)?;
     let prefix = params.first().and_then(param_to_enum);
 
-    let unit = match unit {
-        "METRE" => match prefix {
-            Some("MILLI") => "mm".to_string(),
-            Some("CENTI") => "cm".to_string(),
-            Some("DECI") => "dm".to_string(),
-            Some("KILO") => "km".to_string(),
-            _ => "m".to_string(),
-        },
-        "INCH" => "in".to_string(),
-        "FOOT" | "FEET" => "ft".to_string(),
-        other => other.to_ascii_lowercase(),
-    };
-
-    Some(unit)
+    LengthUnit::from_si_spec(unit, prefix)
 }

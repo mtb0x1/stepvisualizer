@@ -58,6 +58,72 @@ impl std::borrow::Borrow<str> for FileId {
     }
 }
 
+/// Standard length units parsed from STEP SI_UNIT and conversion factors to meters.
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+pub enum LengthUnit {
+    Millimetre,
+    Centimetre,
+    Decimetre,
+    Metre,
+    Kilometre,
+    Inch,
+    Foot,
+    Custom,
+}
+
+#[allow(dead_code)]
+impl LengthUnit {
+    /// Standard unit symbol ("mm", "cm", "m", etc.).
+    pub fn symbol(&self) -> &'static str {
+        match self {
+            Self::Millimetre => "mm",
+            Self::Centimetre => "cm",
+            Self::Decimetre => "dm",
+            Self::Metre => "m",
+            Self::Kilometre => "km",
+            Self::Inch => "in",
+            Self::Foot => "ft",
+            Self::Custom => "units",
+        }
+    }
+
+    /// Scale factor to convert a value in this unit to base SI metres.
+    pub fn to_metres_scale(&self) -> f64 {
+        match self {
+            Self::Millimetre => 1e-3,
+            Self::Centimetre => 1e-2,
+            Self::Decimetre => 1e-1,
+            Self::Metre => 1.0,
+            Self::Kilometre => 1e3,
+            Self::Inch => 0.0254,
+            Self::Foot => 0.3048,
+            Self::Custom => 1.0,
+        }
+    }
+
+    /// Parse from STEP SI_UNIT identifier and optional prefix.
+    pub fn from_si_spec(unit: &str, prefix: Option<&str>) -> Option<Self> {
+        match unit.to_ascii_uppercase().as_str() {
+            "METRE" | "METER" => match prefix.map(|p| p.to_ascii_uppercase()) {
+                Some(p) if p == "MILLI" => Some(Self::Millimetre),
+                Some(p) if p == "CENTI" => Some(Self::Centimetre),
+                Some(p) if p == "DECI" => Some(Self::Decimetre),
+                Some(p) if p == "KILO" => Some(Self::Kilometre),
+                _ => Some(Self::Metre),
+            },
+            "INCH" => Some(Self::Inch),
+            "FOOT" | "FEET" => Some(Self::Foot),
+            _ => None,
+        }
+    }
+}
+
+impl std::fmt::Display for LengthUnit {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.symbol())
+    }
+}
+
 /// STEP header section (ISO 10303-21), shaped for display in the details panel.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct StepHeader {
@@ -83,7 +149,7 @@ pub struct Metadata {
     #[serde(default)]
     pub bounding_box: Option<BoundingBox>,
     #[serde(default)]
-    pub units: Option<String>,
+    pub units: Option<LengthUnit>,
     #[serde(default)]
     pub vertex_count: usize,
     #[serde(default)]

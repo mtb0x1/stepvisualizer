@@ -92,7 +92,7 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                         </div>
                         <div class="detail-item">
                             <dt class="detail-label">{ "Units :" }</dt>
-                            <dd>{ meta.units.clone().unwrap_or_else(|| NA.to_string()) }</dd>
+                            <dd>{ meta.units.map(|u| u.symbol().to_string()).unwrap_or_else(|| NA.to_string()) }</dd>
                         </div>
 
                         <div class="detail-item">
@@ -105,7 +105,7 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                         </div>
                         <div class="detail-item">
                             <dt class="detail-label">{ "Unit system :" }</dt>
-                            <dd>{ meta.units.clone().unwrap_or_else(|| NA.to_string()) }</dd>
+                            <dd>{ meta.units.map(|u| u.symbol().to_string()).unwrap_or_else(|| NA.to_string()) }</dd>
                         </div>
                         if let Some(bb) = &meta.bounding_box {
                             <div class="detail-item">
@@ -126,7 +126,7 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                             <dd>
                                 {
                                     if let Some(vol) = meta.volume {
-                                        let unit = meta.units.as_deref().unwrap_or("");
+                                        let unit = meta.units.map(|u| u.symbol()).unwrap_or("");
                                         html! { format!("{:.4} {}³", vol, unit) }
                                     } else {
                                         let on_click = props.on_calculate_volume.clone();
@@ -147,7 +147,7 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                             <dd>
                                 {
                                     if let Some(area) = meta.surface_area {
-                                        let unit = meta.units.as_deref().unwrap_or("");
+                                        let unit = meta.units.map(|u| u.symbol()).unwrap_or("");
                                         html! { format!("{:.4} {}²", area, unit) }
                                     } else {
                                         let on_click = props.on_calculate_surface.clone();

@@ -16,4 +16,5 @@ pub use math::{create_look_at_matrix, create_perspective_matrix, multiply_matric
 pub use parser::{compute_bounding_box, convert_header, parse_units};
 pub use render::{GpuVertex, RenderablePart, extract_render_parts};
 pub use storage::{delete_model, hash_text_to_id, load_index, load_model, save_index, save_model};
-pub use types::{BoundingBox, FileId, FileIndexItem, Metadata, StepModel};
+#[allow(unused_imports)]
+pub use types::{BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel};
