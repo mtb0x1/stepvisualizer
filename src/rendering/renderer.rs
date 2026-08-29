@@ -235,10 +235,11 @@ pub async fn render_wgpu_on_canvas(
                     model_buffer,
                     color_buffer,
                     bind_group,
+                    uniforms_uploaded: false,
                 });
             }
 
-            let gpu = match cache[index].as_ref() {
+            let gpu = match cache[index].as_mut() {
                 Some(gpu) => gpu,
                 None => unreachable!("part GPU buffer slot is populated by the branch above"),
             };
@@ -248,8 +249,12 @@ pub async fn render_wgpu_on_canvas(
                 &multiply_matrices(&view_matrix, &part.model_matrix),
             );
             queue.write_buffer(&gpu.mvp_buffer, 0, bytemuck::bytes_of(&mvp_matrix));
-            queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
-            queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
+            
+            if !gpu.uniforms_uploaded {
+                queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
+                queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
+                gpu.uniforms_uploaded = true;
+            }
 
             render_pass.set_bind_group(0, &gpu.bind_group, &[]);
             render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));

@@ -40,6 +40,7 @@ pub struct PartGpu {
     pub model_buffer: wgpu::Buffer,
     pub color_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
+    pub uniforms_uploaded: bool,
 }
 
 /// Owned WebGPU context for one canvas: device/queue/surface, pipeline and
