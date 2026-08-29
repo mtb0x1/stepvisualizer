@@ -111,21 +111,32 @@ impl RenderablePart {
 /// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
 #[inline(always)]
 fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let cross_x = v1[1] * v2[2] - v1[2] * v2[1];
-    let cross_y = v1[2] * v2[0] - v1[0] * v2[2];
-    let cross_z = v1[0] * v2[1] - v1[1] * v2[0];
-    (v0[0] * cross_x + v0[1] * cross_y + v0[2] * cross_z) as f64
+    let p0 = [v0[0] as f64, v0[1] as f64, v0[2] as f64];
+    let p1 = [v1[0] as f64, v1[1] as f64, v1[2] as f64];
+    let p2 = [v2[0] as f64, v2[1] as f64, v2[2] as f64];
+    let cross_x = p1[1] * p2[2] - p1[2] * p2[1];
+    let cross_y = p1[2] * p2[0] - p1[0] * p2[2];
+    let cross_z = p1[0] * p2[1] - p1[1] * p2[0];
+    p0[0] * cross_x + p0[1] * cross_y + p0[2] * cross_z
 }
 
 /// Area of a single triangle with vertices v0, v1, v2.
 #[inline(always)]
 fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let edge1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
-    let edge2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+    let edge1 = [
+        (v1[0] - v0[0]) as f64,
+        (v1[1] - v0[1]) as f64,
+        (v1[2] - v0[2]) as f64,
+    ];
+    let edge2 = [
+        (v2[0] - v0[0]) as f64,
+        (v2[1] - v0[1]) as f64,
+        (v2[2] - v0[2]) as f64,
+    ];
     let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
     let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
     let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
-    ((cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) as f64).sqrt() * 0.5
+    0.5 * (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt()
 }
 
 /// Tessellate `step_table` into renderable parts — or return the cached
@@ -231,99 +242,92 @@ fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
 ///
 /// `orientation` is the shell face's orientation flag. Reversed faces get
-/// their mesh inverted up front so the emitted winding matches the render
-/// pipeline's front-face convention.
+/// their mesh inverted (`mesh.invert()`), which inverts normals and reverses
+/// face vertex order to match the render pipeline's front-face CCW convention.
 fn append_face_geometry(
     mut mesh: truck_polymesh::PolygonMesh,
     orientation: bool,
     vertices: &mut Vec<GpuVertex>,
     indices: &mut Vec<u32>,
 ) {
-    let needs_invert = !orientation;
-    if needs_invert {
+    if !orientation {
         mesh.invert();
     }
 
-    let face_positions = mesh.positions();
-    let face_normals = mesh.normals();
+    let positions = mesh.positions();
+    let normals = mesh.normals();
 
-    // This face's vertices are appended after all previous faces', so its
-    // indices are emitted relative to the vertex count before the append.
-    let base_index = vertices.len() as u32;
+    let mut vertex_map = std::collections::HashMap::<(usize, Option<usize>), u32>::new();
 
-    vertices.extend(
-        face_positions
-            .iter()
-            .zip(face_normals.iter())
-            .map(|(p, n)| GpuVertex {
-                position: [p.x as f32, p.y as f32, p.z as f32],
-                normal: [n.x as f32, n.y as f32, n.z as f32],
-            }),
-    );
+    for face in mesh.face_iter() {
+        if face.len() < 3 {
+            continue;
+        }
 
-    emit_face_indices(mesh.faces(), base_index, needs_invert, indices);
-}
+        // Geometric normal fallback from the first three distinct points of the face
+        let p0 = match positions.get(face[0].pos) {
+            Some(p) => p,
+            None => continue,
+        };
+        let p1 = match positions.get(face[1].pos) {
+            Some(p) => p,
+            None => continue,
+        };
+        let p2 = match positions.get(face[2].pos) {
+            Some(p) => p,
+            None => continue,
+        };
 
-#[inline(always)]
-fn emit_triangle(
-    indices: &mut Vec<u32>,
-    base_index: u32,
-    i0: usize,
-    i1: usize,
-    i2: usize,
-    needs_invert: bool,
-) {
-    let (a, b, c) = if needs_invert {
-        (i0, i2, i1)
-    } else {
-        (i0, i1, i2)
-    };
-    indices.extend([
-        base_index + a as u32,
-        base_index + b as u32,
-        base_index + c as u32,
-    ]);
-}
+        let d1 = [
+            (p1.x - p0.x) as f64,
+            (p1.y - p0.y) as f64,
+            (p1.z - p0.z) as f64,
+        ];
+        let d2 = [
+            (p2.x - p0.x) as f64,
+            (p2.y - p0.y) as f64,
+            (p2.z - p0.z) as f64,
+        ];
+        let cross = [
+            d1[1] * d2[2] - d1[2] * d2[1],
+            d1[2] * d2[0] - d1[0] * d2[2],
+            d1[0] * d2[1] - d1[1] * d2[0],
+        ];
+        let len = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
+        let fallback_normal = if len > 1e-12 {
+            [
+                (cross[0] / len) as f32,
+                (cross[1] / len) as f32,
+                (cross[2] / len) as f32,
+            ]
+        } else {
+            [0.0, 1.0, 0.0]
+        };
 
-/// Emit triangle indices for one face's mesh, offset by `base_index`.
-///
-/// Quads are split into two triangles along the (0, 2) diagonal. For inverted
-/// faces the second and third vertices of each triangle are swapped to
-/// reverse the winding.
-fn emit_face_indices(
-    faces: &truck_polymesh::Faces,
-    base_index: u32,
-    needs_invert: bool,
-    indices: &mut Vec<u32>,
-) {
-    for tri in faces.tri_faces() {
-        emit_triangle(
-            indices,
-            base_index,
-            tri[0].pos,
-            tri[1].pos,
-            tri[2].pos,
-            needs_invert,
-        );
-    }
-
-    for quad in faces.quad_faces() {
-        emit_triangle(
-            indices,
-            base_index,
-            quad[0].pos,
-            quad[1].pos,
-            quad[2].pos,
-            needs_invert,
-        );
-        emit_triangle(
-            indices,
-            base_index,
-            quad[0].pos,
-            quad[2].pos,
-            quad[3].pos,
-            needs_invert,
-        );
+        // Triangulate polygon (triangle fan: 0, i, i+1)
+        for i in 1..(face.len() - 1) {
+            let tri = [face[0], face[i], face[i + 1]];
+            for v in tri {
+                let pos = match positions.get(v.pos) {
+                    Some(p) => p,
+                    None => continue,
+                };
+                let key = (v.pos, v.nor);
+                let idx = *vertex_map.entry(key).or_insert_with(|| {
+                    let normal = match v.nor.and_then(|idx| normals.get(idx)) {
+                        Some(n) => [n.x as f32, n.y as f32, n.z as f32],
+                        None => fallback_normal,
+                    };
+                    let new_idx = vertices.len() as u32;
+                    vertices.push(GpuVertex {
+                        position: [pos.x as f32, pos.y as f32, pos.z as f32],
+                        normal,
+                    });
+                    new_idx
+                });
+                indices.push(idx);
+            }
+        }
     }
 }
 

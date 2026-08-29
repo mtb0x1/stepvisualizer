@@ -96,14 +96,25 @@ fn param_as_enum(param: &Parameter) -> Option<&str> {
     }
 }
 
-fn unit_from_record(record: &Record) -> Option<LengthUnit> {
-    if !record.name.eq_ignore_ascii_case("SI_UNIT") {
-        return None;
+fn param_as_str(param: &Parameter) -> Option<&str> {
+    match param {
+        Parameter::Enumeration(value) => Some(value.as_str()),
+        Parameter::String(value) => Some(value.as_str()),
+        _ => None,
     }
+}
 
-    let params = param_as_list(&record.parameter)?;
-    let unit = params.get(1).and_then(param_as_enum)?;
-    let prefix = params.first().and_then(param_as_enum);
-
-    LengthUnit::from_si_spec(unit, prefix)
+fn unit_from_record(record: &Record) -> Option<LengthUnit> {
+    if record.name.eq_ignore_ascii_case("SI_UNIT") {
+        let params = param_as_list(&record.parameter)?;
+        let unit = params.get(1).and_then(param_as_enum)?;
+        let prefix = params.first().and_then(param_as_enum);
+        return LengthUnit::from_si_spec(unit, prefix);
+    }
+    if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
+        let params = param_as_list(&record.parameter)?;
+        let name = params.first().and_then(param_as_str)?;
+        return LengthUnit::from_name(name);
+    }
+    None
 }

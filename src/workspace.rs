@@ -5,7 +5,7 @@ use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
     FileId, FileIndexItem, LruCache, Metadata, StepModel, clear_all_storage, compute_bounding_box,
     convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
-    parse_units, save_index, save_model,
+    parse_units, save_index, save_model, visible_bounds,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -197,6 +197,9 @@ fn spawn_tessellation(
         };
         model.metadata.vertex_count = model.total_vertices();
         model.metadata.triangle_count = model.total_triangles();
+        if let Some(bbox) = visible_bounds(&model.render_parts, &[]) {
+            model.metadata.bounding_box = Some(bbox);
+        }
 
         {
             let mut cache_ref = cache.borrow_mut();

@@ -16,7 +16,7 @@ pub use math::{
     create_look_at_matrix, create_perspective_matrix, multiply_matrices, spherical_to_cartesian,
 };
 pub use parser::{compute_bounding_box, convert_header, parse_units};
-pub use render::{GpuVertex, RenderablePart, extract_render_parts};
+pub use render::{GpuVertex, RenderablePart, extract_render_parts, visible_bounds};
 pub use storage::{
     clear_all_storage, delete_model, hash_text_to_id, load_index, load_model, save_index,
     save_model,

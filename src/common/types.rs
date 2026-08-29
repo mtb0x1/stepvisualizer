@@ -169,6 +169,21 @@ impl LengthUnit {
             _ => None,
         }
     }
+
+    /// Parse from unit name string (e.g. from CONVERSION_BASED_UNIT).
+    pub fn from_name(name: &str) -> Option<Self> {
+        let clean = name.trim().trim_matches('\'').trim_matches('"');
+        match clean.to_ascii_uppercase().as_str() {
+            "MM" | "MILLIMETRE" | "MILLIMETER" => Some(Self::Millimetre),
+            "CM" | "CENTIMETRE" | "CENTIMETER" => Some(Self::Centimetre),
+            "DM" | "DECIMETRE" | "DECIMETER" => Some(Self::Decimetre),
+            "M" | "METRE" | "METER" => Some(Self::Metre),
+            "KM" | "KILOMETRE" | "KILOMETER" => Some(Self::Kilometre),
+            "IN" | "INCH" | "INCHES" => Some(Self::Inch),
+            "FT" | "FOOT" | "FEET" => Some(Self::Foot),
+            _ => None,
+        }
+    }
 }
 
 impl std::fmt::Display for LengthUnit {
