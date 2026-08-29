@@ -2,18 +2,15 @@
 use std::rc::Rc;
 
 use crate::{
-    apptracing::{AppTracer, AppTracerTrait},
     common::{
         BoundingBox, RenderablePart, create_look_at_matrix, create_perspective_matrix,
         fps_meter::FpsMeter, multiply_matrices,
     },
     error::StepVizError,
     rendering::camera::CameraState,
-    rendering::wgpu_state::WgpuState,
+    rendering::wgpu_state::{PartGpu, WgpuState},
     trace_span,
 };
-use bytemuck::cast_slice;
-use wgpu::util::{BufferInitDescriptor, DeviceExt};
 
 /// Render one frame of `parts` onto the canvas owned by `state`.
 ///
@@ -78,50 +75,49 @@ pub async fn render_wgpu_on_canvas(
     //   hints the surface should be reconfigured soon),
     // - Timeout / Occluded are transient states; skipping the frame is the
     //   documented response,
-    // - Outdated / Lost / Validation are real failures the user should see.
+    // - Outdated / Lost are fatal surface failures that require reconfiguring
+    //   the surface and retrying.
     let frame = match surface.get_current_texture() {
-        wgpu::CurrentSurfaceTexture::Success(frame) => frame,
-        wgpu::CurrentSurfaceTexture::Suboptimal(frame) => {
-            AppTracer::warn("Suboptimal surface texture; rendering frame, reconfigure soon");
-            frame
-        }
-        status @ (wgpu::CurrentSurfaceTexture::Timeout | wgpu::CurrentSurfaceTexture::Occluded) => {
-            AppTracer::warn(&format!(
-                "Skipping frame: transient surface state {status:?}"
-            ));
+        wgpu::CurrentSurfaceTexture::Success(texture)
+        | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
+        wgpu::CurrentSurfaceTexture::Timeout => return Ok(()),
+        wgpu::CurrentSurfaceTexture::Occluded => return Ok(()),
+        wgpu::CurrentSurfaceTexture::Outdated => {
+            surface.configure(device, &config.borrow());
             return Ok(());
         }
-        status @ (wgpu::CurrentSurfaceTexture::Outdated
-        | wgpu::CurrentSurfaceTexture::Lost
-        | wgpu::CurrentSurfaceTexture::Validation) => {
-            let msg = format!("Failed to acquire surface texture: {status:?}");
-            AppTracer::error(&msg);
-            return Err(StepVizError::RenderError(msg));
+        wgpu::CurrentSurfaceTexture::Lost => {
+            surface.configure(device, &config.borrow());
+            return Ok(());
+        }
+        wgpu::CurrentSurfaceTexture::Validation => {
+            return Err(StepVizError::RenderError(
+                "Surface texture validation failed".to_string(),
+            ));
         }
     };
-    let view = frame
+
+    // Recreate the depth texture when its size diverges from the surface's
+    // actual swapchain size (which can lag `config` during resize).
+    state.ensure_depth_texture(frame.texture.width(), frame.texture.height());
+
+    let texture_view = frame
         .texture
         .create_view(&wgpu::TextureViewDescriptor::default());
 
-    state.ensure_depth_texture(frame.texture.width(), frame.texture.height());
-    
-    let view_proj_matrix = multiply_matrices(&projection_matrix, &view_matrix);
-    queue.write_buffer(
-        view_proj_buffer,
-        0,
-        bytemuck::bytes_of(&view_proj_matrix),
-    );
-
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
-        label: Some("Render Encoder"),
+        label: Some("Main Command Encoder"),
     });
+
+    let view_proj = multiply_matrices(&projection_matrix, &view_matrix);
+    queue.write_buffer(view_proj_buffer, 0, bytemuck::bytes_of(&view_proj));
 
     {
         let depth_texture_view = depth_texture_view.borrow();
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Render Pass"),
+            label: Some("Main Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
+                view: &texture_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
@@ -154,10 +150,7 @@ pub async fn render_wgpu_on_canvas(
         cache.truncate(parts.len());
 
         for (index, part) in parts.iter().enumerate() {
-            if !visibility.get(index).copied().unwrap_or(true) {
-                continue;
-            }
-            if part.indices.is_empty() {
+            if !visibility.get(index).copied().unwrap_or(true) || part.indices.is_empty() {
                 continue;
             }
 
@@ -172,52 +165,7 @@ pub async fn render_wgpu_on_canvas(
                 None => true,
             };
             if needs_recreate {
-                let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some("Vertex Buffer"),
-                    contents: cast_slice(&part.vertices),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-                let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some("Index Buffer"),
-                    contents: cast_slice(&part.indices),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-                let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some("Model Uniform Buffer"),
-                    contents: bytemuck::bytes_of(&[0.0f32; 16]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
-                let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
-                    label: Some("Color Uniform Buffer"),
-                    contents: bytemuck::bytes_of(&[0.0f32; 4]),
-                    usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                });
-
-                let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-                    layout: part_bind_group_layout,
-                    entries: &[
-                        wgpu::BindGroupEntry {
-                            binding: 0,
-                            resource: model_buffer.as_entire_binding(),
-                        },
-                        wgpu::BindGroupEntry {
-                            binding: 1,
-                            resource: color_buffer.as_entire_binding(),
-                        },
-                    ],
-                    label: Some("part_bind_group"),
-                });
-
-                cache[index] = Some(crate::rendering::wgpu_state::PartGpu {
-                    vertex_buffer,
-                    index_buffer,
-                    vertex_count,
-                    index_count,
-                    model_buffer,
-                    color_buffer,
-                    bind_group,
-                    uniforms_uploaded: false,
-                });
+                cache[index] = Some(PartGpu::new(device, part_bind_group_layout, part));
             }
 
             let gpu = match cache[index].as_mut() {
@@ -225,12 +173,7 @@ pub async fn render_wgpu_on_canvas(
                 None => unreachable!("part GPU buffer slot is populated by the branch above"),
             };
 
-
-            if !gpu.uniforms_uploaded {
-                queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
-                queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
-                gpu.uniforms_uploaded = true;
-            }
+            gpu.upload_uniforms(queue, part);
 
             render_pass.set_bind_group(1, &gpu.bind_group, &[]);
             render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));

@@ -1,12 +1,14 @@
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
+    common::RenderablePart,
     error::StepVizError,
     trace_span,
 };
+use bytemuck::cast_slice;
 use std::cell::RefCell;
 use wasm_bindgen::JsValue;
 use web_sys::HtmlCanvasElement;
-use wgpu::{self, SurfaceTarget};
+use wgpu::{self, SurfaceTarget, util::{BufferInitDescriptor, DeviceExt}};
 
 /// Whether the browser exposes the `navigator.gpu` entry point.
 ///
@@ -40,6 +42,72 @@ pub struct PartGpu {
     pub color_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
     pub uniforms_uploaded: bool,
+}
+
+impl PartGpu {
+    /// Allocate vertex, index, and uniform buffers on `device` for `part`, and
+    /// construct the matching part bind group under `layout`.
+    pub fn new(
+        device: &wgpu::Device,
+        layout: &wgpu::BindGroupLayout,
+        part: &RenderablePart,
+    ) -> Self {
+        let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: cast_slice(&part.vertices),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let index_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: cast_slice(&part.indices),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+        let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Model Uniform Buffer"),
+            contents: bytemuck::bytes_of(&[0.0f32; 16]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+        let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
+            label: Some("Color Uniform Buffer"),
+            contents: bytemuck::bytes_of(&[0.0f32; 4]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
+        let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: model_buffer.as_entire_binding(),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: color_buffer.as_entire_binding(),
+                },
+            ],
+            label: Some("part_bind_group"),
+        });
+
+        Self {
+            vertex_buffer,
+            index_buffer,
+            vertex_count: part.vertices.len(),
+            index_count: part.indices.len(),
+            model_buffer,
+            color_buffer,
+            bind_group,
+            uniforms_uploaded: false,
+        }
+    }
+
+    /// Upload model transform and RGBA color uniforms to the GPU queue once per part.
+    pub fn upload_uniforms(&mut self, queue: &wgpu::Queue, part: &RenderablePart) {
+        if !self.uniforms_uploaded {
+            queue.write_buffer(&self.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
+            queue.write_buffer(&self.color_buffer, 0, bytemuck::bytes_of(&part.color));
+            self.uniforms_uploaded = true;
+        }
+    }
 }
 
 /// Owned WebGPU context for one canvas: device/queue/surface, pipeline and
