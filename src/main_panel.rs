@@ -16,6 +16,7 @@ use wasm_bindgen::closure::Closure;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlCanvasElement, ResizeObserver};
 use yew::prelude::*;
+use crate::apptracing::{AppTracer, AppTracerTrait};
 
 #[derive(Properties, PartialEq)]
 pub struct MainPanelProps {
@@ -90,14 +91,20 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 }
                 canvas_size.set((width, height));
             }) as Box<dyn Fn(js_sys::Array)>);
-            let observer = ResizeObserver::new(on_resize.as_ref().unchecked_ref())
-                .expect("failed to create ResizeObserver");
-            observer.observe(&canvas);
-            // Keep the closure alive until the observer is disconnected.
-            Box::new(move || {
-                observer.disconnect();
-                let _ = &on_resize;
-            }) as Box<dyn Fn()>
+            let observer_res = ResizeObserver::new(on_resize.as_ref().unchecked_ref());
+            if let Ok(observer) = observer_res {
+                observer.observe(&canvas);
+                // Keep the closure alive until the observer is disconnected.
+                Box::new(move || {
+                    observer.disconnect();
+                    let _ = &on_resize;
+                }) as Box<dyn Fn()>
+            } else {
+                AppTracer::error("Failed to create ResizeObserver");
+                Box::new(move || {
+                    let _ = &on_resize;
+                }) as Box<dyn Fn()>
+            }
         });
     }
 

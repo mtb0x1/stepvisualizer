@@ -8,6 +8,7 @@ pub mod math;
 pub mod parser;
 pub mod render;
 pub mod storage;
+pub mod time;
 pub mod types;
 
 pub use cache::LruCache;

@@ -11,7 +11,7 @@ use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::rc::Rc;
 
-use web_sys::window;
+use crate::common::time::now_ms;
 
 /// Sparkline history length (samples). ~10s at the 100ms snapshot cadence.
 const MAX_SAMPLES: usize = 60;
@@ -46,16 +46,9 @@ impl FpsMeter {
         })
     }
 
-    fn now_ms() -> f64 {
-        window()
-            .and_then(|w| w.performance())
-            .map(|p| p.now())
-            .unwrap_or(0.0)
-    }
-
     /// Call exactly once per rendered frame to feed the meter.
     pub fn record_frame(&self) {
-        let now = Self::now_ms();
+        let now = now_ms();
         let mut inner = self.inner.borrow_mut();
         inner.frame_times.push(now);
 
@@ -84,7 +77,7 @@ impl FpsMeter {
     /// Instantaneous FPS derived from frame timestamps, or 0.0 when idle.
     pub fn current_fps(&self) -> f32 {
         let inner = self.inner.borrow();
-        let now = Self::now_ms();
+        let now = now_ms();
         match inner.frame_times.last() {
             Some(&newest) if now - newest <= IDLE_TIMEOUT_MS => {
                 Self::fps_from_times(&inner.frame_times, now)

@@ -43,17 +43,18 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
                 samples.set(meter.samples());
             }) as Box<dyn Fn()>);
 
-            let window = web_sys::window().expect("window must exist");
-            let handle = window
+            let window = web_sys::window();
+            let handle = window.as_ref().and_then(|w| w
                 .set_interval_with_callback_and_timeout_and_arguments_0(
                     callback.as_ref().unchecked_ref(),
                     POLL_INTERVAL_MS,
-                )
-                .expect("failed to schedule FPS poll");
+                ).ok());
 
             // Keep the closure alive until the effect is torn down.
             Box::new(move || {
-                window.clear_interval_with_handle(handle);
+                if let (Some(w), Some(h)) = (window.as_ref(), handle) {
+                    w.clear_interval_with_handle(h);
+                }
                 let _ = &callback;
             }) as Box<dyn Fn()>
         });

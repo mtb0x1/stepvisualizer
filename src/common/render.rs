@@ -11,6 +11,7 @@ use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
 use crate::common::constants::COLORS;
+use crate::common::time::now_ms;
 
 /// Vertex layout shared with the render pipeline: position + normal, both
 /// `Float32x3`.
@@ -359,13 +360,3 @@ fn tessellate_table(
     }
 }
 
-fn now_ms() -> f64 {
-    // Monotonic clock, so duration math stays correct even if the system
-    // wall clock jumps (NTP sync etc.). The window and performance objects
-    // always exist in the browser targets this app runs in.
-    let window = web_sys::window().expect("window exists in browser builds");
-    let performance = window
-        .performance()
-        .expect("performance API always available");
-    performance.now()
-}
