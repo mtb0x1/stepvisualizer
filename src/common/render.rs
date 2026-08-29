@@ -78,31 +78,37 @@ impl RenderablePart {
     pub fn calculate_volume(&self) -> f64 {
         let volume: f64 = self
             .triangles()
-            .map(|(v0, v1, v2)| {
-                let cross_x = v1[1] * v2[2] - v1[2] * v2[1];
-                let cross_y = v1[2] * v2[0] - v1[0] * v2[2];
-                let cross_z = v1[0] * v2[1] - v1[1] * v2[0];
-                (v0[0] * cross_x + v0[1] * cross_y + v0[2] * cross_z) as f64
-            })
+            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
             .sum();
         (volume / 6.0).abs()
     }
 
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
-        let area: f64 = self
-            .triangles()
-            .map(|(v0, v1, v2)| {
-                let edge1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
-                let edge2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
-                let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
-                let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
-                let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
-                (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt() as f64
-            })
-            .sum();
-        area * 0.5
+        self.triangles()
+            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
+            .sum()
     }
+}
+
+/// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
+#[inline(always)]
+fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
+    let cross_x = v1[1] * v2[2] - v1[2] * v2[1];
+    let cross_y = v1[2] * v2[0] - v1[0] * v2[2];
+    let cross_z = v1[0] * v2[1] - v1[1] * v2[0];
+    (v0[0] * cross_x + v0[1] * cross_y + v0[2] * cross_z) as f64
+}
+
+/// Area of a single triangle with vertices v0, v1, v2.
+#[inline(always)]
+fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
+    let edge1 = [v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2]];
+    let edge2 = [v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2]];
+    let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
+    let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
+    let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
+    ((cross_x * cross_x + cross_y * cross_y + cross_z * cross_z) as f64).sqrt() * 0.5
 }
 
 /// Tessellate `step_table` into renderable parts — or return the cached
@@ -245,6 +251,27 @@ fn append_face_geometry(
     emit_face_indices(mesh.faces(), base_index, needs_invert, indices);
 }
 
+#[inline(always)]
+fn emit_triangle(
+    indices: &mut Vec<u32>,
+    base_index: u32,
+    i0: usize,
+    i1: usize,
+    i2: usize,
+    needs_invert: bool,
+) {
+    let (a, b, c) = if needs_invert {
+        (i0, i2, i1)
+    } else {
+        (i0, i1, i2)
+    };
+    indices.extend([
+        base_index + a as u32,
+        base_index + b as u32,
+        base_index + c as u32,
+    ]);
+}
+
 /// Emit triangle indices for one face's mesh, offset by `base_index`.
 ///
 /// Quads are split into two triangles along the (0, 2) diagonal. For inverted
@@ -257,35 +284,33 @@ fn emit_face_indices(
     indices: &mut Vec<u32>,
 ) {
     for tri in faces.tri_faces() {
-        if needs_invert {
-            indices.push(base_index + tri[0].pos as u32);
-            indices.push(base_index + tri[2].pos as u32);
-            indices.push(base_index + tri[1].pos as u32);
-        } else {
-            indices.push(base_index + tri[0].pos as u32);
-            indices.push(base_index + tri[1].pos as u32);
-            indices.push(base_index + tri[2].pos as u32);
-        }
+        emit_triangle(
+            indices,
+            base_index,
+            tri[0].pos,
+            tri[1].pos,
+            tri[2].pos,
+            needs_invert,
+        );
     }
 
     for quad in faces.quad_faces() {
-        if needs_invert {
-            indices.push(base_index + quad[0].pos as u32);
-            indices.push(base_index + quad[2].pos as u32);
-            indices.push(base_index + quad[1].pos as u32);
-
-            indices.push(base_index + quad[0].pos as u32);
-            indices.push(base_index + quad[3].pos as u32);
-            indices.push(base_index + quad[2].pos as u32);
-        } else {
-            indices.push(base_index + quad[0].pos as u32);
-            indices.push(base_index + quad[1].pos as u32);
-            indices.push(base_index + quad[2].pos as u32);
-
-            indices.push(base_index + quad[0].pos as u32);
-            indices.push(base_index + quad[2].pos as u32);
-            indices.push(base_index + quad[3].pos as u32);
-        }
+        emit_triangle(
+            indices,
+            base_index,
+            quad[0].pos,
+            quad[1].pos,
+            quad[2].pos,
+            needs_invert,
+        );
+        emit_triangle(
+            indices,
+            base_index,
+            quad[0].pos,
+            quad[2].pos,
+            quad[3].pos,
+            needs_invert,
+        );
     }
 }
 
