@@ -107,7 +107,7 @@ pub async fn render_wgpu_on_canvas(
         | wgpu::CurrentSurfaceTexture::Validation) => {
             let msg = format!("Failed to acquire surface texture: {status:?}");
             AppTracer::error(&msg);
-            return Err(msg.into());
+            return Err(StepVizError::RenderError(msg));
         }
     };
     let view = frame

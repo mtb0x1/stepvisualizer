@@ -7,6 +7,7 @@ use crate::common::{
     convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
     parse_units, save_index, save_model,
 };
+use crate::error::StepVizError;
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;
@@ -91,17 +92,17 @@ fn input_file(event: &Event) -> Option<web_sys::File> {
     input.files()?.get(0)
 }
 
-/// Resets the UI after a failed load: surface `msg` as an error, clear stale
+/// Resets the UI after a failed load: surface `err` as an error, clear stale
 /// metadata, and drop the processing flag. Every failure path funnels through here.
 fn fail_load(
-    msg: String,
+    err: impl std::fmt::Display,
     result: &UseStateHandle<Option<String>>,
     result_is_error: &UseStateHandle<bool>,
     metadata: &UseStateHandle<Option<Metadata>>,
     is_processing: &UseStateHandle<bool>,
 ) {
     result_is_error.set(true);
-    result.set(Some(msg));
+    result.set(Some(err.to_string()));
     metadata.set(None);
     is_processing.set(false);
 }
@@ -122,14 +123,14 @@ fn clear_model_state(
 }
 
 /// Returns the first data section carrying usable STEP content, or a
-/// user-facing message explaining why the file has none.
-fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, String> {
+/// domain error explaining why the file has none.
+fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, StepVizError> {
     if parsed.data.is_empty() {
-        return Err("No data sections found in the STEP file.".to_string());
+        return Err(StepVizError::EmptyDataSection);
     }
     match parsed.data.first() {
         Some(section) if !section.entities.is_empty() || !section.meta.is_empty() => Ok(section),
-        _ => Err("STEP file has no usable data sections (empty meta/entities).".to_string()),
+        _ => Err(StepVizError::EmptyDataSection),
     }
 }
 
@@ -142,13 +143,13 @@ fn build_initial_metadata(
     parsed: &Exchange,
     step_table: &truck_stepio::r#in::Table,
     text: &str,
-) -> Result<(Metadata, String), String> {
+) -> Result<(Metadata, String), StepVizError> {
     let entity_count: usize = parsed
         .data
         .iter()
         .map(|section| section.entities.len())
         .sum();
-    let mut step_header = convert_header(&parsed.header).map_err(|e| e.0)?;
+    let mut step_header = convert_header(&parsed.header)?;
     if step_header.file_name.is_empty() {
         step_header.file_name = fallback_name.to_string();
     }
@@ -247,7 +248,10 @@ fn use_file_processor(
         is_processing_handle.set(true);
         if web_file.size() > MAX_FILE_BYTES {
             fail_load(
-                "File too large. Maximum allowed is 20 MB.".to_string(),
+                StepVizError::FileTooLarge {
+                    size_bytes: web_file.size(),
+                    max_bytes: MAX_FILE_BYTES,
+                },
                 &result_handle,
                 &result_is_error_handle,
                 &metadata_handle,
@@ -274,9 +278,9 @@ fn use_file_processor(
 
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
             // Every early exit below resets the UI the same way.
-            let fail = |msg: String| {
+            let fail = |err: StepVizError| {
                 fail_load(
-                    msg,
+                    err,
                     &result_state,
                     &result_is_error_state,
                     &metadata_state,
@@ -286,20 +290,20 @@ fn use_file_processor(
 
             let text = match res {
                 Ok(text) => text,
-                Err(e) => return fail(format!("Failed to read file: {e}")),
+                Err(e) => return fail(StepVizError::FileRead(e.to_string())),
             };
             let parsed = match ruststep::parser::parse(&text) {
                 Ok(parsed) => parsed,
-                Err(e) => return fail(format!("Failed to parse STEP: {e}")),
+                Err(e) => return fail(StepVizError::Parse(e.to_string())),
             };
             let section = match first_usable_section(&parsed) {
                 Ok(section) => section,
-                Err(msg) => return fail(msg),
+                Err(err) => return fail(err),
             };
             let step_table = truck_stepio::r#in::Table::from_data_section(section);
             let (meta, id) = match build_initial_metadata(&name, &parsed, &step_table, &text) {
                 Ok(v) => v,
-                Err(msg) => return fail(msg),
+                Err(err) => return fail(err),
             };
 
             metadata_state.set(Some(meta.clone()));

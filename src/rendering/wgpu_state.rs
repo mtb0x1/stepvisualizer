@@ -172,9 +172,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     let surface = match instance.create_surface(target) {
         Ok(surface) => surface,
         Err(err) => {
-            let msg = format!("Failed to create WebGPU surface: {}", err);
+            let msg = format!("Failed to create WebGPU surface: {err}");
             AppTracer::error(&msg);
-            return Err(msg.into());
+            return Err(StepVizError::GpuInitFailed(msg));
         }
     };
 
@@ -193,9 +193,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     {
         Ok(adapter) => adapter,
         Err(err) => {
-            let msg = format!("Failed to request WebGPU adapter: {}", err);
+            let msg = format!("Failed to request WebGPU adapter: {err}");
             AppTracer::error(&msg);
-            return Err(msg.into());
+            return Err(StepVizError::GpuInitFailed(msg));
         }
     };
     let (device, queue) = match adapter
@@ -204,9 +204,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     {
         Ok((device, queue)) => (device, queue),
         Err(err) => {
-            let msg = format!("Failed to request adapter device: {}", err);
+            let msg = format!("Failed to request adapter device: {err}");
             AppTracer::error(&msg);
-            return Err(msg.into());
+            return Err(StepVizError::GpuInitFailed(msg));
         }
     };
 
