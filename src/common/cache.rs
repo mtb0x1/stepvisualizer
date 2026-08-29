@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
+use super::constants::CACHE_SIZE;
 use super::render::RenderablePart;
 use super::types::StepModel;
 
@@ -117,22 +118,63 @@ impl LruCache {
 thread_local! {
     static RENDER_PART_CACHE: RefCell<HashMap<String, Rc<Vec<RenderablePart>>>> =
         RefCell::new(HashMap::new());
+    // Recency order mirroring `RENDER_PART_CACHE` so the geometry cache can be
+    // bounded by the same `CACHE_SIZE` as the model LRU. A separate LRU-style
+    // eviction keeps the GPU-ready geometry from growing without bound even
+    // though the model LRU above evicts `StepModel`s, not this cache.
+    static RENDER_PART_ORDER: RefCell<VecDeque<String>> = RefCell::new(VecDeque::new());
+}
+
+/// Promote `file_id` to most-recently-used in the recency order (no-op if absent).
+fn touch_render_parts(file_id: &str) {
+    RENDER_PART_ORDER.with(|order| {
+        let mut order = order.borrow_mut();
+        if let Some(pos) = order.iter().position(|k| k == file_id) {
+            order.remove(pos);
+        }
+        order.push_back(file_id.to_string());
+    });
+}
+
+/// Evict least-recently-used tessellations until the working set is bounded.
+fn evict_render_parts() {
+    RENDER_PART_ORDER.with(|order| {
+        let mut order = order.borrow_mut();
+        while order.len() > CACHE_SIZE {
+            if let Some(least) = order.pop_front() {
+                RENDER_PART_CACHE.with(|cache| {
+                    cache.borrow_mut().remove(&least);
+                });
+            } else {
+                break;
+            }
+        }
+    });
 }
 
 /// Tessellated geometry for `file_id`, if previously computed this session.
 pub fn get_cached_parts(file_id: &str) -> Option<Vec<RenderablePart>> {
     trace_span!("get_cached_parts");
-    RENDER_PART_CACHE.with(|cache| cache.borrow().get(file_id).map(|parts| (**parts).clone()))
+    RENDER_PART_CACHE.with(|cache| {
+        if cache.borrow().contains_key(file_id) {
+            touch_render_parts(file_id);
+            cache.borrow().get(file_id).map(|parts| (**parts).clone())
+        } else {
+            None
+        }
+    })
 }
 
 /// Store tessellated geometry for `file_id` (cloned in; the cache owns its
-/// copy). Unbounded — the working set is already bounded by the LRU above.
+/// copy). Bounded by `CACHE_SIZE` — least-recently-used entries are evicted.
 pub fn cache_parts(file_id: &str, parts: &[RenderablePart]) {
     trace_span!("cache_parts");
     let rc = Rc::new(parts.to_vec());
     RENDER_PART_CACHE.with(|cache| {
         cache.borrow_mut().insert(file_id.to_string(), rc);
     });
+    touch_render_parts(file_id);
+    evict_render_parts();
 }
 
 /// Forget the tessellated geometry for one file (e.g. after model deletion).
@@ -141,6 +183,11 @@ pub fn drop_cached_parts(file_id: &str) {
     RENDER_PART_CACHE.with(|cache| {
         cache.borrow_mut().remove(file_id);
     });
+    RENDER_PART_ORDER.with(|order| {
+        if let Some(pos) = order.borrow().iter().position(|k| k == file_id) {
+            order.borrow_mut().remove(pos);
+        }
+    });
 }
 
 /// Forget all tessellated geometry (e.g. after clearing history).
@@ -148,5 +195,8 @@ pub fn clear_cached_parts() {
     trace_span!("clear_cached_parts");
     RENDER_PART_CACHE.with(|cache| {
         cache.borrow_mut().clear();
+    });
+    RENDER_PART_ORDER.with(|order| {
+        order.borrow_mut().clear();
     });
 }
