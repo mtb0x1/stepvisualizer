@@ -278,3 +278,25 @@ pub struct StepModel {
     pub part_visibility: Vec<bool>,
 }
 
+impl StepModel {
+    /// Compute total vertex count across all render parts.
+    pub fn total_vertices(&self) -> usize {
+        self.render_parts.iter().map(|p| p.vertices.len()).sum()
+    }
+
+    /// Compute total triangle count across all render parts.
+    pub fn total_triangles(&self) -> usize {
+        self.render_parts.iter().map(|p| p.indices.len() / 3).sum()
+    }
+
+    /// Calculate total volume across all render parts.
+    pub fn calculate_total_volume(&self) -> f64 {
+        self.render_parts.iter().map(|p| p.calculate_volume()).sum()
+    }
+
+    /// Calculate total surface area across all render parts.
+    pub fn calculate_total_surface_area(&self) -> f64 {
+        self.render_parts.iter().map(|p| p.calculate_surface_area()).sum()
+    }
+}
+

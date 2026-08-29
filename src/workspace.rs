@@ -3,9 +3,9 @@
 //! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
-    FileId, FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
-    convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
-    parse_units, save_index, save_model,
+    FileId, FileIndexItem, LruCache, Metadata, StepModel, compute_bounding_box, convert_header,
+    delete_model, extract_render_parts, hash_text_to_id, load_index, load_model, parse_units,
+    save_index, save_model,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -187,20 +187,16 @@ fn spawn_tessellation(
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
         let renderable_parts = extract_render_parts(&file_id, &step_table, tolerance);
-        let vertex_count = renderable_parts.iter().map(|p| p.vertices.len()).sum();
-        let triangle_count = renderable_parts.iter().map(|p| p.indices.len() / 3).sum();
-
-        let mut updated_meta = meta;
-        updated_meta.vertex_count = vertex_count;
-        updated_meta.triangle_count = triangle_count;
-
         let part_count = renderable_parts.len();
-        let model = StepModel {
+
+        let mut model = StepModel {
             id: file_id.clone(),
-            metadata: updated_meta.clone(),
+            metadata: meta,
             render_parts: renderable_parts,
             part_visibility: vec![true; part_count],
         };
+        model.metadata.vertex_count = model.total_vertices();
+        model.metadata.triangle_count = model.total_triangles();
 
         {
             let mut cache_ref = cache.borrow_mut();
@@ -208,7 +204,7 @@ fn spawn_tessellation(
         }
         save_model(&model);
 
-        states.metadata.set(Some(updated_meta));
+        states.metadata.set(Some(model.metadata.clone()));
         states.step_model.set(Some(Rc::new(model)));
         states.part_visibility.set(vec![true; part_count]);
         states.set_result("Parsed STEP file successfully.", false);
@@ -422,17 +418,17 @@ fn use_workspace_management(
     }
 }
 
-// Sums a per-part metric over the current model, updates the matching field on
+// Calculates a metric over the current model, updates the matching field on
 // `Metadata`, then persists and republishes the model. Shared by the volume and
 // surface-area actions which differ only in the metric and the field written.
 fn recompute_and_store_metric(
     states: &StateHandles,
     cache: &Rc<RefCell<LruCache>>,
-    compute: impl Fn(&RenderablePart) -> f64,
+    compute: impl Fn(&StepModel) -> f64,
     apply: impl Fn(&mut Metadata, f64),
 ) {
     if let Some(model) = states.step_model.as_ref() {
-        let total: f64 = model.render_parts.iter().map(compute).sum();
+        let total = compute(model);
 
         let mut new_meta = model.metadata.clone();
         apply(&mut new_meta, total);
@@ -494,7 +490,7 @@ fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> Mod
             recompute_and_store_metric(
                 &states,
                 &cache,
-                |p| p.calculate_volume(),
+                |m| m.calculate_total_volume(),
                 |meta, value| meta.volume = Some(value),
             );
         })
@@ -507,7 +503,7 @@ fn use_model_actions(states: &StateHandles, cache: Rc<RefCell<LruCache>>) -> Mod
             recompute_and_store_metric(
                 &states,
                 &cache,
-                |p| p.calculate_surface_area(),
+                |m| m.calculate_total_surface_area(),
                 |meta, value| meta.surface_area = Some(value),
             );
         })
