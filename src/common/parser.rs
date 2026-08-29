@@ -49,19 +49,11 @@ pub fn parse_units(exchange: &Exchange) -> Option<LengthUnit> {
                         .iter()
                         .any(|r| r.name.eq_ignore_ascii_case("LENGTH_UNIT"));
                     if is_length {
-                        // The length unit is authoritative; return it immediately.
-                        for record in &subsuper.0 {
-                            if let Some(unit) = unit_from_record(record) {
-                                return Some(unit);
-                            }
+                        if let Some(unit) = unit_from_subsuper(&subsuper.0) {
+                            return Some(unit);
                         }
                     } else if fallback.is_none() {
-                        for record in &subsuper.0 {
-                            if let Some(unit) = unit_from_record(record) {
-                                fallback = Some(unit);
-                                break;
-                            }
-                        }
+                        fallback = unit_from_subsuper(&subsuper.0);
                     }
                 }
             }
@@ -83,26 +75,24 @@ pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<Bo
             bbox.expand_point([coords[0], coords[1], coords[2]]);
         }
     }
-    if bbox.is_valid() {
-        Some(bbox)
-    } else {
-        None
+    bbox.is_valid().then_some(bbox)
+}
+
+fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
+    records.iter().find_map(unit_from_record)
+}
+
+fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
+    match param {
+        Parameter::List(list) => Some(list),
+        _ => None,
     }
 }
 
-fn params_list(param: &Parameter) -> Option<&[Parameter]> {
-    if let Parameter::List(list) = param {
-        Some(list)
-    } else {
-        None
-    }
-}
-
-fn param_to_enum(param: &Parameter) -> Option<&str> {
-    if let Parameter::Enumeration(value) = param {
-        Some(value.as_str())
-    } else {
-        None
+fn param_as_enum(param: &Parameter) -> Option<&str> {
+    match param {
+        Parameter::Enumeration(value) => Some(value.as_str()),
+        _ => None,
     }
 }
 
@@ -111,9 +101,9 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
         return None;
     }
 
-    let params = params_list(&record.parameter)?;
-    let unit = params.get(1).and_then(param_to_enum)?;
-    let prefix = params.first().and_then(param_to_enum);
+    let params = param_as_list(&record.parameter)?;
+    let unit = params.get(1).and_then(param_as_enum)?;
+    let prefix = params.first().and_then(param_as_enum);
 
     LengthUnit::from_si_spec(unit, prefix)
 }
