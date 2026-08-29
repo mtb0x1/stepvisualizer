@@ -22,6 +22,13 @@ const SAMPLE_INTERVAL_MS: f64 = 100.0;
 /// After this long without a frame, the meter reports 0 FPS (idle).
 const IDLE_TIMEOUT_MS: f64 = 800.0;
 
+/// Point-in-time snapshot of the FPS meter state for the UI overlay.
+#[derive(Clone, PartialEq, Debug, Default)]
+pub struct FpsSnapshot {
+    pub current_fps: f32,
+    pub samples: Vec<f32>,
+}
+
 pub struct FpsMeter {
     inner: RefCell<FpsInner>,
 }
@@ -36,6 +43,7 @@ struct FpsInner {
     last_sample_at: f64,
 }
 
+#[allow(dead_code)]
 impl FpsMeter {
     pub fn new() -> Rc<Self> {
         Rc::new(Self {
@@ -92,6 +100,23 @@ impl FpsMeter {
     /// Recent FPS snapshots (oldest first) for the sparkline.
     pub fn samples(&self) -> Vec<f32> {
         self.inner.borrow().samples.iter().copied().collect()
+    }
+
+    /// Atomic snapshot of current FPS and recent history samples in a single borrow.
+    pub fn snapshot(&self) -> FpsSnapshot {
+        let inner = self.inner.borrow();
+        let now = now_ms();
+        let current_fps = match inner.frame_times.back() {
+            Some(&newest) if now - newest <= IDLE_TIMEOUT_MS => {
+                Self::fps_from_times(&inner.frame_times, now)
+            }
+            _ => 0.0,
+        };
+        let samples = inner.samples.iter().copied().collect();
+        FpsSnapshot {
+            current_fps,
+            samples,
+        }
     }
 
     /// FPS from a deque of frame timestamps: frames-per-second across the span

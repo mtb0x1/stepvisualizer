@@ -1,12 +1,13 @@
 //! Minimal Chrome-style FPS overlay: a current-FPS readout plus a small
 //! sparkline of recent samples, pinned to the bottom-left of the canvas.
+use std::fmt::Write;
 use std::rc::Rc;
 
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use yew::prelude::*;
 
-use crate::common::fps_meter::FpsMeter;
+use crate::common::fps_meter::{FpsMeter, FpsSnapshot};
 
 #[derive(Properties, Clone)]
 pub struct FpsGraphProps {
@@ -30,25 +31,24 @@ const POLL_INTERVAL_MS: i32 = 100;
 
 #[function_component(FpsGraph)]
 pub fn fps_graph(props: &FpsGraphProps) -> Html {
-    let fps = use_state(|| 0.0f32);
-    let samples = use_state(Vec::<f32>::new);
+    let snapshot = use_state(FpsSnapshot::default);
 
     {
         let meter = props.meter.clone();
-        let fps = fps.clone();
-        let samples = samples.clone();
+        let snapshot = snapshot.clone();
         use_effect_with((), move |_| {
             let callback = Closure::wrap(Box::new(move || {
-                fps.set(meter.current_fps());
-                samples.set(meter.samples());
+                snapshot.set(meter.snapshot());
             }) as Box<dyn Fn()>);
 
             let window = web_sys::window();
-            let handle = window.as_ref().and_then(|w| w
-                .set_interval_with_callback_and_timeout_and_arguments_0(
+            let handle = window.as_ref().and_then(|w| {
+                w.set_interval_with_callback_and_timeout_and_arguments_0(
                     callback.as_ref().unchecked_ref(),
                     POLL_INTERVAL_MS,
-                ).ok());
+                )
+                .ok()
+            });
 
             // Keep the closure alive until the effect is torn down.
             Box::new(move || {
@@ -60,12 +60,12 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
         });
     }
 
-    let points = build_points(&samples);
-    let stroke = fps_color(*fps);
+    let points = build_points(&snapshot.samples);
+    let stroke = fps_color(snapshot.current_fps);
 
     html! {
         <div class="fps-graph">
-            <div class="fps-graph-label">{ format!("{:.0} FPS", *fps) }</div>
+            <div class="fps-graph-label">{ format!("{:.0} FPS", snapshot.current_fps) }</div>
             <svg
                 class="fps-graph-svg"
                 width={GRAPH_W.to_string()}
@@ -87,20 +87,20 @@ fn build_points(samples: &[f32]) -> String {
     let n = samples.len();
     let w = GRAPH_W as f32;
     let h = GRAPH_H as f32;
-    samples
-        .iter()
-        .enumerate()
-        .map(|(i, &v)| {
-            let x = if n == 1 {
-                0.0
-            } else {
-                (i as f32 / (n - 1) as f32) * w
-            };
-            let y = h - (v.min(MAX_FPS) / MAX_FPS) * h;
-            format!("{x:.1},{y:.1}")
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
+    let mut out = String::with_capacity(n * 12);
+    for (i, &v) in samples.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        let x = if n == 1 {
+            0.0
+        } else {
+            (i as f32 / (n - 1) as f32) * w
+        };
+        let y = h - (v.min(MAX_FPS) / MAX_FPS) * h;
+        let _ = write!(out, "{x:.1},{y:.1}");
+    }
+    out
 }
 
 /// Green when smooth, yellow when sluggish, red when effectively stalled.
