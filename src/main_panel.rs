@@ -1,18 +1,18 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
 use crate::{
+    common::fps_meter::FpsMeter,
     common::{Metadata, StepModel, constants::WEBGPU_INIT_FAILED_MSG},
+    components::fps_graph::FpsGraph,
     rendering::{
         camera::{CAMERA_PRESETS, CameraPreset, CameraState},
         renderer::render_wgpu_on_canvas,
         wgpu_state::{WgpuState, init_wgpu},
     },
-    common::fps_meter::FpsMeter,
-    components::fps_graph::FpsGraph,
     trace_span,
 };
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::closure::Closure;
 use wasm_bindgen_futures::spawn_local;
 use web_sys::{HtmlCanvasElement, ResizeObserver};
 use yew::prelude::*;

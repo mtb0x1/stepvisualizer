@@ -1,7 +1,10 @@
 //! localStorage persistence: the recent-files index plus whole models keyed
 //! by content hash. Persistence is best-effort — failures are logged as
 //! warnings and the app keeps running without stored data.
-use crate::{apptracing::{AppTracer, AppTracerTrait}, trace_span};
+use crate::{
+    apptracing::{AppTracer, AppTracerTrait},
+    trace_span,
+};
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher;

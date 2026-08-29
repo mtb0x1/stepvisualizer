@@ -130,11 +130,7 @@ use crate::common::constants::WGSL_SHADER;
 /// Build the depth attachment view sized to the current canvas dimensions.
 /// Shared by `init_wgpu` and `WgpuState::resize` so both paths stay in sync
 /// (same format, usage flags, and single-mip/single-sample configuration).
-fn create_depth_texture_view(
-    device: &wgpu::Device,
-    width: u32,
-    height: u32,
-) -> wgpu::TextureView {
+fn create_depth_texture_view(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
     let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth Texture"),
         size: wgpu::Extent3d {

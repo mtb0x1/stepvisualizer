@@ -1,6 +1,9 @@
 //! Tessellation of STEP geometry into GPU-ready triangle meshes, plus the
 //! per-part mesh type the renderer and metric calculations operate on.
-use crate::{apptracing::{AppTracer, AppTracerTrait}, trace_span};
+use crate::{
+    apptracing::{AppTracer, AppTracerTrait},
+    trace_span,
+};
 use bytemuck::{Pod, Zeroable};
 
 use serde::{Deserialize, Serialize};
@@ -114,7 +117,7 @@ pub fn extract_render_parts(
 ) -> Vec<RenderablePart> {
     trace_span!("extract_render_parts");
 
-        if let Some(cached) = crate::common::cache::get_cached_parts(file_id) {
+    if let Some(cached) = crate::common::cache::get_cached_parts(file_id) {
         return cached;
     }
 
@@ -341,6 +344,8 @@ fn now_ms() -> f64 {
     // wall clock jumps (NTP sync etc.). The window and performance objects
     // always exist in the browser targets this app runs in.
     let window = web_sys::window().expect("window exists in browser builds");
-    let performance = window.performance().expect("performance API always available");
+    let performance = window
+        .performance()
+        .expect("performance API always available");
     performance.now()
 }

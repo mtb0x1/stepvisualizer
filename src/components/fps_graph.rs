@@ -2,8 +2,8 @@
 //! sparkline of recent samples, pinned to the bottom-left of the canvas.
 use std::rc::Rc;
 
-use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
+use wasm_bindgen::closure::Closure;
 use yew::prelude::*;
 
 use crate::common::fps_meter::FpsMeter;
@@ -90,7 +90,11 @@ fn build_points(samples: &[f32]) -> String {
         .iter()
         .enumerate()
         .map(|(i, &v)| {
-            let x = if n == 1 { 0.0 } else { (i as f32 / (n - 1) as f32) * w };
+            let x = if n == 1 {
+                0.0
+            } else {
+                (i as f32 / (n - 1) as f32) * w
+            };
             let y = h - (v.min(MAX_FPS) / MAX_FPS) * h;
             format!("{x:.1},{y:.1}")
         })

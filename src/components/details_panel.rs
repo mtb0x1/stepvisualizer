@@ -1,7 +1,7 @@
 //! Metadata panel: header fields, geometry stats, and volume/surface-area
 //! calculate actions.
-use crate::common::constants::NA;
 use crate::common::Metadata;
+use crate::common::constants::NA;
 use crate::trace_span;
 use yew::prelude::*;
 

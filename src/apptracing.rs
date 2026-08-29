@@ -2,7 +2,6 @@
 //! URL query parameters (`?tracing=on&level=trace`), plus the leveled
 //! logging helpers used across the crate.
 use tracing::Level;
-use web_sys::console;
 use tracing_subscriber::{
     Registry,
     fmt::{
@@ -12,6 +11,7 @@ use tracing_subscriber::{
     prelude::*,
 };
 use tracing_web::{MakeConsoleWriter, performance_layer};
+use web_sys::console;
 
 /// Stateless façade over the tracing setup and the leveled helpers.
 pub struct AppTracer;
@@ -53,9 +53,7 @@ impl AppTracerTrait for AppTracer {
                 .with(perf_layer)
                 .with(tracing_subscriber::filter::LevelFilter::from_level(level));
             if let Err(err) = tracing::subscriber::set_global_default(subscriber) {
-                console::error_1(
-                    &format!("Failed to set global default subscriber: {err}").into(),
-                );
+                console::error_1(&format!("Failed to set global default subscriber: {err}").into());
             }
             tracing::info!(
                 "{} StepViz tracing initialized with level: {}",
@@ -66,9 +64,8 @@ impl AppTracerTrait for AppTracer {
     }
 
     fn tracing_enabled_from_url() -> bool {
-        url_query_param("tracing").is_some_and(|value| {
-            value == "on" || value == "true" || value == "1"
-        })
+        url_query_param("tracing")
+            .is_some_and(|value| value == "on" || value == "true" || value == "1")
     }
 
     fn tracing_level_from_url() -> Option<Level> {

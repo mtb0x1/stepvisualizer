@@ -1,12 +1,12 @@
 //! App-wide state: one hook ([`use_step_workspace`]) owning file parsing,
 //! recent-file history, and model interaction. Panels receive slices of
 //! [`StepWorkspace`] as props; nothing else holds app state.
+use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
     FileIndexItem, LruCache, Metadata, RenderablePart, StepModel, compute_bounding_box,
-    convert_header, delete_model, hash_text_to_id, load_index, load_model, parse_units, save_index,
-    save_model, extract_render_parts,
+    convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
+    parse_units, save_index, save_model,
 };
-use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;

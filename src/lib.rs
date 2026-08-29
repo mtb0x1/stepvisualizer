@@ -17,9 +17,9 @@
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 mod apptracing;
-mod error;
 mod common;
 mod components;
+mod error;
 mod header;
 mod left_panel;
 mod main_panel;
@@ -32,8 +32,8 @@ use components::upload_bar::UploadBar;
 use components::webgpu_unavailable::WebGpuUnavailable;
 use header::Header;
 use main_panel::AppStepviz;
-use right_panel::RightPanel as MetadataPanel;
 use rendering::wgpu_state::browser_has_webgpu;
+use right_panel::RightPanel as MetadataPanel;
 use workspace::use_step_workspace;
 
 /// Root component: a WebGPU gate in front of the real application.

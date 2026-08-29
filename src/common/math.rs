@@ -31,7 +31,7 @@ pub fn create_perspective_matrix(fov_y: f32, aspect: f32, near: f32, far: f32) -
     ]
 }
 
-// @todo 
+// @todo
 // https://rust.godbolt.org/z/sWGW7cq5s
 
 /// computes the 3 components cross product of two vectors packed into the
@@ -47,11 +47,11 @@ pub fn cross3(a: v128, b: v128) -> v128 {
     // a_yzx * b - b_yzx * a, followed by a final shuffle
     let a_yzx = i32x4_shuffle::<1, 2, 0, 3>(a, a);
     let b_yzx = i32x4_shuffle::<1, 2, 0, 3>(b, b);
-    
+
     let mul1 = f32x4_mul(a_yzx, b);
     let mul2 = f32x4_mul(b_yzx, a);
     let sub = f32x4_sub(mul1, mul2);
-    
+
     // Final shuffle converts (a_y*b_x - b_y*a_x, ...) to the correct output positions
     i32x4_shuffle::<1, 2, 0, 3>(sub, sub)
 }

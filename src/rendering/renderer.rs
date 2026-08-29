@@ -4,8 +4,8 @@ use std::rc::Rc;
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
     common::{
-        RenderablePart, create_look_at_matrix, create_perspective_matrix, multiply_matrices,
-        fps_meter::FpsMeter,
+        RenderablePart, create_look_at_matrix, create_perspective_matrix, fps_meter::FpsMeter,
+        multiply_matrices,
     },
     error::StepVizError,
     rendering::camera::{CameraState, compute_eye_position},
@@ -171,8 +171,8 @@ pub async fn render_wgpu_on_canvas(
                 },
                 depth_slice: Some(0),
             })],
-                depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                    view: &*depth_texture_view,
+            depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
+                view: &*depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
@@ -276,8 +276,10 @@ pub async fn render_wgpu_on_canvas(
                 None => unreachable!("part GPU buffer slot is populated by the branch above"),
             };
 
-            let mvp_matrix =
-                multiply_matrices(&projection_matrix, &multiply_matrices(&view_matrix, &part.model_matrix));
+            let mvp_matrix = multiply_matrices(
+                &projection_matrix,
+                &multiply_matrices(&view_matrix, &part.model_matrix),
+            );
             queue.write_buffer(&gpu.mvp_buffer, 0, bytemuck::bytes_of(&mvp_matrix));
             queue.write_buffer(&gpu.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
             queue.write_buffer(&gpu.color_buffer, 0, bytemuck::bytes_of(&part.color));
