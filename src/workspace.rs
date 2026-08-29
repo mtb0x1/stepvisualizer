@@ -52,7 +52,7 @@ pub struct StepWorkspace {
 
 #[hook]
 fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<LruCache>>) {
-    let files_index = use_state(|| Vec::<FileIndexItem>::new());
+    let files_index = use_state(Vec::<FileIndexItem>::new);
     let cache = use_mut_ref(|| LruCache::new(CACHE_SIZE));
 
     {
@@ -233,7 +233,7 @@ fn use_file_processor(
         }
 
         let name = web_file.name();
-        let file = File::from(web_sys::File::from(web_file));
+        let file = File::from(web_file);
 
         // Clone the handles the reader callback will own: the outer closure
         // must stay `Fn` (it is invoked for every file-selection event), so it
@@ -366,13 +366,13 @@ fn use_workspace_management(
         let step_model_state = states.step_model.clone();
         let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |delete_id: String| {
-            if let Some(window) = web_sys::window() {
-                if let Ok(false) = window.confirm_with_message(
+            if let Some(window) = web_sys::window()
+                && let Ok(false) = window.confirm_with_message(
                     "Remove this file from history? This action cannot be undone.",
-                ) {
-                    result_state.set(Some("Deletion cancelled.".to_string()));
-                    return;
-                }
+                )
+            {
+                result_state.set(Some("Deletion cancelled.".to_string()));
+                return;
             }
             {
                 let mut c = cache_handle.borrow_mut();
@@ -420,13 +420,13 @@ fn use_workspace_management(
         let selected_file_state = states.selected_file.clone();
         let part_visibility_state = states.part_visibility.clone();
         Callback::from(move |_| {
-            if let Some(window) = web_sys::window() {
-                if let Ok(false) = window.confirm_with_message(
+            if let Some(window) = web_sys::window()
+                && let Ok(false) = window.confirm_with_message(
                     "Clear all cached files? This removes local copies and history.",
-                ) {
-                    result_state.set(Some("Clear history cancelled.".to_string()));
-                    return;
-                }
+                )
+            {
+                result_state.set(Some("Clear history cancelled.".to_string()));
+                return;
             }
 
             let existing = (*files_index_state).clone();
@@ -471,7 +471,7 @@ fn recompute_and_store_metric(
     apply: impl Fn(&mut Metadata, f64),
 ) {
     if let Some(model) = step_model.as_ref() {
-        let total: f64 = model.render_parts.iter().map(|p| compute(p)).sum();
+        let total: f64 = model.render_parts.iter().map(compute).sum();
 
         let mut new_meta = model.metadata.clone();
         apply(&mut new_meta, total);

@@ -21,7 +21,7 @@ pub fn header(props: &HeaderProps) -> Html {
             //     <i class="fas fa-redo"></i>
             // </div>
             <div class="file-name">
-                { props.file_name.clone().unwrap_or_else(|| "".to_string()) }
+                { props.file_name.clone().unwrap_or_default() }
             </div>
             <div class="header-toolbar" />
         </header>

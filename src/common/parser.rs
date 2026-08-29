@@ -101,7 +101,7 @@ fn params_list(param: &Parameter) -> Option<&[Parameter]> {
     }
 }
 
-fn param_to_enum<'a>(param: &'a Parameter) -> Option<&'a str> {
+fn param_to_enum(param: &Parameter) -> Option<&str> {
     if let Parameter::Enumeration(value) = param {
         Some(value.as_str())
     } else {
@@ -116,7 +116,7 @@ fn unit_from_record(record: &Record) -> Option<String> {
 
     let params = params_list(&record.parameter)?;
     let unit = params.get(1).and_then(param_to_enum)?;
-    let prefix = params.get(0).and_then(param_to_enum);
+    let prefix = params.first().and_then(param_to_enum);
 
     let unit = match unit {
         "METRE" => match prefix {

@@ -130,28 +130,23 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                     last_model_id.set(model_id);
                 }
 
-                if let (Some(wgpu_state), Some(model)) = (&**wgpu_handle, model.as_ref()) {
-                    if !model.render_parts.is_empty() {
-                        let parts_vec = model.render_parts.clone();
-                        let vis_vec = vis.clone();
-                        let camera_value = (**camera).clone();
-                        let state = wgpu_state.clone();
-                        let error_cb = render_error_cb.clone();
-                        let meter = fps_meter.clone();
-                        spawn_local(async move {
-                            if let Err(e) = render_wgpu_on_canvas(
-                                state,
-                                parts_vec,
-                                &vis_vec,
-                                &camera_value,
-                                meter,
-                            )
-                            .await
-                            {
-                                error_cb.emit(format!("Render error: {e}"));
-                            }
-                        });
-                    }
+                if let (Some(wgpu_state), Some(model)) = (&**wgpu_handle, model.as_ref())
+                    && !model.render_parts.is_empty()
+                {
+                    let parts_vec = model.render_parts.clone();
+                    let vis_vec = vis.clone();
+                    let camera_value = (**camera).clone();
+                    let state = wgpu_state.clone();
+                    let error_cb = render_error_cb.clone();
+                    let meter = fps_meter.clone();
+                    spawn_local(async move {
+                        if let Err(e) =
+                            render_wgpu_on_canvas(state, parts_vec, &vis_vec, &camera_value, meter)
+                                .await
+                        {
+                            error_cb.emit(format!("Render error: {e}"));
+                        }
+                    });
                 }
                 || ()
             },

@@ -172,7 +172,7 @@ pub async fn render_wgpu_on_canvas(
                 depth_slice: Some(0),
             })],
             depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
-                view: &*depth_texture_view,
+                view: &depth_texture_view,
                 depth_ops: Some(wgpu::Operations {
                     load: wgpu::LoadOp::Clear(1.0),
                     store: wgpu::StoreOp::Store,
