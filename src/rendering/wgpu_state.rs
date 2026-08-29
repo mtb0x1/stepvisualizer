@@ -1,6 +1,6 @@
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
-    common::RenderablePart,
+    common::{RenderablePart, ViewportSize},
     error::StepVizError,
     trace_span,
 };
@@ -133,7 +133,7 @@ pub struct WgpuState {
     /// the renderer can detect when the surface swapchain size diverges from
     /// the configured size (browser-driven resizes / zoom) and rebuild the
     /// depth attachment to match, avoiding a depth/color size-mismatch error.
-    pub depth_size: RefCell<(u32, u32)>,
+    pub depth_size: RefCell<ViewportSize>,
     /// Per-part GPU buffers, keyed by the part's position index in the frame's
     /// part list. Slots are (re)created lazily when missing or when the part's
     /// geometry size changes, and truncated to match the live part count.
@@ -144,19 +144,19 @@ impl WgpuState {
     /// Reconfigure the surface and rebuild the depth texture for a new canvas
     /// size. Safe to call between frames; callers should trigger a re-render
     /// afterwards so the next frame uses the updated dimensions/aspect ratio.
-    pub fn resize(&self, width: u32, height: u32) {
-        if width == 0 || height == 0 {
+    pub fn resize(&self, size: ViewportSize) {
+        if !size.is_valid() {
             return;
         }
         {
             let mut config = self.config.borrow_mut();
-            config.width = width;
-            config.height = height;
+            config.width = size.width;
+            config.height = size.height;
             self.surface.configure(&self.device, &config);
         }
         *self.depth_texture_view.borrow_mut() =
-            create_depth_texture_view(&self.device, width, height);
-        *self.depth_size.borrow_mut() = (width, height);
+            create_depth_texture_view(&self.device, size.width, size.height);
+        *self.depth_size.borrow_mut() = size;
     }
 
     /// Recreate the depth texture view when its size does not match the
@@ -166,16 +166,13 @@ impl WgpuState {
     /// attachment smaller than the color attachment and fail validation.
     /// Calling this each frame keeps the two in lockstep without paying for a
     /// reallocation unless the size actually changed.
-    pub fn ensure_depth_texture(&self, width: u32, height: u32) {
-        if width == 0 || height == 0 {
-            return;
-        }
-        if *self.depth_size.borrow() == (width, height) {
+    pub fn ensure_depth_texture(&self, size: ViewportSize) {
+        if !size.is_valid() || *self.depth_size.borrow() == size {
             return;
         }
         *self.depth_texture_view.borrow_mut() =
-            create_depth_texture_view(&self.device, width, height);
-        *self.depth_size.borrow_mut() = (width, height);
+            create_depth_texture_view(&self.device, size.width, size.height);
+        *self.depth_size.borrow_mut() = size;
     }
 }
 
@@ -278,17 +275,16 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         }
     };
 
-    let canvas_width = canvas.client_width().max(1) as u32;
-    let canvas_height = canvas.client_height().max(1) as u32;
-    canvas.set_width(canvas_width);
-    canvas.set_height(canvas_height);
+    let size = ViewportSize::from_canvas(&canvas);
+    canvas.set_width(size.width);
+    canvas.set_height(size.height);
 
     //FIXME : Params below may not be the best choice
     let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface.get_capabilities(&adapter).formats[0],
-        width: canvas_width,
-        height: canvas_height,
+        width: size.width,
+        height: size.height,
         present_mode: wgpu::PresentMode::Fifo,
         desired_maximum_frame_latency: 1,
         alpha_mode: wgpu::CompositeAlphaMode::Auto,
@@ -299,8 +295,8 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     };
     surface.configure(&device, &config);
 
-    let depth_texture_view = create_depth_texture_view(&device, config.width, config.height);
-    let depth_size = (config.width, config.height);
+    let depth_texture_view = create_depth_texture_view(&device, size.width, size.height);
+    let depth_size = size;
 
     let shader_module_descriptor = wgpu::ShaderModuleDescriptor {
         label: Some("shader"),

@@ -58,6 +58,47 @@ impl std::borrow::Borrow<str> for FileId {
     }
 }
 
+/// Physical pixel dimensions of a rendering viewport or canvas.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub struct ViewportSize {
+    pub width: u32,
+    pub height: u32,
+}
+
+impl ViewportSize {
+    pub const ZERO: Self = Self {
+        width: 0,
+        height: 0,
+    };
+
+    /// Construct new viewport dimensions.
+    pub fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+
+    /// Extract client dimensions from an HTML canvas element, clamped to at least 1x1.
+    pub fn from_canvas(canvas: &web_sys::HtmlCanvasElement) -> Self {
+        Self {
+            width: canvas.client_width().max(1) as u32,
+            height: canvas.client_height().max(1) as u32,
+        }
+    }
+
+    /// Whether both width and height are non-zero.
+    pub fn is_valid(&self) -> bool {
+        self.width > 0 && self.height > 0
+    }
+
+    /// Aspect ratio (width / height), or 1.0 when height is zero.
+    pub fn aspect_ratio(&self) -> f32 {
+        if self.height == 0 {
+            1.0
+        } else {
+            self.width as f32 / self.height as f32
+        }
+    }
+}
+
 /// Standard length units parsed from STEP SI_UNIT and conversion factors to meters.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
 pub enum LengthUnit {

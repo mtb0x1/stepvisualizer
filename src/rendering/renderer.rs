@@ -3,8 +3,8 @@ use std::rc::Rc;
 
 use crate::{
     common::{
-        BoundingBox, RenderablePart, create_look_at_matrix, create_perspective_matrix,
-        fps_meter::FpsMeter, multiply_matrices,
+        BoundingBox, RenderablePart, ViewportSize, create_look_at_matrix,
+        create_perspective_matrix, fps_meter::FpsMeter, multiply_matrices,
     },
     error::StepVizError,
     rendering::camera::CameraState,
@@ -41,8 +41,7 @@ pub async fn render_wgpu_on_canvas(
         part_buffers,
     } = &*state;
 
-    let canvas_width = config.borrow().width;
-    let canvas_height = config.borrow().height;
+    let viewport_size = ViewportSize::new(config.borrow().width, config.borrow().height);
 
     let bounds = crate::common::render::visible_bounds(&parts, visibility)
         .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
@@ -64,7 +63,7 @@ pub async fn render_wgpu_on_canvas(
     let eye = camera_target.eye_position();
     let view_matrix = create_look_at_matrix(eye, view_target, [0.0, 1.0, 0.0]);
 
-    let aspect = canvas_width as f32 / canvas_height as f32;
+    let aspect = viewport_size.aspect_ratio();
     let fov_y = std::f32::consts::PI / 3.0;
     let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
@@ -99,7 +98,10 @@ pub async fn render_wgpu_on_canvas(
 
     // Recreate the depth texture when its size diverges from the surface's
     // actual swapchain size (which can lag `config` during resize).
-    state.ensure_depth_texture(frame.texture.width(), frame.texture.height());
+    state.ensure_depth_texture(ViewportSize::new(
+        frame.texture.width(),
+        frame.texture.height(),
+    ));
 
     let texture_view = frame
         .texture

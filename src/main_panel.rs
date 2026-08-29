@@ -2,7 +2,7 @@
 //! and the effect that renders a frame whenever inputs change.
 use crate::{
     common::fps_meter::FpsMeter,
-    common::{FileId, Metadata, StepModel, constants::WEBGPU_INIT_FAILED_MSG},
+    common::{FileId, Metadata, StepModel, ViewportSize, constants::WEBGPU_INIT_FAILED_MSG},
     components::fps_graph::FpsGraph,
     rendering::{
         camera::{CAMERA_PRESETS, CameraPreset, CameraState},
@@ -42,7 +42,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let camera_state = use_state(CameraState::default);
     let is_dragging = use_state(|| false);
     let last_mouse_pos = use_state(|| (0, 0));
-    let canvas_size = use_state(|| (0u32, 0u32));
+    let canvas_size = use_state(|| ViewportSize::ZERO);
     let last_model_id = use_state(|| None::<FileId>);
     let fps_meter = use_state(FpsMeter::new);
 
@@ -82,14 +82,13 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
             };
             let canvas_for_closure = canvas.clone();
             let on_resize = Closure::wrap(Box::new(move |_entries: js_sys::Array| {
-                let width = canvas_for_closure.client_width().max(1) as u32;
-                let height = canvas_for_closure.client_height().max(1) as u32;
-                canvas_for_closure.set_width(width);
-                canvas_for_closure.set_height(height);
+                let size = ViewportSize::from_canvas(&canvas_for_closure);
+                canvas_for_closure.set_width(size.width);
+                canvas_for_closure.set_height(size.height);
                 if let Some(state) = &*wgpu_state {
-                    state.resize(width, height);
+                    state.resize(size);
                 }
-                canvas_size.set((width, height));
+                canvas_size.set(size);
             }) as Box<dyn Fn(js_sys::Array)>);
             let observer_res = ResizeObserver::new(on_resize.as_ref().unchecked_ref());
             if let Ok(observer) = observer_res {

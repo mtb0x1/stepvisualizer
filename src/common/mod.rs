@@ -19,4 +19,4 @@ pub use parser::{compute_bounding_box, convert_header, parse_units};
 pub use render::{GpuVertex, RenderablePart, extract_render_parts};
 pub use storage::{delete_model, hash_text_to_id, load_index, load_model, save_index, save_model};
 #[allow(unused_imports)]
-pub use types::{BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel};
+pub use types::{BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel, ViewportSize};
