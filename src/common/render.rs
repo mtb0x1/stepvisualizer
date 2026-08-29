@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
-use crate::common::constants::COLORS;
+use crate::common::constants::part_color;
 use crate::common::math::Mat4;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
@@ -355,9 +355,7 @@ fn tessellate_table(
         }
 
         if !vertices.is_empty() && !indices.is_empty() {
-            let color_index = parts_to_render.len() % COLORS.len();
-            let color3 = COLORS[color_index];
-            let color = [color3[0], color3[1], color3[2], 1.0];
+            let color = part_color(parts_to_render.len());
 
             parts_to_render.push(RenderablePart {
                 vertices,

@@ -100,8 +100,9 @@ pub const NO_WEBGPU_MSG: &str = "This browser does not expose the WebGPU API \
 pub const WEBGPU_INIT_FAILED_MSG: &str = "This browser exposes WebGPU, but the \
     GPU could not be initialized";
 
-/// Per-part palette, cycled by part index (alpha forced to 1 at the use site).
-pub const COLORS: [[f32; 4]; 10] = [
+/// Per-part palette, cycled by part index.
+const COLORS_COUNT: usize = 10;
+const COLORS: [[f32; 4]; COLORS_COUNT] = [
     [0.8, 0.2, 0.2, 1.0],
     [0.2, 0.8, 0.2, 1.0],
     [0.2, 0.2, 0.8, 1.0],
@@ -113,3 +114,8 @@ pub const COLORS: [[f32; 4]; 10] = [
     [0.8, 0.6, 0.4, 1.0],
     [0.6, 0.8, 0.4, 1.0],
 ];
+
+/// Returns the RGBA color for part at `index`, cycling through the palette.
+pub const fn part_color(index: usize) -> [f32; 4] {
+    COLORS[index % COLORS_COUNT]
+}
