@@ -6,6 +6,7 @@ use crate::common::{
     convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
     parse_units, save_index, save_model, visible_bounds,
 };
+use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::error::StepVizError;
 use crate::trace_span;
 use gloo::file::File;
@@ -145,15 +146,25 @@ fn input_file(event: &Event) -> Option<web_sys::File> {
     input.files()?.get(0)
 }
 
-/// Returns the first data section carrying usable STEP content, or a
+/// Returns all data sections carrying usable STEP content, or a
 /// domain error explaining why the file has none.
-fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, StepVizError> {
-    if parsed.data.is_empty() {
-        return Err(StepVizError::EmptyDataSection);
-    }
-    match parsed.data.first() {
-        Some(section) if !section.entities.is_empty() || !section.meta.is_empty() => Ok(section),
-        _ => Err(StepVizError::EmptyDataSection),
+fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
+    let usable: Vec<&DataSection> = parsed
+        .data
+        .iter()
+        .filter(|s| !s.entities.is_empty() || !s.meta.is_empty())
+        .collect();
+    if usable.is_empty() {
+        Err(StepVizError::EmptyDataSection)
+    } else {
+        if parsed.data.len() > 1 {
+            AppTracer::warn(&format!(
+                "STEP file contains {} DATA sections; processing all {} usable sections",
+                parsed.data.len(),
+                usable.len()
+            ));
+        }
+        Ok(usable)
     }
 }
 
@@ -164,7 +175,7 @@ fn first_usable_section(parsed: &Exchange) -> Result<&DataSection, StepVizError>
 fn build_initial_metadata(
     fallback_name: &str,
     parsed: &Exchange,
-    step_table: &truck_stepio::r#in::Table,
+    step_tables: &[truck_stepio::r#in::Table],
     text: &str,
 ) -> Result<(Metadata, FileId), StepVizError> {
     let entity_count: usize = parsed
@@ -179,7 +190,7 @@ fn build_initial_metadata(
     let meta = Metadata {
         header: step_header,
         entity_count,
-        bounding_box: compute_bounding_box(step_table),
+        bounding_box: compute_bounding_box(step_tables),
         units: parse_units(parsed),
         vertex_count: 0,
         triangle_count: 0,
@@ -189,11 +200,11 @@ fn build_initial_metadata(
     Ok((meta, hash_text_to_id(text)))
 }
 
-/// Spawns the async tessellation pass: tessellates the STEP table, wraps the
+/// Spawns the async tessellation pass: tessellates the STEP tables, wraps the
 /// result in a `StepModel`, persists it to the cache and localStorage, then
 /// publishes the updated metadata and model to the UI.
 fn spawn_tessellation(
-    step_table: truck_stepio::r#in::Table,
+    step_tables: Vec<truck_stepio::r#in::Table>,
     file_id: FileId,
     meta: Metadata,
     states: StateHandles,
@@ -202,7 +213,7 @@ fn spawn_tessellation(
 ) {
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
-        let renderable_parts = extract_render_parts(&step_table, tolerance);
+        let renderable_parts = extract_render_parts(&step_tables, tolerance);
         if *states.load_generation != generation {
             return;
         }
@@ -309,12 +320,15 @@ fn use_file_processor(
                 Ok(parsed) => parsed,
                 Err(e) => return fail(StepVizError::Parse(e.to_string())),
             };
-            let section = match first_usable_section(&parsed) {
-                Ok(section) => section,
+            let sections = match all_usable_sections(&parsed) {
+                Ok(sections) => sections,
                 Err(err) => return fail(err),
             };
-            let step_table = truck_stepio::r#in::Table::from_data_section(section);
-            let (meta, id) = match build_initial_metadata(&name, &parsed, &step_table, &text) {
+            let step_tables: Vec<truck_stepio::r#in::Table> = sections
+                .into_iter()
+                .map(truck_stepio::r#in::Table::from_data_section)
+                .collect();
+            let (meta, id) = match build_initial_metadata(&name, &parsed, &step_tables, &text) {
                 Ok(v) => v,
                 Err(err) => return fail(err),
             };
@@ -336,7 +350,7 @@ fn use_file_processor(
             states_for_reader.set_result("Tessellating geometry for 3D view...", false);
 
             spawn_tessellation(
-                step_table,
+                step_tables,
                 id.clone(),
                 meta.clone(),
                 states_for_reader.clone(),

@@ -146,7 +146,7 @@ fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
 /// The whole-model centering translation is baked into each part's model
 /// matrix so geometry stays immutable across frames.
 pub fn extract_render_parts(
-    step_table: &truck_stepio::r#in::Table,
+    step_tables: &[truck_stepio::r#in::Table],
     tolerance: f64,
 ) -> Vec<RenderablePart> {
     trace_span!("extract_render_parts");
@@ -154,32 +154,27 @@ pub fn extract_render_parts(
     let total_start = now_ms();
     let mut parts_to_render = Vec::new();
 
-    let section_start = now_ms();
-    let table = step_table;
-
-    let msg = format!(
-        "extract_render_parts => built table for single section in {:.2} ms (shells: {})",
-        now_ms() - section_start,
-        table.shell.len()
-    );
-    AppTracer::debug(&msg);
-    let section_start = now_ms();
-    tessellate_table(table, tolerance, &mut parts_to_render);
-    let tessellate_ms = now_ms() - section_start;
-    let msg = format!(
-        "extract_render_parts => tessellated {} parts in {:.2} ms",
-        parts_to_render.len(),
-        tessellate_ms
-    );
-    AppTracer::debug(&msg);
+    for (i, table) in step_tables.iter().enumerate() {
+        let section_start = now_ms();
+        tessellate_table(table, tolerance, &mut parts_to_render);
+        let tessellate_ms = now_ms() - section_start;
+        let msg = format!(
+            "extract_render_parts => section {i}: tessellated {} parts in {:.2} ms (shells: {})",
+            parts_to_render.len(),
+            tessellate_ms,
+            table.shell.len()
+        );
+        AppTracer::debug(&msg);
+    }
 
     let total_ms = now_ms() - total_start;
     let vertices: usize = parts_to_render.iter().map(|p| p.vertex_count()).sum();
     let triangles: usize = parts_to_render.iter().map(|p| p.triangle_count()).sum();
 
     let summary = format!(
-        "extract_render_parts => tessellation summary: {:.2} ms, parts={}, vertices={}, triangles={}",
+        "extract_render_parts => tessellation summary: {:.2} ms, sections={}, parts={}, vertices={}, triangles={}",
         total_ms,
+        step_tables.len(),
         parts_to_render.len(),
         vertices,
         triangles

@@ -62,17 +62,19 @@ pub fn parse_units(exchange: &Exchange) -> Option<LengthUnit> {
     fallback
 }
 
-/// Axis-aligned bounds over all `CARTESIAN_POINT`s in the table. Placement
+/// Axis-aligned bounds over all `CARTESIAN_POINT`s in the tables. Placement
 /// transforms are ignored, so this is an approximation — good enough for a
-/// pre-load size preview. `None` when the table has no points.
-pub fn compute_bounding_box(step_table: &truck_stepio::r#in::Table) -> Option<BoundingBox> {
+/// pre-load size preview. `None` when tables have no points.
+pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option<BoundingBox> {
     trace_span!("compute_bounding_box");
     let mut bbox = BoundingBox::EMPTY;
 
-    for value in step_table.cartesian_point.values() {
-        let coords = &value.coordinates;
-        if coords.len() >= 3 {
-            bbox.expand_point([coords[0], coords[1], coords[2]]);
+    for step_table in step_tables {
+        for value in step_table.cartesian_point.values() {
+            let coords = &value.coordinates;
+            if coords.len() >= 3 {
+                bbox.expand_point([coords[0], coords[1], coords[2]]);
+            }
         }
     }
     bbox.is_valid().then_some(bbox)
