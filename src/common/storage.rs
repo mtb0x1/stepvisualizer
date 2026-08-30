@@ -70,10 +70,25 @@ pub fn delete_model(id: &str) {
 /// Remove all persisted models and the file index from localStorage.
 pub fn clear_all_storage(items: &[FileIndexItem]) {
     trace_span!("clear_all_storage");
-    for item in items {
-        delete_model(&item.id);
+    if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
+        let count = storage.length().unwrap_or(0);
+        let mut keys_to_delete = Vec::new();
+        for i in 0..count {
+            if let Ok(Some(key)) = storage.key(i) {
+                if key.starts_with(LS_MODEL_KEY_PREFIX) || key == LS_INDEX_KEY {
+                    keys_to_delete.push(key);
+                }
+            }
+        }
+        for key in keys_to_delete {
+            LocalStorage::delete(key);
+        }
+    } else {
+        for item in items {
+            delete_model(&item.id);
+        }
+        save_index(&[]);
     }
-    save_index(&[]);
 }
 
 /// Content-based model identity (16 hex chars) used as the localStorage key.
