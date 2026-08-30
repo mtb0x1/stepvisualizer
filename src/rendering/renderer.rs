@@ -21,7 +21,7 @@ use crate::{
 /// every frame; each visible part is one indexed draw.
 pub async fn render_wgpu_on_canvas(
     state: Rc<WgpuState>,
-    parts: Vec<RenderablePart>,
+    parts: &[RenderablePart],
     visibility: &[bool],
     camera: &CameraState,
     fps_meter: Rc<FpsMeter>,
