@@ -146,15 +146,10 @@ fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
 /// The whole-model centering translation is baked into each part's model
 /// matrix so geometry stays immutable across frames.
 pub fn extract_render_parts(
-    file_id: &str,
     step_table: &truck_stepio::r#in::Table,
     tolerance: f64,
 ) -> Vec<RenderablePart> {
     trace_span!("extract_render_parts");
-
-    if let Some(cached) = crate::common::cache::get_cached_parts(file_id) {
-        return cached;
-    }
 
     let total_start = now_ms();
     let mut parts_to_render = Vec::new();
@@ -200,7 +195,6 @@ pub fn extract_render_parts(
         part.translate(offset);
     }
 
-    crate::common::cache::cache_parts(file_id, &parts_to_render);
     parts_to_render
 }
 

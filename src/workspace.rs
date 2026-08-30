@@ -1,7 +1,6 @@
 //! App-wide state: one hook ([`use_step_workspace`]) owning file parsing,
 //! recent-file history, and model interaction. Panels receive slices of
 //! [`StepWorkspace`] as props; nothing else holds app state.
-use crate::common::cache::{clear_cached_parts, drop_cached_parts};
 use crate::common::{
     FileId, FileIndexItem, LruCache, Metadata, StepModel, clear_all_storage, compute_bounding_box,
     convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
@@ -197,7 +196,7 @@ fn spawn_tessellation(
 ) {
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
-        let renderable_parts = extract_render_parts(&file_id, &step_table, tolerance);
+        let renderable_parts = extract_render_parts(&step_table, tolerance);
         let part_count = renderable_parts.len();
 
         let mut model = StepModel {
@@ -417,10 +416,6 @@ fn use_workspace_management(
                     c.remove(&delete_id);
                 }
 
-                // Free the tessellated geometry held for this file so it is not
-                // retained for the lifetime of the page.
-                drop_cached_parts(&delete_id);
-
                 delete_model(&delete_id);
                 update_and_persist_index(&files_index, |list| {
                     list.retain(|i| i.id != delete_id);
@@ -439,9 +434,6 @@ fn use_workspace_management(
                     let mut cache_mut = cache.borrow_mut();
                     cache_mut.clear();
                 }
-
-                // Drop every cached tessellation alongside the model cache.
-                clear_cached_parts();
 
                 files_index.set(Vec::new());
                 states.clear_model_state();
