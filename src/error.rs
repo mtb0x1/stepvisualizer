@@ -39,7 +39,7 @@ impl fmt::Display for StepVizError {
                 let max_mb = max_bytes / (1024.0 * 1024.0);
                 write!(
                     f,
-                    "File too large ({size_mb:.1} MB). Maximum allowed is {max_mb:.0} MB."
+                    "File too large ({size_mb:.1} MB). Maximum allowed is {max_mb:.1} MB."
                 )
             }
             Self::Parse(msg) => write!(f, "Failed to parse STEP: {msg}"),
