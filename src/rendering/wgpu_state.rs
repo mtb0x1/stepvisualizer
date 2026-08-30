@@ -286,7 +286,9 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     canvas.set_width(size.width);
     canvas.set_height(size.height);
 
-    //FIXME : Params below may not be the best choice
+    // PresentMode::Fifo is intentional on WASM: the browser caps swap to rAF anyway.
+    // desired_maximum_frame_latency=1 keeps input latency low on on-demand render.
+    // If power usage is a concern, use AutoVsync and remove the latency hint.
     let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
         format: surface
