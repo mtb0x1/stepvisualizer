@@ -339,7 +339,9 @@ fn tessellate_table(
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
 ) {
-    for (shell_index, shell) in table.shell.values().enumerate() {
+    let mut shells: Vec<_> = table.shell.iter().collect();
+    shells.sort_by_key(|(k, _)| *k);
+    for (shell_index, (_, shell)) in shells.into_iter().enumerate() {
         let model_matrix = Mat4::IDENTITY;
 
         let compress_start = now_ms();
