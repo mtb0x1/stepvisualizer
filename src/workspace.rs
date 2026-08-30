@@ -91,6 +91,7 @@ struct StateHandles {
     selected_file: UseStateHandle<Option<FileId>>,
     is_processing: UseStateHandle<bool>,
     pending_confirm: UseStateHandle<Option<ConfirmAction>>,
+    load_generation: UseStateHandle<u64>,
     file_reader: UseStateHandle<Option<FileReader>>,
 }
 
@@ -193,10 +194,14 @@ fn spawn_tessellation(
     meta: Metadata,
     states: StateHandles,
     cache: Rc<RefCell<LruCache>>,
+    generation: u64,
 ) {
     let tolerance = DEFAULT_TOLERANCE;
     wasm_bindgen_futures::spawn_local(async move {
         let renderable_parts = extract_render_parts(&step_table, tolerance);
+        if *states.load_generation != generation {
+            return;
+        }
         let part_count = renderable_parts.len();
 
         let mut model = StepModel {
@@ -218,6 +223,10 @@ fn spawn_tessellation(
             cache_ref.insert(file_id.clone(), model.clone());
         }
         save_model(&model);
+
+        if *states.load_generation != generation {
+            return;
+        }
 
         states.metadata.set(Some(model.metadata.clone()));
         states.step_model.set(Some(Rc::new(model)));
@@ -260,6 +269,8 @@ fn use_file_processor(
             input.set_value("");
         }
 
+        let next_gen = *states.load_generation + 1;
+        states.load_generation.set(next_gen);
         states.is_processing.set(true);
         if web_file.size() > MAX_FILE_BYTES {
             states.fail_load(StepVizError::FileTooLarge {
@@ -277,7 +288,14 @@ fn use_file_processor(
         let files_index = files_index.clone();
 
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
-            let fail = |err: StepVizError| states_for_reader.fail_load(err);
+            if *states_for_reader.load_generation != next_gen {
+                return;
+            }
+            let fail = |err: StepVizError| {
+                if *states_for_reader.load_generation == next_gen {
+                    states_for_reader.fail_load(err);
+                }
+            };
 
             let text = match res {
                 Ok(text) => text,
@@ -319,6 +337,7 @@ fn use_file_processor(
                 meta.clone(),
                 states_for_reader.clone(),
                 cache.clone(),
+                next_gen,
             );
 
             // Record the file in the history index (most recent first).
@@ -360,6 +379,9 @@ fn use_workspace_management(
         let states = states.clone();
         let cache = cache.clone();
         Callback::from(move |id: FileId| {
+            let next_gen = *states.load_generation + 1;
+            states.load_generation.set(next_gen);
+
             let maybe_model = cache.borrow_mut().get_or_load(&id, load_model);
 
             match maybe_model {
@@ -392,6 +414,8 @@ fn use_workspace_management(
     let on_deselect = {
         let states = states.clone();
         Callback::from(move |_| {
+            let next_gen = *states.load_generation + 1;
+            states.load_generation.set(next_gen);
             states.clear_model_state();
         })
     };
@@ -578,6 +602,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         selected_file: use_state(|| None::<FileId>),
         is_processing: use_state(|| false),
         pending_confirm: use_state(|| None::<ConfirmAction>),
+        load_generation: use_state(|| 0u64),
     };
 
     let (files_index, cache) = use_workspace_storage();
