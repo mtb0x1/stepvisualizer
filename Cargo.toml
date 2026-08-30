@@ -12,6 +12,7 @@ crate-type = ["cdylib"]
 [dependencies]
 gloo = "0.11.0"
 js-sys = "0.3.81"
+# Generic STEP AST is parsed by ruststep and ingested into truck-stepio Table (supports AP203/AP214 geometry)
 ruststep = { version = "0.4.0", features = ["ap201", "ap203"] }
 wasm-bindgen = "0.2.127"
 wasm-bindgen-futures = "0.4.77"
