@@ -3,8 +3,8 @@
 //! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::{
     FileId, FileIndexItem, LruCache, Metadata, StepModel, all_usable_sections,
-    build_initial_metadata, clear_all_storage, delete_model, extract_render_parts,
-    load_index, load_model, save_index, save_model, visible_bounds,
+    build_initial_metadata, clear_all_storage, delete_model, extract_render_parts, load_index,
+    load_model, save_index, save_model, visible_bounds,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -16,9 +16,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
-use crate::common::constants::{
-    CACHE_SIZE, MAX_FILE_BYTES, compute_adaptive_tolerance,
-};
+use crate::common::constants::{CACHE_SIZE, MAX_FILE_BYTES, compute_adaptive_tolerance};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
@@ -370,7 +368,9 @@ fn use_workspace_management(
                     let files_index = files_index.clone();
                     let file_id = id.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        if let Some(model) = crate::common::storage::load_model_indexeddb(&file_id).await {
+                        if let Some(model) =
+                            crate::common::storage::load_model_indexeddb(&file_id).await
+                        {
                             if *states.load_generation > next_gen {
                                 return;
                             }
@@ -379,7 +379,11 @@ fn use_workspace_management(
                                 c.insert(file_id.clone(), model.clone());
                             }
                             let model_rc = Rc::new(model);
-                            states.set_loaded_model(model_rc, file_id.clone(), "Loaded from storage");
+                            states.set_loaded_model(
+                                model_rc,
+                                file_id.clone(),
+                                "Loaded from storage",
+                            );
                             update_and_persist_index(&files_index, |list| {
                                 if let Some(pos) = list.iter().position(|i| i.id == file_id) {
                                     let item = list.remove(pos);
@@ -419,7 +423,9 @@ fn use_workspace_management(
     let on_clear_history = {
         let states = states.clone();
         Callback::from(move |_| {
-            states.pending_confirm.set(Some(ConfirmAction::ClearHistory));
+            states
+                .pending_confirm
+                .set(Some(ConfirmAction::ClearHistory));
         })
     };
 

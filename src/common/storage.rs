@@ -61,7 +61,10 @@ pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
     let json = serde_json::to_string(model).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(&model.id);
     let val = wasm_bindgen::JsValue::from_str(&json);
-    store.put(&val, Some(&key)).await.map_err(|e| e.to_string())?;
+    store
+        .put(&val, Some(&key))
+        .await
+        .map_err(|e| e.to_string())?;
     transaction.commit().await.map_err(|e| e.to_string())?;
     Ok(())
 }
@@ -69,7 +72,9 @@ pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
 /// Load a model asynchronously from IndexedDB.
 pub async fn load_model_indexeddb(id: &str) -> Option<StepModel> {
     let db = open_db().await.ok()?;
-    let transaction = db.transaction(&[STORE_MODELS], TransactionMode::ReadOnly).ok()?;
+    let transaction = db
+        .transaction(&[STORE_MODELS], TransactionMode::ReadOnly)
+        .ok()?;
     let store = transaction.store(STORE_MODELS).ok()?;
     let key = wasm_bindgen::JsValue::from_str(id);
     let val = store.get(key).await.ok()??;

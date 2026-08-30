@@ -129,10 +129,7 @@ fn url_query_param(key: &str) -> Option<String> {
 #[macro_export]
 macro_rules! trace_span {
     ($name:expr) => {
-        let sp = tracing::info_span!(
-            $name,
-            tracer = $crate::common::constants::STEP_TRACER
-        );
+        let sp = tracing::info_span!($name, tracer = $crate::common::constants::STEP_TRACER);
         // don't use let _ =, it will drop the guard immediately
         let _entered = sp.entered();
     };

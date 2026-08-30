@@ -52,7 +52,10 @@ impl Worker for TessellationWorker {
         let sections = match all_usable_sections(&parsed) {
             Ok(s) => s,
             Err(e) => {
-                scope.respond(id, TessellationResponse::Error(format!("Section error: {e}")));
+                scope.respond(
+                    id,
+                    TessellationResponse::Error(format!("Section error: {e}")),
+                );
                 return;
             }
         };
@@ -66,7 +69,10 @@ impl Worker for TessellationWorker {
             match build_initial_metadata(&msg.file_name, &parsed, &step_tables, &msg.text) {
                 Ok(v) => v,
                 Err(e) => {
-                    scope.respond(id, TessellationResponse::Error(format!("Metadata error: {e}")));
+                    scope.respond(
+                        id,
+                        TessellationResponse::Error(format!("Metadata error: {e}")),
+                    );
                     return;
                 }
             };
