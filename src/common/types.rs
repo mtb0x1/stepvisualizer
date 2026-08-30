@@ -304,15 +304,25 @@ impl BoundingBox {
 /// A fully processed STEP file: identity, metadata, tessellated parts, and
 /// per-part visibility. The whole model is serialized into localStorage
 /// under its `id`, so it survives reloads without re-parsing.
+///
+/// ### Part Visibility Contract
+/// - Part visibility defaults to all-parts-visible (`vec![true; n]`) upon initial load.
+/// - During an active session, visibility changes are tracked dynamically in UI state
+///   and synchronized into the active `StepModel`.
+/// - `#[serde(default)]` ensures deserializing cached models without a `part_visibility`
+///   field safely yields an empty vector which is hydrated to all-true on load.
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct StepModel {
     pub id: FileId,
     pub metadata: Metadata,
     pub render_parts: Vec<RenderablePart>,
+    /// Per-part visibility mask. When empty after deserialization, callers hydrate to all-true.
     #[serde(default)]
     pub part_visibility: Vec<bool>,
+    /// Monotonically increasing generation bumped on visibility changes to invalidate bounds cache.
     #[serde(default)]
     pub visibility_generation: u64,
+    /// Cached bounding box for the current visibility generation (skipped during serialization).
     #[serde(skip)]
     pub cached_bounds: Option<(u64, BoundingBox)>,
 }

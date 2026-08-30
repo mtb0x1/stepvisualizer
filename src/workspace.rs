@@ -123,7 +123,11 @@ impl StateHandles {
 
     /// Sets the active loaded model across all related state handles.
     fn set_loaded_model(&self, model: Rc<StepModel>, file_id: FileId, status_msg: &str) {
-        let part_visibility = model.part_visibility.clone();
+        let part_visibility = if model.part_visibility.len() == model.render_parts.len() {
+            model.part_visibility.clone()
+        } else {
+            vec![true; model.render_parts.len()]
+        };
         self.metadata.set(Some(model.metadata.clone()));
         self.step_model.set(Some(model));
         self.part_visibility.set(part_visibility);
