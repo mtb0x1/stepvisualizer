@@ -16,6 +16,50 @@ and check browser Web console.
 
 This is an experimental project. The visualization works for basic STEP files but may fail or crash with complex models. Performance and stability are not guaranteed.
 
+## Supported STEP Formats
+
+All files must be encoded as **ISO-10303-21** (the standard physical file format for STEP, `.stp` / `.step` extension).
+The visualizer uses [`ruststep`](https://github.com/ricosjp/ruststep) for parsing and [`truck-stepio`](https://github.com/ricosjp/truck) for geometry extraction.
+Support level depends on the `FILE_SCHEMA` declared in the file header.
+
+> [!NOTE]
+> The `examples/` directory intentionally includes files from **unsupported or partially-supported schemas**.
+> They are provided so users can load them, observe the current behaviour, and help track what still needs work.
+> Do not assume a file renders correctly just because it ships with the project.
+
+| Schema / Standard | Common Name | Supported | Geometry rendered | Part hierarchy | Color from file | PMI / GD&T | Multi-body assemblies |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| `CONFIG_CONTROL_DESIGN` | AP203 (ed.1) | Yes | Yes | No | No | No | ~ |
+| `AUTOMOTIVE_DESIGN` | AP214 (ed.1–3) | Yes | Yes | No | No | No | ~ |
+| `AP203_E2` / `CONFIGURATION_CONTROL_3D_DESIGN_ED2` | AP203 ed.2 | ~ | ~ | No | No | No | ~ |
+| `AP242_MANAGED_MODEL_BASED_3D_ENGINEERING` | AP242 | ~ | ~ | No | No | No | ~ |
+| `FEATURE_BASED_PROCESS_PLANNING` | AP224 | No | No | No | No | No | No |
+| `STRUCTURAL_ANALYSIS_DESIGN` / AP209 | AP209 | No | No | No | No | No | No |
+| `PLANT_SPATIAL_CONFIGURATION` | AP221 | No | No | No | No | No | No |
+| `SHIP_STRUCTURES_SCHEMA` | AP218 | No | No | No | No | No | No |
+
+> **Yes** Supported, **~** Partial, **No** Not supported
+
+### Feature Notes
+
+**What works (AP203 / AP214):**
+- B-Rep solid geometry (BSpline surfaces, planes, cylinders, cones, tori, …) is tessellated via `truck`'s triangulation pipeline.
+- Basic header metadata is displayed (filename, timestamp, author, schema, entity count, bounding box, units).
+- Volume and surface area can be computed on demand from the tessellated mesh.
+- Files with multiple `DATA` sections are processed (all usable sections are merged).
+- Unit systems: `SI_UNIT` prefixes (`mm`, `cm`, `m`, `km`) and `CONVERSION_BASED_UNIT` (`inch`, `foot`) are recognized.
+
+**Known gaps even for supported schemas:**
+- **Part/assembly hierarchy**: the product tree (`PRODUCT`, `NEXT_ASSEMBLY_USAGE_OCCURENCE`, …) is not parsed - each shell is treated as a flat, independent part.
+- **Colors and materials**: `STYLED_ITEM`, `COLOUR_RGB`, `SURFACE_STYLE_*` are not read; parts are assigned a cycling palette instead.
+- **PMI / GD&T annotations**: datum targets, geometric tolerances, and annotation planes are ignored.
+- **2D geometry**: `GEOMETRIC_CURVE_SET` and wire-body entities produce no triangles and are silently skipped.
+- **Complex shells**: shells that fail `truck`'s compression step are skipped with a warning; the rest of the file is still rendered.
+- **Large files**: files larger than the configured limit are rejected; very large models may be slow or cause the browser tab to run out of memory.
+
+**Why AP224 / AP209 / AP218 / AP221 are not supported:**
+These schemas contain domain-specific entity types (machining features, FEA meshes, piping layouts, ship structure panels) that have no geometry representation in `truck-stepio`'s `Table`. The parser accepts the ISO-10303-21 envelope but produces zero renderable shells.
+
 ## Features
 
 - Web-based 3D visualization of STEP files
@@ -72,6 +116,28 @@ sequenceDiagram
    ```
 
 3. Open `http://localhost:8080` in a WebGPU-capable browser
+
+### Example Files
+
+The `examples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
+Not all of them render correctly - this is intentional. They serve as a test bed to explore current support and surface gaps.
+
+| File | Schema | Renders? |
+|---|---|:---:|
+| `Part1.stp` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
+| `nasty_cheese.stp` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
+| `l44mji.step` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
+| `as1-tc-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
+| `io1-ca-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
+| `io1-tc-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
+| `boxy_with_cylindricity.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
+| `d2-db-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
+| `Cruise_Assembly.stp` | `AUTOMOTIVE_DESIGN` (AP214) | ~ |
+| `Rocky_House.stp` | `AUTOMOTIVE_DESIGN` (AP214) | ~ |
+| `twr_ps_16.stp` | `SHIP_STRUCTURES_SCHEMA` (AP218) | No |
+| `blower.stp` | `STRUCTURAL_ANALYSIS_DESIGN` (AP209-like) | No |
+| `fullroom_aim.stp` | `PLANT_SPATIAL_CONFIGURATION` (AP221) | No |
+| `ap224_997423743.stp` | `FEATURE_BASED_PROCESS_PLANNING` (AP224) | No |
 
 ## Known Limitations
 
