@@ -160,10 +160,8 @@ pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> M
     );
     let c3 = f32x4(tx, ty, tz, 1.0);
 
-    // By-value transmute (same reasoning as `multiply_matrices`): no reference
-    // is formed, so the caller's alignment is irrelevant. `[v128; 4]` and
-    // `Mat4` (transparent over `[f32; 16]`) are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], Mat4>([c0, c1, c2, c3]) }
+    // Safe value-level cast using bytemuck.
+    bytemuck::cast::<[v128; 4], Mat4>([c0, c1, c2, c3])
 }
 
 /// Column-major `a × b`, hand-vectorized with wasm128 SIMD.
@@ -210,9 +208,6 @@ pub fn multiply_matrices(a: &Mat4, b: &Mat4) -> Mat4 {
         );
     }
 
-    // By-value transmute: no reference is formed, so the 4-byte alignment of
-    // the caller's `[f32; 16]` is irrelevant to soundness — the v128 lanes
-    // already live in properly-aligned registers/SSA values. `[v128; 4]` and
-    // `Mat4` (transparent over `[f32; 16]`) are both 64 bytes.
-    unsafe { core::mem::transmute::<[v128; 4], Mat4>(out) }
+    // Safe value-level cast using bytemuck (checked at compile time for equal sizes and alignment rules).
+    bytemuck::cast::<[v128; 4], Mat4>(out)
 }
