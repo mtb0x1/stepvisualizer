@@ -160,7 +160,11 @@ fn spawn_tessellation(
     let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     wasm_bindgen_futures::spawn_local(async move {
         let renderable_parts = extract_render_parts(&step_tables, tolerance);
-        if *states.load_generation != generation {
+        // Only abort if a *newer* upload has started (load_generation was
+        // incremented again). An equal value means this is still the current
+        // load  `UseStateHandle` deref still reads the pre-render snapshot
+        // inside gloo callbacks, so != would always fire on first upload.
+        if *states.load_generation > generation {
             return;
         }
         let part_count = renderable_parts.len();
@@ -185,7 +189,7 @@ fn spawn_tessellation(
         }
         save_model(&model);
 
-        if *states.load_generation != generation {
+        if *states.load_generation > generation {
             return;
         }
 
@@ -249,11 +253,11 @@ fn use_file_processor(
         let files_index = files_index.clone();
 
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
-            if *states_for_reader.load_generation != next_gen {
+            if *states_for_reader.load_generation > next_gen {
                 return;
             }
             let fail = |err: StepVizError| {
-                if *states_for_reader.load_generation == next_gen {
+                if *states_for_reader.load_generation <= next_gen {
                     states_for_reader.fail_load(err);
                 }
             };
@@ -367,7 +371,7 @@ fn use_workspace_management(
                     let file_id = id.clone();
                     wasm_bindgen_futures::spawn_local(async move {
                         if let Some(model) = crate::common::storage::load_model_indexeddb(&file_id).await {
-                            if *states.load_generation != next_gen {
+                            if *states.load_generation > next_gen {
                                 return;
                             }
                             {
@@ -383,7 +387,7 @@ fn use_workspace_management(
                                 }
                             });
                         } else {
-                            if *states.load_generation == next_gen {
+                            if *states.load_generation <= next_gen {
                                 states.is_processing.set(false);
                                 states.set_result("Cached data missing.", true);
                             }
