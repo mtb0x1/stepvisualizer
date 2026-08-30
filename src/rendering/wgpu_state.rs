@@ -145,9 +145,13 @@ pub struct WgpuState {
     /// part list. Slots are (re)created lazily when missing or when the part's
     /// geometry size changes, and truncated to match the live part count.
     pub part_buffers: RefCell<Vec<Option<PartGpu>>>,
+    /// Unique identifier for this GPU context instance.
+    pub id: u64,
     /// Cached visible bounds keyed by visibility array to avoid re-iterating vertices on every frame.
     pub cached_bounds: RefCell<Option<(Vec<bool>, BoundingBox)>>,
 }
+
+static NEXT_WGPU_STATE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);
 
 impl WgpuState {
     /// Reconfigure the surface and rebuild the depth texture for a new canvas
@@ -187,19 +191,7 @@ impl WgpuState {
 
 impl PartialEq for WgpuState {
     fn eq(&self, other: &Self) -> bool {
-        // `part_buffers` is a per-frame runtime cache and is intentionally
-        // excluded: two `WgpuState`s are equivalent when their GPU resources
-        // (device, pipeline, surfaces, ...) match, regardless of cached buffers.
-        self.device == other.device
-            && self.queue == other.queue
-            && self.surface == other.surface
-            && self.config == other.config
-            && self.render_pipeline == other.render_pipeline
-            && self.global_bind_group == other.global_bind_group
-            && self.view_proj_buffer == other.view_proj_buffer
-            && self.part_bind_group_layout == other.part_bind_group_layout
-            && self.depth_texture_view == other.depth_texture_view
-            && self.depth_size == other.depth_size
+        self.id == other.id
     }
 }
 
@@ -445,6 +437,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         depth_texture_view: RefCell::new(depth_texture_view),
         depth_size: RefCell::new(depth_size),
         part_buffers: RefCell::new(Vec::new()),
+        id: NEXT_WGPU_STATE_ID.fetch_add(1, std::sync::atomic::Ordering::Relaxed),
         cached_bounds: RefCell::new(None),
     })
 }
