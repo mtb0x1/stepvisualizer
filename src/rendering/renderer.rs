@@ -39,12 +39,29 @@ pub async fn render_wgpu_on_canvas(
         depth_texture_view,
         depth_size: _,
         part_buffers,
+        ..
     } = &*state;
 
     let viewport_size = ViewportSize::new(config.borrow().width, config.borrow().height);
 
-    let bounds = crate::common::render::visible_bounds(&parts, visibility)
-        .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
+    let bounds = {
+        let mut cached_opt = state.cached_bounds.borrow_mut();
+        if let Some((cached_vis, cached_bbox)) = cached_opt.as_ref() {
+            if cached_vis.as_slice() == visibility {
+                *cached_bbox
+            } else {
+                let computed = crate::common::render::visible_bounds(&parts, visibility)
+                    .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
+                *cached_opt = Some((visibility.to_vec(), computed));
+                computed
+            }
+        } else {
+            let computed = crate::common::render::visible_bounds(&parts, visibility)
+                .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
+            *cached_opt = Some((visibility.to_vec(), computed));
+            computed
+        }
+    };
 
     let max_size = bounds.max_extent_f32().max(0.1);
     let view_target = bounds.center_f32();

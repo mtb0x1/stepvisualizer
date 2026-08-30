@@ -1,6 +1,6 @@
 use crate::{
     apptracing::{AppTracer, AppTracerTrait},
-    common::{RenderablePart, ViewportSize},
+    common::{BoundingBox, RenderablePart, ViewportSize},
     error::StepVizError,
     trace_span,
 };
@@ -145,6 +145,8 @@ pub struct WgpuState {
     /// part list. Slots are (re)created lazily when missing or when the part's
     /// geometry size changes, and truncated to match the live part count.
     pub part_buffers: RefCell<Vec<Option<PartGpu>>>,
+    /// Cached visible bounds keyed by visibility array to avoid re-iterating vertices on every frame.
+    pub cached_bounds: RefCell<Option<(Vec<bool>, BoundingBox)>>,
 }
 
 impl WgpuState {
@@ -443,5 +445,6 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         depth_texture_view: RefCell::new(depth_texture_view),
         depth_size: RefCell::new(depth_size),
         part_buffers: RefCell::new(Vec::new()),
+        cached_bounds: RefCell::new(None),
     })
 }

@@ -315,6 +315,10 @@ pub struct StepModel {
     pub render_parts: Vec<RenderablePart>,
     #[serde(default)]
     pub part_visibility: Vec<bool>,
+    #[serde(default)]
+    pub visibility_generation: u64,
+    #[serde(skip)]
+    pub cached_bounds: Option<(u64, BoundingBox)>,
 }
 
 impl StepModel {

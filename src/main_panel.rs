@@ -138,6 +138,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 if model_id != *last_model_id {
                     if let Some(wgpu_state) = &**wgpu_handle {
                         wgpu_state.part_buffers.borrow_mut().clear();
+                        *wgpu_state.cached_bounds.borrow_mut() = None;
                     }
                     last_model_id.set(model_id);
                 }

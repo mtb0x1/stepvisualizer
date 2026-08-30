@@ -195,6 +195,8 @@ fn spawn_tessellation(
             metadata: meta,
             render_parts: renderable_parts,
             part_visibility: vec![true; part_count],
+            visibility_generation: 0,
+            cached_bounds: None,
         };
         model.metadata.vertex_count = model.total_vertices();
         model.metadata.triangle_count = model.total_triangles();
