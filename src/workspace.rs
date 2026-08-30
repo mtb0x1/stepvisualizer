@@ -214,7 +214,7 @@ fn spawn_tessellation(
         };
         model.metadata.vertex_count = model.total_vertices();
         model.metadata.triangle_count = model.total_triangles();
-        if let Some(bbox) = visible_bounds(&model.render_parts, &[]) {
+        if let Some(bbox) = visible_bounds(&model.render_parts, &model.part_visibility) {
             model.metadata.bounding_box = Some(bbox);
         }
 
