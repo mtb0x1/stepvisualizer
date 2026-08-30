@@ -166,15 +166,13 @@ pub async fn render_wgpu_on_canvas(
         render_pass.set_bind_group(0, global_bind_group, &[]);
 
         let mut cache = part_buffers.borrow_mut();
-        cache.truncate(parts.len());
+        if cache.len() != parts.len() {
+            cache.resize_with(parts.len(), || None);
+        }
 
         for (index, part) in parts.iter().enumerate() {
             if !visibility.get(index).copied().unwrap_or(true) || part.indices.is_empty() {
                 continue;
-            }
-
-            while cache.len() <= index {
-                cache.push(None);
             }
 
             let vertex_count = part.vertices.len();
