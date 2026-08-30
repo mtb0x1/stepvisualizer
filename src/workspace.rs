@@ -119,6 +119,7 @@ impl StateHandles {
         self.part_visibility.set(part_visibility);
         self.selected_file.set(Some(file_id));
         self.set_result(status_msg, false);
+        self.is_processing.set(false);
     }
 }
 
