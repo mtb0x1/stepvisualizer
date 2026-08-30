@@ -1,3 +1,4 @@
+# Nightly toolchain required for std::arch::wasm32::v128 SIMD intrinsic support.
 [toolchain]
 targets = ["wasm32-unknown-unknown"]
 features = ["simd"]

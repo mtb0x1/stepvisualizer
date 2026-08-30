@@ -71,7 +71,7 @@ impl RenderablePart {
     /// buffer. Tessellated parts are always well-formed, so this only guards
     /// against corrupted deserialized models.
     fn triangles(&self) -> impl Iterator<Item = ([f32; 3], [f32; 3], [f32; 3])> + '_ {
-        self.indices.as_chunks::<3>().0.iter().filter_map(|tri| {
+        self.indices.chunks_exact(3).filter_map(|tri| {
             let idx0 = tri[0] as usize;
             let idx1 = tri[1] as usize;
             let idx2 = tri[2] as usize;
