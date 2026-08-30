@@ -289,7 +289,12 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
     //FIXME : Params below may not be the best choice
     let config = wgpu::SurfaceConfiguration {
         usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
-        format: surface.get_capabilities(&adapter).formats[0],
+        format: surface
+            .get_capabilities(&adapter)
+            .formats
+            .first()
+            .copied()
+            .unwrap_or(wgpu::TextureFormat::Bgra8UnormSrgb),
         width: size.width,
         height: size.height,
         present_mode: wgpu::PresentMode::Fifo,
