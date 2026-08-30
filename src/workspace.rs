@@ -242,6 +242,13 @@ fn use_file_processor(
             return;
         };
 
+        if let Some(input) = event
+            .target()
+            .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
+        {
+            input.set_value("");
+        }
+
         states.is_processing.set(true);
         if web_file.size() > MAX_FILE_BYTES {
             states.fail_load(StepVizError::FileTooLarge {
