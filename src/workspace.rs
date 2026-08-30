@@ -18,7 +18,9 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
-use crate::common::constants::{CACHE_SIZE, DEFAULT_TOLERANCE, MAX_FILE_BYTES};
+use crate::common::constants::{
+    CACHE_SIZE, MAX_FILE_BYTES, compute_adaptive_tolerance,
+};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
@@ -211,7 +213,7 @@ fn spawn_tessellation(
     cache: Rc<RefCell<LruCache>>,
     generation: u64,
 ) {
-    let tolerance = DEFAULT_TOLERANCE;
+    let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     wasm_bindgen_futures::spawn_local(async move {
         let renderable_parts = extract_render_parts(&step_tables, tolerance);
         if *states.load_generation != generation {

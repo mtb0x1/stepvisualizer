@@ -75,7 +75,22 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 /// Projection near plane (far plane is derived per frame from model size).
 pub const NEAR_PLANE: f32 = 0.1;
 /// Default tessellation tolerance: smaller = finer mesh, slower tessellation.
-pub const DEFAULT_TOLERANCE: f64 = 0.1;
+pub const DEFAULT_TOLERANCE: f64 = 0.005;
+/// Minimum tessellation tolerance (limits excessive subdivision on very large models).
+pub const MIN_TOLERANCE: f64 = 1e-4;
+/// Maximum tessellation tolerance (ensures adequate curve smoothness on tiny models).
+pub const MAX_TOLERANCE: f64 = 0.05;
+
+/// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
+pub fn compute_adaptive_tolerance(bbox: Option<&crate::common::types::BoundingBox>) -> f64 {
+    if let Some(bbox) = bbox {
+        let extent = bbox.max_extent();
+        if extent > 0.0 {
+            return (extent * 0.001).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
+        }
+    }
+    DEFAULT_TOLERANCE
+}
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
 
