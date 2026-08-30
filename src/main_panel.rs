@@ -51,6 +51,8 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let canvas_size = use_state(|| ViewportSize::ZERO);
     let last_model_id = use_state(|| None::<FileId>);
     let fps_meter = use_state(|| Rc::new(FpsMeter::new()));
+    let is_rendering = use_mut_ref(|| false);
+    let pending_render = use_mut_ref(|| false);
 
     {
         let canvas_ref = canvas_ref.clone();
@@ -146,25 +148,46 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                 if let (Some(wgpu_state), Some(model)) = (&**wgpu_handle, model.as_ref())
                     && !model.render_parts.is_empty()
                 {
-                    let model = model.clone();
-                    let vis_vec = vis.clone();
-                    let camera_value = (**camera).clone();
-                    let state = wgpu_state.clone();
-                    let error_cb = render_error_cb.clone();
-                    let meter = fps_meter.clone();
-                    spawn_local(async move {
-                        if let Err(e) = render_wgpu_on_canvas(
-                            state,
-                            &model.render_parts,
-                            &vis_vec,
-                            &camera_value,
-                            meter,
-                        )
-                        .await
-                        {
-                            error_cb.emit(format!("Render error: {e}"));
-                        }
-                    });
+                    if *is_rendering.borrow() {
+                        *pending_render.borrow_mut() = true;
+                    } else {
+                        *is_rendering.borrow_mut() = true;
+
+                        let is_rendering = is_rendering.clone();
+                        let pending_render = pending_render.clone();
+                        let model = model.clone();
+                        let vis_vec = vis.clone();
+                        let camera_value = (**camera).clone();
+                        let state = wgpu_state.clone();
+                        let error_cb = render_error_cb.clone();
+                        let meter = fps_meter.clone();
+
+                        spawn_local(async move {
+                            let res = render_wgpu_on_canvas(
+                                state.clone(),
+                                &model.render_parts,
+                                &vis_vec,
+                                &camera_value,
+                                meter.clone(),
+                            )
+                            .await;
+                            *is_rendering.borrow_mut() = false;
+                            if let Err(e) = res {
+                                error_cb.emit(format!("Render error: {e}"));
+                            }
+                            if *pending_render.borrow() {
+                                *pending_render.borrow_mut() = false;
+                                let _ = render_wgpu_on_canvas(
+                                    state,
+                                    &model.render_parts,
+                                    &vis_vec,
+                                    &camera_value,
+                                    meter,
+                                )
+                                .await;
+                            }
+                        });
+                    }
                 }
                 || ()
             },
