@@ -50,7 +50,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let drag_state = use_state(|| None::<DragState>);
     let canvas_size = use_state(|| ViewportSize::ZERO);
     let last_model_id = use_state(|| None::<FileId>);
-    let fps_meter = use_state(FpsMeter::new);
+    let fps_meter = use_state(|| Rc::new(FpsMeter::new()));
 
     {
         let canvas_ref = canvas_ref.clone();

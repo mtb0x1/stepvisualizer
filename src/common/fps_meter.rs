@@ -9,7 +9,6 @@
 //! meter reports 0 FPS (idle) instead of a stale value.
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::rc::Rc;
 
 use crate::common::time::now_ms;
 
@@ -45,14 +44,14 @@ struct FpsInner {
 
 #[allow(dead_code)]
 impl FpsMeter {
-    pub fn new() -> Rc<Self> {
-        Rc::new(Self {
+    pub fn new() -> Self {
+        Self {
             inner: RefCell::new(FpsInner {
                 frame_times: VecDeque::with_capacity(64),
                 samples: VecDeque::with_capacity(MAX_SAMPLES),
                 last_sample_at: 0.0,
             }),
-        })
+        }
     }
 
     /// Call exactly once per rendered frame to feed the meter.
