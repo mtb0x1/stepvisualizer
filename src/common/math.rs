@@ -123,12 +123,29 @@ pub fn create_look_at_matrix(eye: [f32; 3], center: [f32; 3], up: [f32; 3]) -> M
     let up_v = f32x4(up[0], up[1], up[2], 0.0);
 
     // forward = normalize(center - eye)
-    let f = f32x4_sub(center_v, eye_v);
-    let f = f32x4_div(f, f32x4_splat(dot3(f, f).sqrt()));
+    let f_sub = f32x4_sub(center_v, eye_v);
+    let f_len_sq = dot3(f_sub, f_sub);
+    let f = if f_len_sq < 1e-12 {
+        f32x4(0.0, 0.0, -1.0, 0.0)
+    } else {
+        f32x4_div(f_sub, f32x4_splat(f_len_sq.sqrt()))
+    };
 
     // right = normalize(cross(forward, up))
-    let s = cross3(f, up_v);
-    let s = f32x4_div(s, f32x4_splat(dot3(s, s).sqrt()));
+    let s_cross = cross3(f, up_v);
+    let s_len_sq = dot3(s_cross, s_cross);
+    let s = if s_len_sq < 1e-12 {
+        let alt_up = if f32x4_extract_lane::<1>(f).abs() > 0.9 {
+            f32x4(1.0, 0.0, 0.0, 0.0)
+        } else {
+            f32x4(0.0, 1.0, 0.0, 0.0)
+        };
+        let s_alt = cross3(f, alt_up);
+        let s_alt_len = dot3(s_alt, s_alt).sqrt().max(1e-6);
+        f32x4_div(s_alt, f32x4_splat(s_alt_len))
+    } else {
+        f32x4_div(s_cross, f32x4_splat(s_len_sq.sqrt()))
+    };
 
     // true up = cross(right, forward)
     let u = cross3(s, f);
