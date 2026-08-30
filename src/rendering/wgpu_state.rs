@@ -44,7 +44,7 @@ pub struct PartGpu {
     pub model_buffer: wgpu::Buffer,
     pub color_buffer: wgpu::Buffer,
     pub bind_group: wgpu::BindGroup,
-    pub uniforms_uploaded: bool,
+    pub uniforms_dirty: bool,
 }
 
 impl PartGpu {
@@ -99,20 +99,20 @@ impl PartGpu {
             model_buffer,
             color_buffer,
             bind_group,
-            uniforms_uploaded: false,
+            uniforms_dirty: true,
         }
     }
 
-    /// Upload model transform and RGBA color uniforms to the GPU queue once per part.
+    /// Upload model transform and RGBA color uniforms to the GPU queue if dirty.
     pub fn upload_uniforms(&mut self, queue: &wgpu::Queue, part: &RenderablePart) {
-        if !self.uniforms_uploaded {
+        if self.uniforms_dirty {
             queue.write_buffer(
                 &self.model_buffer,
                 0,
                 bytemuck::bytes_of(&part.model_matrix),
             );
             queue.write_buffer(&self.color_buffer, 0, bytemuck::bytes_of(&part.color));
-            self.uniforms_uploaded = true;
+            self.uniforms_dirty = false;
         }
     }
 }
