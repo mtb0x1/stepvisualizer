@@ -20,6 +20,12 @@ use yew::prelude::*;
 
 use crate::common::constants::{CACHE_SIZE, DEFAULT_TOLERANCE, MAX_FILE_BYTES};
 
+#[derive(Clone, PartialEq, Debug)]
+pub enum ConfirmAction {
+    DeleteFile(FileId),
+    ClearHistory,
+}
+
 /// All UI callbacks the panels consume, aggregated so a single struct can be
 /// passed down from [`StepWorkspace`]. Split internally into the file
 /// processor, history management, and per-model action groups.
@@ -29,6 +35,8 @@ pub struct WorkspaceActions {
     pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
     pub on_clear_history: Callback<()>,
+    pub on_confirm: Callback<()>,
+    pub on_cancel_confirm: Callback<()>,
     pub on_visibility_change: Callback<(usize, bool)>,
     pub on_show_all: Callback<()>,
     pub on_hide_all: Callback<()>,
@@ -50,6 +58,7 @@ pub struct StepWorkspace {
     pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
     pub part_visibility: UseStateHandle<Vec<bool>>,
     pub is_processing: UseStateHandle<bool>,
+    pub pending_confirm: UseStateHandle<Option<ConfirmAction>>,
     pub actions: WorkspaceActions,
 }
 
@@ -82,6 +91,7 @@ struct StateHandles {
     part_visibility: UseStateHandle<Vec<bool>>,
     selected_file: UseStateHandle<Option<FileId>>,
     is_processing: UseStateHandle<bool>,
+    pending_confirm: UseStateHandle<Option<ConfirmAction>>,
     file_reader: UseStateHandle<Option<FileReader>>,
 }
 
@@ -336,6 +346,8 @@ pub struct WorkspaceManagementActions {
     pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
     pub on_clear_history: Callback<()>,
+    pub on_confirm: Callback<()>,
+    pub on_cancel_confirm: Callback<()>,
 }
 
 #[hook]
@@ -370,35 +382,11 @@ fn use_workspace_management(
     };
 
     let on_delete = {
-        let files_index = files_index.clone();
         let states = states.clone();
-        let cache = cache.clone();
         Callback::from(move |delete_id: FileId| {
-            if let Some(window) = web_sys::window()
-                && let Ok(false) = window.confirm_with_message(
-                    "Remove this file from history? This action cannot be undone.",
-                )
-            {
-                states.set_result("Deletion cancelled.", false);
-                return;
-            }
-            {
-                let mut c = cache.borrow_mut();
-                c.remove(&delete_id);
-            }
-
-            // Free the tessellated geometry held for this file so it is not
-            // retained for the lifetime of the page.
-            drop_cached_parts(&delete_id);
-
-            delete_model(&delete_id);
-            update_and_persist_index(&files_index, |list| {
-                list.retain(|i| i.id != delete_id);
-            });
-            if states.selected_file.as_ref() == Some(&delete_id) {
-                states.clear_model_state();
-            }
-            states.set_result("Removed file from list.", false);
+            states
+                .pending_confirm
+                .set(Some(ConfirmAction::DeleteFile(delete_id)));
         })
     };
 
@@ -410,32 +398,64 @@ fn use_workspace_management(
     };
 
     let on_clear_history = {
+        let states = states.clone();
+        Callback::from(move |_| {
+            states.pending_confirm.set(Some(ConfirmAction::ClearHistory));
+        })
+    };
+
+    let on_confirm = {
         let files_index = files_index.clone();
         let states = states.clone();
         let cache = cache.clone();
+        Callback::from(move |_| match states.pending_confirm.as_ref() {
+            Some(ConfirmAction::DeleteFile(delete_id)) => {
+                let delete_id = delete_id.clone();
+                states.pending_confirm.set(None);
+                {
+                    let mut c = cache.borrow_mut();
+                    c.remove(&delete_id);
+                }
+
+                // Free the tessellated geometry held for this file so it is not
+                // retained for the lifetime of the page.
+                drop_cached_parts(&delete_id);
+
+                delete_model(&delete_id);
+                update_and_persist_index(&files_index, |list| {
+                    list.retain(|i| i.id != delete_id);
+                });
+                if states.selected_file.as_ref() == Some(&delete_id) {
+                    states.clear_model_state();
+                }
+                states.set_result("Removed file from list.", false);
+            }
+            Some(ConfirmAction::ClearHistory) => {
+                states.pending_confirm.set(None);
+
+                clear_all_storage(&files_index);
+
+                {
+                    let mut cache_mut = cache.borrow_mut();
+                    cache_mut.clear();
+                }
+
+                // Drop every cached tessellation alongside the model cache.
+                clear_cached_parts();
+
+                files_index.set(Vec::new());
+                states.clear_model_state();
+                states.set_result("Cleared cached files.", false);
+            }
+            None => {}
+        })
+    };
+
+    let on_cancel_confirm = {
+        let states = states.clone();
         Callback::from(move |_| {
-            if let Some(window) = web_sys::window()
-                && let Ok(false) = window.confirm_with_message(
-                    "Clear all cached files? This removes local copies and history.",
-                )
-            {
-                states.set_result("Clear history cancelled.", false);
-                return;
-            }
-
-            clear_all_storage(&files_index);
-
-            {
-                let mut cache_mut = cache.borrow_mut();
-                cache_mut.clear();
-            }
-
-            // Drop every cached tessellation alongside the model cache.
-            clear_cached_parts();
-
-            files_index.set(Vec::new());
-            states.clear_model_state();
-            states.set_result("Cleared cached files.", false);
+            states.pending_confirm.set(None);
+            states.set_result("Action cancelled.", false);
         })
     };
 
@@ -444,6 +464,8 @@ fn use_workspace_management(
         on_delete,
         on_deselect,
         on_clear_history,
+        on_confirm,
+        on_cancel_confirm,
     }
 }
 
@@ -562,6 +584,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         part_visibility: use_state(Vec::new),
         selected_file: use_state(|| None::<FileId>),
         is_processing: use_state(|| false),
+        pending_confirm: use_state(|| None::<ConfirmAction>),
     };
 
     let (files_index, cache) = use_workspace_storage();
@@ -581,12 +604,15 @@ pub fn use_step_workspace() -> StepWorkspace {
         step_model: states.step_model.clone(),
         part_visibility: states.part_visibility.clone(),
         is_processing: states.is_processing.clone(),
+        pending_confirm: states.pending_confirm.clone(),
         actions: WorkspaceActions {
             on_file_change,
             on_item_click: management.on_item_click,
             on_delete: management.on_delete,
             on_deselect: management.on_deselect,
             on_clear_history: management.on_clear_history,
+            on_confirm: management.on_confirm,
+            on_cancel_confirm: management.on_cancel_confirm,
             on_visibility_change: model_actions.on_visibility_change,
             on_show_all: model_actions.on_show_all,
             on_hide_all: model_actions.on_hide_all,

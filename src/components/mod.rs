@@ -1,4 +1,5 @@
 //! Reusable panels composed by the sidebars and the main viewport.
+pub mod confirm_modal;
 pub mod details_panel;
 pub mod file_history_panel;
 pub mod fps_graph;

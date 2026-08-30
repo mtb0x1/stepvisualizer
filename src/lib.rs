@@ -70,13 +70,17 @@ struct MainAppProps {
 
 /// The application shell: workspace hook + header, sidebars, viewport.
 /// Mounted only after the WebGPU gate passes.
+use crate::components::confirm_modal::ConfirmModal;
+use crate::workspace::ConfirmAction;
+
 #[function_component(MainApp)]
 fn main_app(props: &MainAppProps) -> Html {
     let workspace = use_step_workspace();
     let current_file_name = workspace
         .metadata
         .as_ref()
-        .map(|m| m.header.file_name.clone());
+        .map(|m| m.header.file_name.clone())
+        .unwrap_or_default();
     let render_error_callback = {
         let result = workspace.result.clone();
         let result_is_error = workspace.result_is_error.clone();
@@ -84,6 +88,32 @@ fn main_app(props: &MainAppProps) -> Html {
             result_is_error.set(true);
             result.set(Some(msg));
         })
+    };
+
+    let confirm_modal_view = match workspace.pending_confirm.as_ref() {
+        Some(ConfirmAction::DeleteFile(_)) => {
+            html! {
+                <ConfirmModal
+                    title="Delete File"
+                    message="Remove this file from history? This action cannot be undone."
+                    confirm_label="Delete"
+                    on_confirm={workspace.actions.on_confirm.clone()}
+                    on_cancel={workspace.actions.on_cancel_confirm.clone()}
+                />
+            }
+        }
+        Some(ConfirmAction::ClearHistory) => {
+            html! {
+                <ConfirmModal
+                    title="Clear All History"
+                    message="Clear all cached files? This removes all local copies and history."
+                    confirm_label="Clear All"
+                    on_confirm={workspace.actions.on_confirm.clone()}
+                    on_cancel={workspace.actions.on_cancel_confirm.clone()}
+                />
+            }
+        }
+        None => html! {},
     };
 
     html! {
@@ -134,6 +164,8 @@ fn main_app(props: &MainAppProps) -> Html {
                     on_calculate_surface={workspace.actions.on_calculate_surface.clone()}
                 />
             </aside>
+
+            { confirm_modal_view }
         </div>
     }
 }
