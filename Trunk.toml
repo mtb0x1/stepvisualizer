@@ -30,6 +30,3 @@ ws_protocol = "ws"         # Protocol used for autoreload WebSockets connection.
 
 [clean]
 cargo = true  # Optionally perform a cargo clean.
-
-[tools]
-wasm_opt = ["-O3", "--enable-simd"]
