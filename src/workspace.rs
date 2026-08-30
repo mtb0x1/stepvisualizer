@@ -470,23 +470,24 @@ fn recompute_and_store_metric(
     compute: impl Fn(&StepModel) -> f64,
     apply: impl Fn(&mut Metadata, f64),
 ) {
-    if let Some(model) = states.step_model.as_ref() {
-        let total = compute(model);
+    if let Some(model_rc) = states.step_model.as_ref() {
+        let total = compute(model_rc);
 
-        let mut new_meta = model.metadata.clone();
+        let mut new_meta = model_rc.metadata.clone();
         apply(&mut new_meta, total);
         states.metadata.set(Some(new_meta.clone()));
 
-        let mut new_model = (**model).clone();
-        new_model.metadata = new_meta;
+        let mut model_rc = model_rc.clone();
+        let model_mut = Rc::make_mut(&mut model_rc);
+        model_mut.metadata = new_meta;
 
         {
             let mut c = cache.borrow_mut();
-            c.insert(new_model.id.clone(), new_model.clone());
+            c.insert(model_mut.id.clone(), model_mut.clone());
         }
-        save_model(&new_model);
+        save_model(model_mut);
 
-        states.step_model.set(Some(Rc::new(new_model)));
+        states.step_model.set(Some(model_rc));
     }
 }
 
