@@ -163,8 +163,7 @@ pub fn extract_render_parts(
     let table = step_table;
 
     let msg = format!(
-        "extract_render_parts => built table for section {} in {:.2} ms (shells: {})",
-        0,
+        "extract_render_parts => built table for single section in {:.2} ms (shells: {})",
         now_ms() - section_start,
         table.shell.len()
     );
