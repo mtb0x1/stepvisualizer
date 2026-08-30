@@ -3,7 +3,6 @@ use std::fmt;
 
 /// Crate-wide domain error type for all fallible operations (parsing, geometry, GPU init, rendering, storage).
 #[derive(Debug, Clone, PartialEq)]
-#[allow(dead_code)]
 pub enum StepVizError {
     /// Failure while reading file contents from browser FileReader.
     FileRead(String),
@@ -15,14 +14,10 @@ pub enum StepVizError {
     EmptyDataSection,
     /// Header records could not be mapped to a valid STEP header.
     InvalidHeader(String),
-    /// Browser does not support WebGPU.
-    GpuUnavailable(String),
     /// Failed to request adapter or device during WebGPU initialization.
     GpuInitFailed(String),
     /// Runtime failure during frame rendering or surface acquisition.
     RenderError(String),
-    /// Local persistence or cache error.
-    Storage(String),
     /// General or unclassified error message.
     Generic(String),
 }
@@ -50,10 +45,8 @@ impl fmt::Display for StepVizError {
                 )
             }
             Self::InvalidHeader(msg) => write!(f, "Failed to parse header: {msg}"),
-            Self::GpuUnavailable(msg) => write!(f, "WebGPU is unavailable: {msg}"),
             Self::GpuInitFailed(msg) => write!(f, "Failed to initialize WebGPU: {msg}"),
             Self::RenderError(msg) => write!(f, "Render error: {msg}"),
-            Self::Storage(msg) => write!(f, "Storage error: {msg}"),
             Self::Generic(msg) => write!(f, "{msg}"),
         }
     }

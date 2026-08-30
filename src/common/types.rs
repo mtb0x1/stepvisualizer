@@ -10,12 +10,7 @@ use super::render::RenderablePart;
 #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
 pub struct FileId(pub String);
 
-#[allow(dead_code)]
 impl FileId {
-    pub fn new(id: impl Into<String>) -> Self {
-        Self(id.into())
-    }
-
     pub fn as_str(&self) -> &str {
         &self.0
     }
@@ -124,7 +119,6 @@ pub enum LengthUnit {
     Custom,
 }
 
-#[allow(dead_code)]
 impl LengthUnit {
     /// Standard unit symbol ("mm", "cm", "m", etc.).
     pub fn symbol(&self) -> &'static str {
@@ -137,20 +131,6 @@ impl LengthUnit {
             Self::Inch => "in",
             Self::Foot => "ft",
             Self::Custom => "units",
-        }
-    }
-
-    /// Scale factor to convert a value in this unit to base SI metres.
-    pub fn to_metres_scale(self) -> f64 {
-        match self {
-            Self::Millimetre => 1e-3,
-            Self::Centimetre => 1e-2,
-            Self::Decimetre => 1e-1,
-            Self::Metre => 1.0,
-            Self::Kilometre => 1e3,
-            Self::Inch => 0.0254,
-            Self::Foot => 0.3048,
-            Self::Custom => 1.0,
         }
     }
 
@@ -245,7 +225,6 @@ pub struct BoundingBox {
     pub max: [f64; 3],
 }
 
-#[allow(dead_code)]
 impl BoundingBox {
     /// An empty/inverted bounding box ready to be expanded.
     pub const EMPTY: Self = Self {
@@ -322,14 +301,6 @@ impl BoundingBox {
         for i in 0..3 {
             self.min[i] = self.min[i].min(p[i]);
             self.max[i] = self.max[i].max(p[i]);
-        }
-    }
-
-    /// Expands this bounding box to include another bounding box.
-    pub fn expand_box(&mut self, other: &BoundingBox) {
-        for i in 0..3 {
-            self.min[i] = self.min[i].min(other.min[i]);
-            self.max[i] = self.max[i].max(other.max[i]);
         }
     }
 }

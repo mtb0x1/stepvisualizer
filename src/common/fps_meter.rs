@@ -42,7 +42,6 @@ struct FpsInner {
     last_sample_at: f64,
 }
 
-#[allow(dead_code)]
 impl FpsMeter {
     pub fn new() -> Self {
         Self {
@@ -82,23 +81,6 @@ impl FpsMeter {
             }
             inner.last_sample_at = now;
         }
-    }
-
-    /// Instantaneous FPS derived from frame timestamps, or 0.0 when idle.
-    pub fn current_fps(&self) -> f32 {
-        let inner = self.inner.borrow();
-        let now = now_ms();
-        match inner.frame_times.back() {
-            Some(&newest) if now - newest <= IDLE_TIMEOUT_MS => {
-                Self::fps_from_times(&inner.frame_times, now)
-            }
-            _ => 0.0,
-        }
-    }
-
-    /// Recent FPS snapshots (oldest first) for the sparkline.
-    pub fn samples(&self) -> Vec<f32> {
-        self.inner.borrow().samples.iter().copied().collect()
     }
 
     /// Atomic snapshot of current FPS and recent history samples in a single borrow.
