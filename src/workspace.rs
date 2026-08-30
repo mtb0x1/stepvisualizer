@@ -416,7 +416,35 @@ fn use_workspace_management(
                     });
                 }
                 None => {
-                    states.set_result("Cached data missing.", true);
+                    states.is_processing.set(true);
+                    let states = states.clone();
+                    let cache = cache.clone();
+                    let files_index = files_index.clone();
+                    let file_id = id.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        if let Some(model) = crate::common::storage::load_model_indexeddb(&file_id).await {
+                            if *states.load_generation != next_gen {
+                                return;
+                            }
+                            {
+                                let mut c = cache.borrow_mut();
+                                c.insert(file_id.clone(), model.clone());
+                            }
+                            let model_rc = Rc::new(model);
+                            states.set_loaded_model(model_rc, file_id.clone(), "Loaded from storage");
+                            update_and_persist_index(&files_index, |list| {
+                                if let Some(pos) = list.iter().position(|i| i.id == file_id) {
+                                    let item = list.remove(pos);
+                                    list.insert(0, item);
+                                }
+                            });
+                        } else {
+                            if *states.load_generation == next_gen {
+                                states.is_processing.set(false);
+                                states.set_result("Cached data missing.", true);
+                            }
+                        }
+                    });
                 }
             }
         })
