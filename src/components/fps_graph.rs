@@ -37,6 +37,11 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
         let meter = props.meter.clone();
         let snapshot = snapshot.clone();
         use_effect_with((), move |_| {
+            // The Closure::wrap here captures `callback` by move into the teardown Box.
+            // If window is None (non-browser test environment), handle is None and the
+            // interval is never started, but `callback` is still kept alive in the teardown
+            // closure (intentional — harmless but non-obvious). The teardown fires on
+            // component unmount via use_effect's cleanup return.
             let callback = Closure::wrap(Box::new(move || {
                 snapshot.set(meter.snapshot());
             }) as Box<dyn Fn()>);
