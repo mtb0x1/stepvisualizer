@@ -25,6 +25,7 @@ mod left_panel;
 mod main_panel;
 mod rendering;
 mod right_panel;
+pub mod worker;
 mod workspace;
 use apptracing::{AppTracer, AppTracerTrait};
 use common::constants::NO_WEBGPU_MSG;

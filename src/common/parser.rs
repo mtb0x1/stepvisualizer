@@ -1,9 +1,11 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
+use crate::apptracing::{AppTracer, AppTracerTrait};
+use crate::common::storage::hash_text_to_id;
 use crate::{error::StepVizError, trace_span};
-use ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
+use ruststep::ast::{DataSection, EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
-use super::types::{BoundingBox, LengthUnit, StepHeader};
+use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 
 /// Convert the STEP header section into the display-oriented [`StepHeader`].
 /// Fails when the records do not form a valid header.
@@ -119,4 +121,58 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
         return LengthUnit::from_name(name);
     }
     None
+}
+
+/// Returns all data sections carrying usable STEP content, or a
+/// domain error explaining why the file has none.
+pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
+    let usable: Vec<&DataSection> = parsed
+        .data
+        .iter()
+        .filter(|s| !s.entities.is_empty() || !s.meta.is_empty())
+        .collect();
+    if usable.is_empty() {
+        Err(StepVizError::EmptyDataSection)
+    } else {
+        if parsed.data.len() > 1 {
+            AppTracer::warn(&format!(
+                "STEP file contains {} DATA sections; processing all {} usable sections",
+                parsed.data.len(),
+                usable.len()
+            ));
+        }
+        Ok(usable)
+    }
+}
+
+/// Assembles the pre-tessellation metadata (header, entity count, bounding
+/// box, units) for a parsed STEP file, together with its content-hash id.
+/// The tessellated counts (vertices/triangles) are filled in later, once
+/// the geometry pass has produced them.
+pub fn build_initial_metadata(
+    fallback_name: &str,
+    parsed: &Exchange,
+    step_tables: &[truck_stepio::r#in::Table],
+    text: &str,
+) -> Result<(Metadata, FileId), StepVizError> {
+    let entity_count: usize = parsed
+        .data
+        .iter()
+        .map(|section| section.entities.len())
+        .sum();
+    let mut step_header = convert_header(&parsed.header)?;
+    if step_header.file_name.is_empty() {
+        step_header.file_name = fallback_name.to_string();
+    }
+    let meta = Metadata {
+        header: step_header,
+        entity_count,
+        bounding_box: compute_bounding_box(step_tables),
+        units: parse_units(parsed),
+        vertex_count: 0,
+        triangle_count: 0,
+        volume: None,
+        surface_area: None,
+    };
+    Ok((meta, hash_text_to_id(text)))
 }

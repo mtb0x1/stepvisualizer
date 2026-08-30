@@ -2,16 +2,14 @@
 //! recent-file history, and model interaction. Panels receive slices of
 //! [`StepWorkspace`] as props; nothing else holds app state.
 use crate::common::{
-    FileId, FileIndexItem, LruCache, Metadata, StepModel, clear_all_storage, compute_bounding_box,
-    convert_header, delete_model, extract_render_parts, hash_text_to_id, load_index, load_model,
-    parse_units, save_index, save_model, visible_bounds,
+    FileId, FileIndexItem, LruCache, Metadata, StepModel, all_usable_sections,
+    build_initial_metadata, clear_all_storage, delete_model, extract_render_parts,
+    load_index, load_model, save_index, save_model, visible_bounds,
 };
-use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::error::StepVizError;
 use crate::trace_span;
 use gloo::file::File;
 use gloo::file::callbacks::FileReader;
-use ruststep::ast::{DataSection, Exchange};
 use std::cell::RefCell;
 use std::rc::Rc;
 use wasm_bindgen::JsCast;
@@ -146,60 +144,6 @@ fn input_file(event: &Event) -> Option<web_sys::File> {
         .target()
         .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())?;
     input.files()?.get(0)
-}
-
-/// Returns all data sections carrying usable STEP content, or a
-/// domain error explaining why the file has none.
-fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
-    let usable: Vec<&DataSection> = parsed
-        .data
-        .iter()
-        .filter(|s| !s.entities.is_empty() || !s.meta.is_empty())
-        .collect();
-    if usable.is_empty() {
-        Err(StepVizError::EmptyDataSection)
-    } else {
-        if parsed.data.len() > 1 {
-            AppTracer::warn(&format!(
-                "STEP file contains {} DATA sections; processing all {} usable sections",
-                parsed.data.len(),
-                usable.len()
-            ));
-        }
-        Ok(usable)
-    }
-}
-
-/// Assembles the pre-tessellation metadata (header, entity count, bounding
-/// box, units) for a parsed STEP file, together with its content-hash id.
-/// The tessellated counts (vertices/triangles) are filled in later, once
-/// the geometry pass has produced them.
-fn build_initial_metadata(
-    fallback_name: &str,
-    parsed: &Exchange,
-    step_tables: &[truck_stepio::r#in::Table],
-    text: &str,
-) -> Result<(Metadata, FileId), StepVizError> {
-    let entity_count: usize = parsed
-        .data
-        .iter()
-        .map(|section| section.entities.len())
-        .sum();
-    let mut step_header = convert_header(&parsed.header)?;
-    if step_header.file_name.is_empty() {
-        step_header.file_name = fallback_name.to_string();
-    }
-    let meta = Metadata {
-        header: step_header,
-        entity_count,
-        bounding_box: compute_bounding_box(step_tables),
-        units: parse_units(parsed),
-        vertex_count: 0,
-        triangle_count: 0,
-        volume: None,
-        surface_area: None,
-    };
-    Ok((meta, hash_text_to_id(text)))
 }
 
 /// Spawns the async tessellation pass: tessellates the STEP tables, wraps the
