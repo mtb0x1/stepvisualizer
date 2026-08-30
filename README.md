@@ -55,8 +55,9 @@ sequenceDiagram
 
 ## Getting Started
 
-1. Install dependencies:
+1. Install prerequisites:
    ```bash
+   rustup target add wasm32-unknown-unknown
    cargo install trunk
    ```
 
@@ -65,12 +66,12 @@ sequenceDiagram
    trunk serve
    ```
 
-   or if you only need the wasm file:
+   or build the standalone WASM bundle:
    ```bash
-   RUSTFLAGS='--cfg web' cargo build --target wasm32-unknown-unknown
+   cargo build --target wasm32-unknown-unknown --release
    ```
 
-3. Open `http://localhost:8080` in a modern browser
+3. Open `http://localhost:8080` in a WebGPU-capable browser
 
 ## Known Limitations
 
