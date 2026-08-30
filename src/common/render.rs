@@ -70,6 +70,7 @@ impl RenderablePart {
     /// count is not a multiple of 3) and triples pointing outside the vertex
     /// buffer. Tessellated parts are always well-formed, so this only guards
     /// against corrupted deserialized models.
+    #[allow(clippy::chunks_exact_to_as_chunks)]
     fn triangles(&self) -> impl Iterator<Item = ([f32; 3], [f32; 3], [f32; 3])> + '_ {
         self.indices.chunks_exact(3).filter_map(|tri| {
             let idx0 = tri[0] as usize;
@@ -267,16 +268,8 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let d1 = [
-            (p1.x - p0.x) as f64,
-            (p1.y - p0.y) as f64,
-            (p1.z - p0.z) as f64,
-        ];
-        let d2 = [
-            (p2.x - p0.x) as f64,
-            (p2.y - p0.y) as f64,
-            (p2.z - p0.z) as f64,
-        ];
+        let d1 = [p1.x - p0.x, p1.y - p0.y, p1.z - p0.z];
+        let d2 = [p2.x - p0.x, p2.y - p0.y, p2.z - p0.z];
         let cross = [
             d1[1] * d2[2] - d1[2] * d2[1],
             d1[2] * d2[0] - d1[0] * d2[2],

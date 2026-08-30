@@ -16,7 +16,7 @@ pub struct TessellationRequest {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum TessellationResponse {
     Success {
-        model: StepModel,
+        model: Box<StepModel>,
         file_id: FileId,
     },
     Error(String),
@@ -89,6 +89,12 @@ impl Worker for TessellationWorker {
             model.metadata.bounding_box = Some(bbox);
         }
 
-        scope.respond(id, TessellationResponse::Success { model, file_id });
+        scope.respond(
+            id,
+            TessellationResponse::Success {
+                model: Box::new(model),
+                file_id,
+            },
+        );
     }
 }

@@ -27,6 +27,12 @@ jobs:
           tar -xzf /tmp/trunk.tar.gz -C "${HOME}/.local/bin"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
+      - name: Cargo Check
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Cargo Clippy
+        run: cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
       - name: Build Yew App
         run: trunk build --release --dist ./dist --public-url /stepvisualizer/
 

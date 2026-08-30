@@ -50,13 +50,13 @@ pub async fn render_wgpu_on_canvas(
             if cached_vis.as_slice() == visibility {
                 *cached_bbox
             } else {
-                let computed = crate::common::render::visible_bounds(&parts, visibility)
+                let computed = crate::common::render::visible_bounds(parts, visibility)
                     .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
                 *cached_opt = Some((visibility.to_vec(), computed));
                 computed
             }
         } else {
-            let computed = crate::common::render::visible_bounds(&parts, visibility)
+            let computed = crate::common::render::visible_bounds(parts, visibility)
                 .unwrap_or(BoundingBox::new([-1.0, -1.0, -1.0], [1.0, 1.0, 1.0]));
             *cached_opt = Some((visibility.to_vec(), computed));
             computed

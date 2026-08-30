@@ -145,10 +145,10 @@ pub fn clear_all_storage(items: &[FileIndexItem]) {
         let count = storage.length().unwrap_or(0);
         let mut keys_to_delete = Vec::new();
         for i in 0..count {
-            if let Ok(Some(key)) = storage.key(i) {
-                if key.starts_with(LS_MODEL_KEY_PREFIX) || key == LS_INDEX_KEY {
-                    keys_to_delete.push(key);
-                }
+            if let Ok(Some(key)) = storage.key(i)
+                && (key.starts_with(LS_MODEL_KEY_PREFIX) || key == LS_INDEX_KEY)
+            {
+                keys_to_delete.push(key);
             }
         }
         for key in keys_to_delete {
