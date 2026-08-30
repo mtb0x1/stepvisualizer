@@ -252,6 +252,7 @@ fn append_face_geometry(
     if !orientation {
         mesh.invert();
     }
+    mesh.triangulate();
 
     let positions = mesh.positions();
     let normals = mesh.normals();
