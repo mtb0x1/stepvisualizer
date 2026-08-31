@@ -117,6 +117,18 @@ sequenceDiagram
 
 3. Open `http://localhost:8080` in a WebGPU-capable browser
 
+## Running Tests
+
+Unit tests run in a freestanding `wasm32-unknown-unknown` browser environment with WebAssembly SIMD (`+simd128,+relaxed-simd`) enabled via `wasm-pack test`:
+
+```bash
+# Headless Chrome / Chromium (Local & CI/CD)
+wasm-pack test --headless --chrome
+
+# Or using Firefox
+wasm-pack test --headless --firefox
+```
+
 ### Example Files
 
 The `examples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
