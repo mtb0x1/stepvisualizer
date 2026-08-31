@@ -286,5 +286,25 @@ mod tests {
         let result = multiply_matrices(&Mat4::IDENTITY, &Mat4::IDENTITY);
         assert_eq!(result, Mat4::IDENTITY);
     }
+
+    /// Verifies that multiplying an arbitrary non-identity matrix by the identity
+    /// matrix on either the left or the right yields the original matrix unchanged.
+    #[wasm_bindgen_test]
+    fn multiply_identity_left_right() {
+        let a = Mat4([
+            1.5, 2.5, 3.5, 4.5,
+            5.5, 6.5, 7.5, 8.5,
+            9.5, 10.5, 11.5, 12.5,
+            13.5, 14.5, 15.5, 16.5,
+        ]);
+
+        let a_times_i = multiply_matrices(&a, &Mat4::IDENTITY);
+        let i_times_a = multiply_matrices(&Mat4::IDENTITY, &a);
+
+        for i in 0..16 {
+            approx::assert_relative_eq!(a_times_i.0[i], a.0[i], epsilon = 1e-5);
+            approx::assert_relative_eq!(i_times_a.0[i], a.0[i], epsilon = 1e-5);
+        }
+    }
 }
 
