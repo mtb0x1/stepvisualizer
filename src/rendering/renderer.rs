@@ -41,6 +41,17 @@ pub async fn render_wgpu_on_canvas(
         part_buffers,
         ..
     } = &*state;
+    // WARNING: In WebGPU on WASM, the browser context's drawing buffer resizes whenever
+    // the canvas DOM element dimensions change. To prevent WebGPU validation errors where
+    // the color attachment size does not match the depth attachment size, we must ensure
+    // the surface configuration and depth buffer are synchronized with the actual canvas
+    // DOM dimensions before acquiring the swapchain texture.
+    let current_canvas_size = ViewportSize::from_canvas(&state.canvas);
+    if current_canvas_size.is_valid() && current_canvas_size != *state.depth_size.borrow() {
+        state.canvas.set_width(current_canvas_size.width);
+        state.canvas.set_height(current_canvas_size.height);
+        state.resize(current_canvas_size);
+    }
 
     let viewport_size = ViewportSize::new(config.borrow().width, config.borrow().height);
 

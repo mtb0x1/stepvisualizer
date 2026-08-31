@@ -126,6 +126,8 @@ pub struct WgpuState {
     pub device: wgpu::Device,
     pub queue: wgpu::Queue,
     pub surface: wgpu::Surface<'static>,
+    /// Associated HTML canvas element.
+    pub canvas: HtmlCanvasElement,
     /// Surface configuration (canvas size). Interior-mutable so `resize` can
     /// update it without requiring unique ownership of the whole `WgpuState`.
     pub config: RefCell<wgpu::SurfaceConfiguration>,
@@ -429,6 +431,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         device,
         queue,
         surface,
+        canvas,
         config: RefCell::new(config),
         render_pipeline,
         global_bind_group,

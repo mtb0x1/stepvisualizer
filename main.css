@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
     overflow: hidden;
     margin: 0;
     padding: 0;
@@ -11,6 +12,7 @@ html, body {
     height: 100vh;
     width: 100vw;
 }
+
 .app-header {
     grid-column: 1 / span 3;
     display: flex;
@@ -23,17 +25,20 @@ html, body {
     letter-spacing: 0.5px;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
 }
+
 .file-name {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 .processing-hint {
     margin-left: 0.8em;
     font-size: 0.9em;
     color: #f0ab00;
 }
+
 .empty-canvas-message {
     position: absolute;
     top: 50%;
@@ -43,6 +48,7 @@ html, body {
     color: #7b7f8f;
     font-size: 1.2em;
 }
+
 .main-viewport {
     position: relative;
     display: flex;
@@ -50,12 +56,17 @@ html, body {
     height: 100%;
     overflow: hidden;
 }
+
+/* WARNING: .canvas-wrapper MUST use relative positioning, flex: 1, min-height: 0, and overflow: hidden.
+ * This establishes an isolated layout boundary for the absolutely positioned WebGPU canvas element. */
 .canvas-wrapper {
     position: relative;
     width: 100%;
     flex: 1;
     min-height: 0;
+    overflow: hidden;
 }
+
 .canvas-ui {
     position: absolute;
     top: 12px;
@@ -64,6 +75,7 @@ html, body {
     flex-direction: column;
     gap: 8px;
 }
+
 .canvas-stats {
     background: rgba(0, 0, 0, 0.5);
     color: #fff;
@@ -71,10 +83,12 @@ html, body {
     border-radius: 6px;
     font-size: 0.85em;
 }
+
 .camera-toolbar {
     display: flex;
     gap: 0.4em;
 }
+
 .camera-button {
     padding: 0.3em 0.8em;
     border-radius: 6px;
@@ -84,9 +98,11 @@ html, body {
     cursor: pointer;
     font-size: 0.8em;
 }
+
 .camera-button:hover {
     background: rgba(0, 0, 0, 0.6);
 }
+
 .center-panel {
     flex: 1;
     display: flex;
@@ -96,6 +112,7 @@ html, body {
     padding: 2em;
     min-width: 0;
 }
+
 .file-input-container {
     padding: 0.4em 1em;
     display: flex;
@@ -106,21 +123,25 @@ html, body {
     background: #fdfdfd;
     border-bottom: 1px solid #e2e2e8;
 }
+
 .quality-preset-bar {
     display: inline-flex;
     align-items: center;
     gap: 0.6em;
 }
+
 .quality-btn-group {
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
 }
+
 .quality-label {
     font-size: 0.82em;
     color: #555;
     font-weight: 500;
 }
+
 .quality-btn {
     padding: 0.35em 0.85em;
     border-radius: 5px;
@@ -133,12 +154,14 @@ html, body {
     transition: all 0.15s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
+
 .quality-btn:hover {
     background: #e2e6ff;
     border-color: #6677cc;
     color: #2233aa;
     box-shadow: 0 2px 4px rgba(102, 119, 204, 0.15);
 }
+
 .quality-btn-active {
     background: #3355cc;
     border-color: #2244aa;
@@ -146,17 +169,21 @@ html, body {
     font-weight: 600;
     box-shadow: 0 2px 4px rgba(51, 85, 204, 0.25);
 }
+
 .quality-btn-active:hover {
     background: #2244aa;
 }
+
 .file-upload-group {
     display: inline-flex;
     align-items: center;
     gap: 0.8em;
 }
+
 #file-input {
     display: none;
 }
+
 .custom-file-upload {
     display: inline-flex;
     align-items: center;
@@ -173,18 +200,22 @@ html, body {
     user-select: none;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
+
 .custom-file-upload:hover {
     background: #e2e6ff;
     border-color: #6677cc;
     color: #2233aa;
     box-shadow: 0 2px 4px rgba(102, 119, 204, 0.15);
 }
+
 .upload-icon {
     vertical-align: middle;
 }
+
 .parse-button {
     margin-left: 1em;
 }
+
 .viewer-container {
     flex: 1;
     width: 100%;
@@ -193,6 +224,7 @@ html, body {
     justify-content: center;
     min-height: 350px;
 }
+
 .result-message {
     padding: 0.4em 1em;
     font-size: 0.85em;
@@ -202,19 +234,24 @@ html, body {
     box-sizing: border-box;
     white-space: pre-wrap;
 }
+
 .result-success {
     color: #1a7a1a;
 }
+
 .result-error {
     color: #b91c1c;
     font-weight: 500;
 }
+
 .sidebar-left {
     overflow: hidden;
 }
+
 .sidebar-right {
     overflow: hidden;
 }
+
 .left-panel {
     width: 100%;
     height: 100%;
@@ -225,15 +262,18 @@ html, body {
     overflow-x: hidden;
     box-sizing: border-box;
 }
+
 .left-panel-header {
     font-size: 1.1em;
     margin: 0 0 0.6em 0;
 }
+
 .empty-files-message {
     color: #888;
     font-size: 0.95em;
     margin-top: 0.6em;
 }
+
 .files-list {
     list-style: none;
     padding: 0;
@@ -242,12 +282,14 @@ html, body {
     flex-direction: column;
     gap: 0.4em;
 }
+
 .file-item-container {
     display: flex;
     gap: 0.4em;
     align-items: stretch;
     min-width: 0;
 }
+
 .file-item-button {
     flex: 1;
     min-width: 0;
@@ -258,12 +300,14 @@ html, body {
     border-radius: 6px;
     cursor: pointer;
 }
+
 .file-item-name {
     font-weight: 600;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 .file-item-details {
     font-size: 0.85em;
     color: #666;
@@ -271,6 +315,7 @@ html, body {
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
 .delete-button {
     width: 36px;
     height: 36px;
@@ -283,31 +328,40 @@ html, body {
     justify-content: center;
     line-height: 0;
 }
+
 .delete-icon {
     font-size: 14px;
     display: inline-block;
     pointer-events: none;
 }
+
 .main-panel-container {
     width: 100%;
     height: 100%;
 }
-.main-viewport {
-    overflow: hidden;
-}
+
 .main-panel-status {
     font-size: 0.85em;
     color: #666;
     align-items: center;
 }
+
+/* WARNING: The canvas MUST be absolutely positioned inside .canvas-wrapper (top: 0, left: 0, width: 100%, height: 100%).
+ * Do NOT use in-flow flex sizing or min-height on this element. In-flow canvas sizing triggers browser layout reflow
+ * feedback loops whenever canvas.width/height drawing buffer attributes are updated during resize, causing sub-pixel
+ * or multi-pixel discrepancies (e.g. 7px gap) between the WebGPU color surface attachment and depth texture attachment,
+ * which crashes the WebGPU render pass with validation errors. */
 .main-panel-canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
     width: 100%;
     height: 100%;
-    min-height: 350px;
     display: block;
     background: #fafbfc;
     border: none;
 }
+
 .canvas-processing-overlay {
     position: absolute;
     top: 50%;
@@ -319,6 +373,7 @@ html, body {
     border-radius: 8px;
     font-size: 0.95em;
 }
+
 .fps-graph {
     position: absolute;
     bottom: 12px;
@@ -334,13 +389,16 @@ html, body {
     pointer-events: none;
     user-select: none;
 }
+
 .fps-graph-label {
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
+
 .fps-graph-svg {
     display: block;
 }
+
 .right-panel {
     width: 100%;
     height: 100%;
@@ -351,6 +409,7 @@ html, body {
     overflow-x: hidden;
     box-sizing: border-box;
 }
+
 .metadata-grid {
     display: grid;
     grid-template-columns: 130px 1fr;
@@ -442,6 +501,7 @@ html, body {
     padding: 2em;
     box-sizing: border-box;
 }
+
 .webgpu-unavailable-card {
     max-width: 34em;
     text-align: center;
@@ -451,16 +511,19 @@ html, body {
     padding: 2.5em 2em;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
+
 .webgpu-unavailable-icon {
     font-size: 2.2em;
     color: #d97706;
     margin-bottom: 0.5em;
 }
+
 .webgpu-unavailable-card h1 {
     font-size: 1.3em;
     margin: 0 0 0.8em 0;
     color: #09090a;
 }
+
 .webgpu-unavailable-reason {
     color: #7b7f8f;
     font-size: 0.95em;
@@ -468,6 +531,7 @@ html, body {
     overflow-wrap: anywhere;
     margin: 0 0 1.2em 0;
 }
+
 .webgpu-unavailable-card p {
     color: #3f3f46;
     line-height: 1.5;
@@ -485,6 +549,7 @@ html, body {
     justify-content: center;
     z-index: 1000;
 }
+
 .modal-dialog {
     background: #ffffff;
     border: 1px solid #e4e4e7;
@@ -494,26 +559,31 @@ html, body {
     padding: 1.5em;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
 }
+
 .modal-header {
     margin-bottom: 0.8em;
 }
+
 .modal-title {
     margin: 0;
     font-size: 1.15rem;
     font-weight: 600;
     color: #18181b;
 }
+
 .modal-body p {
     margin: 0 0 1.2em 0;
     color: #52525b;
     font-size: 0.95rem;
     line-height: 1.4;
 }
+
 .modal-footer {
     display: flex;
     justify-content: flex-end;
     gap: 0.75em;
 }
+
 .modal-btn {
     padding: 0.5em 1em;
     border-radius: 6px;
@@ -523,18 +593,22 @@ html, body {
     border: 1px solid transparent;
     transition: background 0.15s ease, border-color 0.15s ease;
 }
+
 .modal-btn-cancel {
     background: #f4f4f5;
     color: #3f3f46;
     border-color: #e4e4e7;
 }
+
 .modal-btn-cancel:hover {
     background: #e4e4e7;
 }
+
 .modal-btn-danger {
     background: #dc2626;
     color: #ffffff;
 }
+
 .modal-btn-danger:hover {
     background: #b91c1c;
 }
