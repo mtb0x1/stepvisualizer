@@ -12,6 +12,7 @@ use yew::prelude::*;
 pub struct StepMeshPanelProps {
     pub on_deselect: Callback<()>,
     pub model: Option<Rc<StepModel>>,
+    pub part_visibility: Vec<bool>,
     pub on_visibility_change: Callback<(usize, bool)>,
     pub on_show_all: Callback<()>,
     pub on_hide_all: Callback<()>,
@@ -21,22 +22,25 @@ pub struct StepMeshPanelProps {
 pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
     trace_span!("step_mesh_panel");
 
-    let meshes = use_memo((props.model.clone(),), |(model,)| {
-        model.as_ref().map_or_else(Vec::new, |m| {
-            m.render_parts
-                .iter()
-                .enumerate()
-                .filter(|(_, part)| !part.vertices.is_empty() && !part.indices.is_empty())
-                .map(|(i, part)| MeshData {
-                    index: i,
-                    name: format!("Mesh {}", i + 1),
-                    triangle_count: part.triangle_count(),
-                    vertex_count: part.vertex_count(),
-                    visible: m.part_visibility.get(i).copied().unwrap_or(true),
-                })
-                .collect()
-        })
-    });
+    let meshes = use_memo(
+        (props.model.clone(), props.part_visibility.clone()),
+        |(model, part_visibility)| {
+            model.as_ref().map_or_else(Vec::new, |m| {
+                m.render_parts
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, part)| !part.vertices.is_empty() && !part.indices.is_empty())
+                    .map(|(i, part)| MeshData {
+                        index: i,
+                        name: format!("Mesh {}", i + 1),
+                        triangle_count: part.triangle_count(),
+                        vertex_count: part.vertex_count(),
+                        visible: part_visibility.get(i).copied().unwrap_or(true),
+                    })
+                    .collect()
+            })
+        },
+    );
 
     html! {
         <div class="panel panel-meshes">

@@ -13,6 +13,7 @@ pub struct LeftPanelProps {
     pub files_index: Vec<FileIndexItem>,
     pub selected_file: Option<FileId>,
     pub model: Option<Rc<StepModel>>,
+    pub part_visibility: Vec<bool>,
     pub on_item_click: Callback<FileId>,
     pub on_delete: Callback<FileId>,
     pub on_deselect: Callback<()>,
@@ -38,6 +39,7 @@ pub fn left_panel(props: &LeftPanelProps) -> Html {
                 <StepMeshPanel
                     on_deselect={props.on_deselect.clone()}
                     model={props.model.clone()}
+                    part_visibility={props.part_visibility.clone()}
                     on_visibility_change={props.on_visibility_change.clone()}
                     on_show_all={props.on_show_all.clone()}
                     on_hide_all={props.on_hide_all.clone()}

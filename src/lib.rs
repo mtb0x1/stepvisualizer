@@ -132,6 +132,7 @@ fn main_app(props: &MainAppProps) -> Html {
                     files_index={(*workspace.files_index).clone()}
                     selected_file={(*workspace.selected_file).clone()}
                     model={(*workspace.step_model).clone()}
+                    part_visibility={(*workspace.part_visibility).clone()}
                     on_item_click={workspace.actions.on_item_click.clone()}
                     on_delete={workspace.actions.on_delete.clone()}
                     on_deselect={workspace.actions.on_deselect.clone()}

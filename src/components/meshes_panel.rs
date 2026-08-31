@@ -77,6 +77,7 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
         .map(|mesh| {
             html! {
                 <MeshItem
+                    key={mesh.index}
                     index={mesh.index}
                     name={mesh.name.clone()}
                     triangle_count={mesh.triangle_count}
