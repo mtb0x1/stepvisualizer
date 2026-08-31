@@ -428,5 +428,36 @@ mod tests {
             approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies that multiplying 3D translation matrices accumulates their respective
+    /// translation vectors T(1,2,3) * T(4,5,6) == T(5,7,9) in column 3.
+    #[wasm_bindgen_test]
+    fn multiply_translation_matrices() {
+        let t1 = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            1.0, 2.0, 3.0, 1.0,
+        ]);
+
+        let t2 = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            4.0, 5.0, 6.0, 1.0,
+        ]);
+
+        let expected = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            5.0, 7.0, 9.0, 1.0,
+        ]);
+
+        let result = multiply_matrices(&t1, &t2);
+        for i in 0..16 {
+            approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
+        }
+    }
 }
 
