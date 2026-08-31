@@ -568,5 +568,45 @@ mod tests {
         let result = dot3(u, v);
         approx::assert_relative_eq!(result, 32.0, epsilon = 1e-6);
     }
+
+    /// Verifies the standard perspective projection frustum matrix formulation:
+    /// f = 1/tan(fov_y/2), m00 = f/aspect, m11 = f, m22 = (far+near)/(near-far),
+    /// m32 = -1.0, m23 = 2*far*near/(near-far), m33 = 0.0 in column-major layout.
+    #[wasm_bindgen_test]
+    fn perspective_standard_frustum() {
+        let fov_y = std::f32::consts::FRAC_PI_3; // 60 degrees
+        let aspect = 16.0 / 9.0;
+        let near = 0.1;
+        let far = 1000.0;
+
+        let mat = create_perspective_matrix(fov_y, aspect, near, far);
+
+        let f = 1.0 / (fov_y / 2.0).tan();
+        let nf = 1.0 / (near - far);
+
+        // Column 0: [f / aspect, 0, 0, 0]
+        approx::assert_relative_eq!(mat.0[0], f / aspect, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[1], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[2], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[3], 0.0, epsilon = 1e-5);
+
+        // Column 1: [0, f, 0, 0]
+        approx::assert_relative_eq!(mat.0[4], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[5], f, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[6], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[7], 0.0, epsilon = 1e-5);
+
+        // Column 2: [0, 0, (far + near) * nf, -1.0]
+        approx::assert_relative_eq!(mat.0[8], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[9], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[10], (far + near) * nf, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[11], -1.0, epsilon = 1e-5);
+
+        // Column 3: [0, 0, (2.0 * far * near) * nf, 0.0]
+        approx::assert_relative_eq!(mat.0[12], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[13], 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[14], (2.0 * far * near) * nf, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[15], 0.0, epsilon = 1e-5);
+    }
 }
 
