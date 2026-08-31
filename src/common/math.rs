@@ -459,5 +459,35 @@ mod tests {
             approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies that matrix multiplication operates safely on heap-allocated matrices
+    /// that are only 4-byte aligned (e.g. from dynamic slices or byte buffers), preventing
+    /// WebAssembly 16-byte alignment memory traps.
+    #[wasm_bindgen_test]
+    fn multiply_alignment_safety() {
+        // Allocate a dynamic buffer of f32s with non-16-byte alignment offset
+        let mut buffer = vec![0.0f32; 40];
+        // Offset by 1 element (4 bytes), so the slice starts at an odd 4-byte boundary
+        for i in 0..16 {
+            buffer[1 + i] = if i % 5 == 0 { 1.0 } else { 0.0 };
+            buffer[18 + i] = if i % 5 == 0 { 2.0 } else { 0.0 };
+        }
+
+        let slice_a: [f32; 16] = buffer[1..17].try_into().unwrap();
+        let slice_b: [f32; 16] = buffer[18..34].try_into().unwrap();
+
+        let mat_a = Mat4(slice_a);
+        let mat_b = Mat4(slice_b);
+
+        let result = multiply_matrices(&mat_a, &mat_b);
+        let expected = Mat4([
+            2.0, 0.0, 0.0, 0.0,
+            0.0, 2.0, 0.0, 0.0,
+            0.0, 0.0, 2.0, 0.0,
+            0.0, 0.0, 0.0, 2.0,
+        ]);
+
+        assert_eq!(result, expected);
+    }
 }
 
