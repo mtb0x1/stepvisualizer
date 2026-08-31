@@ -608,5 +608,20 @@ mod tests {
         approx::assert_relative_eq!(mat.0[14], (2.0 * far * near) * nf, epsilon = 1e-5);
         approx::assert_relative_eq!(mat.0[15], 0.0, epsilon = 1e-5);
     }
+
+    /// Verifies perspective matrix behavior for a square aspect ratio (1.0) and 90° FOV,
+    /// where focal scale diagonal factors m00 and m11 are both exactly 1.0.
+    #[wasm_bindgen_test]
+    fn perspective_square_aspect() {
+        let fov_y = std::f32::consts::FRAC_PI_2; // 90 degrees
+        let aspect = 1.0;
+        let near = 1.0;
+        let far = 10.0;
+
+        let mat = create_perspective_matrix(fov_y, aspect, near, far);
+
+        approx::assert_relative_eq!(mat.0[0], 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[5], 1.0, epsilon = 1e-5);
+    }
 }
 
