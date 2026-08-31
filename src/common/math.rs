@@ -520,5 +520,19 @@ mod tests {
         approx::assert_relative_eq!(ab_y, -ba_y, epsilon = 1e-6);
         approx::assert_relative_eq!(ab_z, -ba_z, epsilon = 1e-6);
     }
+
+    /// Verifies that the cross product of collinear/parallel vectors produces
+    /// a zero vector (0, 0, 0) across low 3 lanes.
+    #[wasm_bindgen_test]
+    fn cross3_collinear_vectors() {
+        let a = f32x4(2.0, 0.0, 0.0, 0.0);
+        let b = f32x4(5.0, 0.0, 0.0, 0.0);
+
+        let result = cross3(a, b);
+
+        approx::assert_relative_eq!(f32x4_extract_lane::<0>(result), 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(f32x4_extract_lane::<1>(result), 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(f32x4_extract_lane::<2>(result), 0.0, epsilon = 1e-6);
+    }
 }
 
