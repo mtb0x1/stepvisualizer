@@ -91,6 +91,11 @@ fn main_app(props: &MainAppProps) -> Html {
         })
     };
 
+    let on_quality_change = {
+        let quality_preset = workspace.quality_preset.clone();
+        Callback::from(move |preset| quality_preset.set(preset))
+    };
+
     let confirm_modal_view = match workspace.pending_confirm.as_ref() {
         Some(ConfirmAction::DeleteFile(_)) => {
             html! {
@@ -142,6 +147,8 @@ fn main_app(props: &MainAppProps) -> Html {
                 <UploadBar
                     is_processing={*workspace.is_processing}
                     on_file_change={workspace.actions.on_file_change.clone()}
+                    quality_preset={*workspace.quality_preset}
+                    on_quality_change={on_quality_change}
                 />
 
                 <AppStepviz

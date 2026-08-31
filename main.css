@@ -95,6 +95,41 @@ html, body {
     margin-bottom: 1.5em;
     text-align: center;
 }
+.quality-preset-bar {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    margin-bottom: 0.6em;
+}
+.quality-label {
+    font-size: 0.82em;
+    color: #555;
+    margin-right: 0.2em;
+}
+.quality-btn {
+    padding: 0.25em 0.75em;
+    border-radius: 4px;
+    border: 1px solid #bbb;
+    background: #f4f4f6;
+    color: #444;
+    cursor: pointer;
+    font-size: 0.8em;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.quality-btn:hover {
+    background: #e2e6ff;
+    border-color: #6677cc;
+    color: #2233aa;
+}
+.quality-btn-active {
+    background: #3355cc;
+    border-color: #2244aa;
+    color: #fff;
+    font-weight: 600;
+}
+.quality-btn-active:hover {
+    background: #2244aa;
+}
 .parse-button {
     margin-left: 1em;
 }
