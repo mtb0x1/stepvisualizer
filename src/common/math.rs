@@ -364,5 +364,38 @@ mod tests {
 
         assert_ne!(ab, ba);
     }
+
+    /// Verifies the algebraic associativity property of matrix multiplication:
+    /// (A * B) * C == A * (B * C) within single-precision floating-point tolerance (1e-5).
+    #[wasm_bindgen_test]
+    fn multiply_associativity() {
+        let a = Mat4([
+            1.0, 0.5, 0.0, 0.0,
+            0.2, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.4,
+            0.1, 0.0, 0.0, 1.0,
+        ]);
+
+        let b = Mat4([
+            2.0, 0.0, 0.3, 0.0,
+            0.0, 1.5, 0.0, 0.1,
+            0.4, 0.0, 2.0, 0.0,
+            0.0, 0.2, 0.0, 1.0,
+        ]);
+
+        let c = Mat4([
+            0.8, 0.1, 0.0, 0.2,
+            0.0, 1.2, 0.5, 0.0,
+            0.3, 0.0, 0.9, 0.0,
+            0.0, 0.0, 0.1, 1.1,
+        ]);
+
+        let ab_c = multiply_matrices(&multiply_matrices(&a, &b), &c);
+        let a_bc = multiply_matrices(&a, &multiply_matrices(&b, &c));
+
+        for i in 0..16 {
+            approx::assert_relative_eq!(ab_c.0[i], a_bc.0[i], epsilon = 1e-5);
+        }
+    }
 }
 
