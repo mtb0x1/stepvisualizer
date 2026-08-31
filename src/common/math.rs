@@ -497,5 +497,28 @@ mod tests {
         approx::assert_relative_eq!(f32x4_extract_lane::<1>(k_vec), 0.0, epsilon = 1e-6);
         approx::assert_relative_eq!(f32x4_extract_lane::<2>(k_vec), 1.0, epsilon = 1e-6);
     }
+
+    /// Verifies the anti-commutativity law of 3D vector cross products:
+    /// a x b == -(b x a) within single-precision floating-point precision (1e-6).
+    #[wasm_bindgen_test]
+    fn cross3_anti_commutativity() {
+        let a = f32x4(1.2, -3.4, 5.6, 0.0);
+        let b = f32x4(7.8, 9.1, -2.3, 0.0);
+
+        let ab = cross3(a, b);
+        let ba = cross3(b, a);
+
+        let ab_x = f32x4_extract_lane::<0>(ab);
+        let ab_y = f32x4_extract_lane::<1>(ab);
+        let ab_z = f32x4_extract_lane::<2>(ab);
+
+        let ba_x = f32x4_extract_lane::<0>(ba);
+        let ba_y = f32x4_extract_lane::<1>(ba);
+        let ba_z = f32x4_extract_lane::<2>(ba);
+
+        approx::assert_relative_eq!(ab_x, -ba_x, epsilon = 1e-6);
+        approx::assert_relative_eq!(ab_y, -ba_y, epsilon = 1e-6);
+        approx::assert_relative_eq!(ab_z, -ba_z, epsilon = 1e-6);
+    }
 }
 
