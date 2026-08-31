@@ -228,3 +228,56 @@ pub fn multiply_matrices(a: &Mat4, b: &Mat4) -> Mat4 {
     // Safe value-level cast using bytemuck (checked at compile time for equal sizes and alignment rules).
     bytemuck::cast::<[v128; 4], Mat4>(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn mat4_identity_constant() {
+        let expected = [
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ];
+        assert_eq!(Mat4::IDENTITY.0, expected);
+    }
+
+    /// Verifies that Mat4 satisfies bytemuck Pod and Zeroable contracts, producing
+    /// a contiguous 64-byte slice for WebGPU uniform buffer uploads.
+    #[wasm_bindgen_test]
+    fn mat4_bytemuck_pod_zeroable() {
+        let bytes = bytemuck::bytes_of(&Mat4::IDENTITY);
+        assert_eq!(bytes.len(), 64);
+
+        // Verify zeroed matrix initialization satisfies Pod/Zeroable
+        let zeroed: Mat4 = bytemuck::Zeroable::zeroed();
+        assert_eq!(zeroed.0, [0.0; 16]);
+
+        // Verify roundtrip cast from byte slice back to Mat4 reference
+        let reconstructed: &Mat4 = bytemuck::from_bytes(bytes);
+        assert_eq!(reconstructed, &Mat4::IDENTITY);
+    }
+
+    /// Verifies that Mat4 serializes as a flat 16-element JSON array for storage
+    /// compatibility and deserializes back to an identical Mat4 value.
+    #[wasm_bindgen_test]
+    fn mat4_serde_roundtrip() {
+        let original = Mat4::IDENTITY;
+        let json = serde_json::to_string(&original).expect("Serialization failed");
+
+        // Ensure serialized structure is a flat JSON array of 16 floats
+        let raw_array: Vec<f32> = serde_json::from_str(&json).expect("Deserialization to array failed");
+        assert_eq!(raw_array.len(), 16);
+        assert_eq!(raw_array, original.0);
+
+        // Ensure direct deserialization back to Mat4 preserves exact values
+        let deserialized: Mat4 = serde_json::from_str(&json).expect("Deserialization to Mat4 failed");
+        assert_eq!(deserialized, original);
+    }
+}
+
