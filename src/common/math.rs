@@ -69,29 +69,23 @@ pub fn spherical_to_cartesian(
     ]
 }
 
-// @todo
-// https://rust.godbolt.org/z/sWGW7cq5s
-
-/// computes the 3 components cross product of two vectors packed into the
-/// low three lanes of the given `v128` SIMD values (interpreted as
-/// `(x, y, z, _)`). The fourth lane is ignored (typically `0.0`).
+/// Computes the 3-component cross product of two vectors packed into the
+/// low three lanes of the given `v128` SIMD values (`(x, y, z, _)`).
 ///
-/// reslt is returned as a `v128` where lanes 0..2 contain the scalar
-/// cross product `a × b` and lane 3 holds the preserved fourth lane
-/// (usually `0.0`). should be same as scalar
-/// formulation `(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x)`.
+/// Returns a `v128` where lanes 0..2 contain `(a.y*b.z - a.z*b.y, a.z*b.x - a.x*b.z, a.x*b.y - a.y*b.x)`
+/// and lane 3 contains `0.0`.
 #[inline(always)]
 pub fn cross3(a: v128, b: v128) -> v128 {
-    // a_yzx * b - b_yzx * a, followed by a final shuffle
     let a_yzx = i32x4_shuffle::<1, 2, 0, 3>(a, a);
+    let b_zxy = i32x4_shuffle::<2, 0, 1, 3>(b, b);
+
+    let a_zxy = i32x4_shuffle::<2, 0, 1, 3>(a, a);
     let b_yzx = i32x4_shuffle::<1, 2, 0, 3>(b, b);
 
-    let mul1 = f32x4_mul(a_yzx, b);
-    let mul2 = f32x4_mul(b_yzx, a);
-    let sub = f32x4_sub(mul1, mul2);
+    let mul1 = f32x4_mul(a_yzx, b_zxy);
+    let mul2 = f32x4_mul(a_zxy, b_yzx);
 
-    // Final shuffle converts (a_y*b_x - b_y*a_x, ...) to the correct output positions
-    i32x4_shuffle::<1, 2, 0, 3>(sub, sub)
+    f32x4_sub(mul1, mul2)
 }
 
 /// Dot product of the low 3 lanes (lane 3 ignored), returned as an `f32`.
@@ -488,6 +482,20 @@ mod tests {
         ]);
 
         assert_eq!(result, expected);
+    }
+
+    /// Verifies the SIMD cross product of standard Cartesian basis unit vectors:
+    /// i(1,0,0) x j(0,1,0) == k(0,0,1) in the low 3 lanes of the v128 vector.
+    #[wasm_bindgen_test]
+    fn cross3_unit_vectors() {
+        let i_vec = f32x4(1.0, 0.0, 0.0, 0.0);
+        let j_vec = f32x4(0.0, 1.0, 0.0, 0.0);
+
+        let k_vec = cross3(i_vec, j_vec);
+
+        approx::assert_relative_eq!(f32x4_extract_lane::<0>(k_vec), 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(f32x4_extract_lane::<1>(k_vec), 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(f32x4_extract_lane::<2>(k_vec), 1.0, epsilon = 1e-6);
     }
 }
 
