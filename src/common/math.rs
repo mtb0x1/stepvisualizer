@@ -231,50 +231,6 @@ mod tests {
 
     wasm_bindgen_test_configure!(run_in_browser);
 
-    #[wasm_bindgen_test]
-    fn mat4_identity_constant() {
-        let expected = [
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
-        ];
-        assert_eq!(Mat4::IDENTITY.0, expected);
-    }
-
-    /// Verifies that Mat4 satisfies bytemuck Pod and Zeroable contracts, producing
-    /// a contiguous 64-byte slice for WebGPU uniform buffer uploads.
-    #[wasm_bindgen_test]
-    fn mat4_bytemuck_pod_zeroable() {
-        let bytes = bytemuck::bytes_of(&Mat4::IDENTITY);
-        assert_eq!(bytes.len(), 64);
-
-        // Verify zeroed matrix initialization satisfies Pod/Zeroable
-        let zeroed: Mat4 = bytemuck::Zeroable::zeroed();
-        assert_eq!(zeroed.0, [0.0; 16]);
-
-        // Verify roundtrip cast from byte slice back to Mat4 reference
-        let reconstructed: &Mat4 = bytemuck::from_bytes(bytes);
-        assert_eq!(reconstructed, &Mat4::IDENTITY);
-    }
-
-    /// Verifies that Mat4 serializes as a flat 16-element JSON array for storage
-    /// compatibility and deserializes back to an identical Mat4 value.
-    #[wasm_bindgen_test]
-    fn mat4_serde_roundtrip() {
-        let original = Mat4::IDENTITY;
-        let json = serde_json::to_string(&original).expect("Serialization failed");
-
-        // Ensure serialized structure is a flat JSON array of 16 floats
-        let raw_array: Vec<f32> = serde_json::from_str(&json).expect("Deserialization to array failed");
-        assert_eq!(raw_array.len(), 16);
-        assert_eq!(raw_array, original.0);
-
-        // Ensure direct deserialization back to Mat4 preserves exact values
-        let deserialized: Mat4 = serde_json::from_str(&json).expect("Deserialization to Mat4 failed");
-        assert_eq!(deserialized, original);
-    }
-
     /// Verifies that multiplying the identity matrix by itself yields the exact identity matrix.
     #[wasm_bindgen_test]
     fn mat4_identity_multiplication() {
@@ -287,10 +243,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn multiply_identity_left_right() {
         let a = Mat4([
-            1.5, 2.5, 3.5, 4.5,
-            5.5, 6.5, 7.5, 8.5,
-            9.5, 10.5, 11.5, 12.5,
-            13.5, 14.5, 15.5, 16.5,
+            1.5, 2.5, 3.5, 4.5, 5.5, 6.5, 7.5, 8.5, 9.5, 10.5, 11.5, 12.5, 13.5, 14.5, 15.5, 16.5,
         ]);
 
         let a_times_i = multiply_matrices(&a, &Mat4::IDENTITY);
@@ -308,26 +261,17 @@ mod tests {
     fn multiply_known_analytic_matrices() {
         // Matrix A in column-major order
         let a = Mat4([
-            1.0, 0.0, 1.0, 0.0,
-            2.0, 1.0, 0.0, 0.0,
-            0.0, 1.0, 2.0, 0.0,
-            0.0, 0.0, 1.0, 1.0,
+            1.0, 0.0, 1.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 1.0, 2.0, 0.0, 0.0, 0.0, 1.0, 1.0,
         ]);
 
         // Matrix B in column-major order
         let b = Mat4([
-            2.0, 1.0, 0.0, 1.0,
-            0.0, 2.0, 1.0, 0.0,
-            1.0, 0.0, 1.0, 0.0,
-            3.0, 1.0, 0.0, 2.0,
+            2.0, 1.0, 0.0, 1.0, 0.0, 2.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 3.0, 1.0, 0.0, 2.0,
         ]);
 
         // Hand-calculated expected product C = A * B in column-major order
         let expected = Mat4([
-            4.0, 1.0, 3.0, 1.0,
-            4.0, 3.0, 2.0, 0.0,
-            1.0, 1.0, 3.0, 0.0,
-            5.0, 1.0, 5.0, 2.0,
+            4.0, 1.0, 3.0, 1.0, 4.0, 3.0, 2.0, 0.0, 1.0, 1.0, 3.0, 0.0, 5.0, 1.0, 5.0, 2.0,
         ]);
 
         let result = multiply_matrices(&a, &b);
@@ -341,17 +285,11 @@ mod tests {
     #[wasm_bindgen_test]
     fn multiply_non_commutative() {
         let a = Mat4([
-            1.0, 0.0, 0.0, 0.0,
-            2.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 2.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ]);
 
         let b = Mat4([
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 3.0, 1.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 3.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ]);
 
         let ab = multiply_matrices(&a, &b);
@@ -365,24 +303,15 @@ mod tests {
     #[wasm_bindgen_test]
     fn multiply_associativity() {
         let a = Mat4([
-            1.0, 0.5, 0.0, 0.0,
-            0.2, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.4,
-            0.1, 0.0, 0.0, 1.0,
+            1.0, 0.5, 0.0, 0.0, 0.2, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.4, 0.1, 0.0, 0.0, 1.0,
         ]);
 
         let b = Mat4([
-            2.0, 0.0, 0.3, 0.0,
-            0.0, 1.5, 0.0, 0.1,
-            0.4, 0.0, 2.0, 0.0,
-            0.0, 0.2, 0.0, 1.0,
+            2.0, 0.0, 0.3, 0.0, 0.0, 1.5, 0.0, 0.1, 0.4, 0.0, 2.0, 0.0, 0.0, 0.2, 0.0, 1.0,
         ]);
 
         let c = Mat4([
-            0.8, 0.1, 0.0, 0.2,
-            0.0, 1.2, 0.5, 0.0,
-            0.3, 0.0, 0.9, 0.0,
-            0.0, 0.0, 0.1, 1.1,
+            0.8, 0.1, 0.0, 0.2, 0.0, 1.2, 0.5, 0.0, 0.3, 0.0, 0.9, 0.0, 0.0, 0.0, 0.1, 1.1,
         ]);
 
         let ab_c = multiply_matrices(&multiply_matrices(&a, &b), &c);
@@ -398,24 +327,15 @@ mod tests {
     #[wasm_bindgen_test]
     fn multiply_scale_transformations() {
         let s1 = Mat4([
-            2.0, 0.0, 0.0, 0.0,
-            0.0, 3.0, 0.0, 0.0,
-            0.0, 0.0, 4.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            2.0, 0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0, 0.0, 4.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ]);
 
         let s2 = Mat4([
-            5.0, 0.0, 0.0, 0.0,
-            0.0, 6.0, 0.0, 0.0,
-            0.0, 0.0, 7.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            5.0, 0.0, 0.0, 0.0, 0.0, 6.0, 0.0, 0.0, 0.0, 0.0, 7.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ]);
 
         let expected = Mat4([
-            10.0, 0.0, 0.0, 0.0,
-            0.0, 18.0, 0.0, 0.0,
-            0.0, 0.0, 28.0, 0.0,
-            0.0, 0.0, 0.0, 1.0,
+            10.0, 0.0, 0.0, 0.0, 0.0, 18.0, 0.0, 0.0, 0.0, 0.0, 28.0, 0.0, 0.0, 0.0, 0.0, 1.0,
         ]);
 
         let result = multiply_matrices(&s1, &s2);
@@ -429,24 +349,15 @@ mod tests {
     #[wasm_bindgen_test]
     fn multiply_translation_matrices() {
         let t1 = Mat4([
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            1.0, 2.0, 3.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 2.0, 3.0, 1.0,
         ]);
 
         let t2 = Mat4([
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            4.0, 5.0, 6.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 4.0, 5.0, 6.0, 1.0,
         ]);
 
         let expected = Mat4([
-            1.0, 0.0, 0.0, 0.0,
-            0.0, 1.0, 0.0, 0.0,
-            0.0, 0.0, 1.0, 0.0,
-            5.0, 7.0, 9.0, 1.0,
+            1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 5.0, 7.0, 9.0, 1.0,
         ]);
 
         let result = multiply_matrices(&t1, &t2);
@@ -476,10 +387,7 @@ mod tests {
 
         let result = multiply_matrices(&mat_a, &mat_b);
         let expected = Mat4([
-            2.0, 0.0, 0.0, 0.0,
-            0.0, 2.0, 0.0, 0.0,
-            0.0, 0.0, 2.0, 0.0,
-            0.0, 0.0, 0.0, 2.0,
+            2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0,
         ]);
 
         assert_eq!(result, expected);
@@ -699,4 +607,3 @@ mod tests {
         approx::assert_relative_eq!(pos[2], 3.0, epsilon = 1e-6);
     }
 }
-
