@@ -545,5 +545,16 @@ mod tests {
         let result = dot3(u, v);
         approx::assert_relative_eq!(result, 0.0, epsilon = 1e-6);
     }
+
+    /// Verifies the SIMD dot product against an analytical calculation for known vectors:
+    /// (1,2,3) . (4,5,6) == 1*4 + 2*5 + 3*6 == 32.0.
+    #[wasm_bindgen_test]
+    fn dot3_known_vectors() {
+        let u = f32x4(1.0, 2.0, 3.0, 0.0);
+        let v = f32x4(4.0, 5.0, 6.0, 0.0);
+
+        let result = dot3(u, v);
+        approx::assert_relative_eq!(result, 32.0, epsilon = 1e-6);
+    }
 }
 
