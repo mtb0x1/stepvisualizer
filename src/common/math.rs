@@ -340,5 +340,29 @@ mod tests {
             approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies that matrix multiplication is non-commutative for general non-diagonal
+    /// transformation matrices (A * B != B * A).
+    #[wasm_bindgen_test]
+    fn multiply_non_commutative() {
+        let a = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            2.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+
+        let b = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 3.0, 1.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+
+        let ab = multiply_matrices(&a, &b);
+        let ba = multiply_matrices(&b, &a);
+
+        assert_ne!(ab, ba);
+    }
 }
 
