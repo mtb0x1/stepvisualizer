@@ -534,5 +534,16 @@ mod tests {
         approx::assert_relative_eq!(f32x4_extract_lane::<1>(result), 0.0, epsilon = 1e-6);
         approx::assert_relative_eq!(f32x4_extract_lane::<2>(result), 0.0, epsilon = 1e-6);
     }
+
+    /// Verifies that the dot product of orthogonal unit vectors (1,0,0) and (0,1,0)
+    /// evaluates to exactly 0.0.
+    #[wasm_bindgen_test]
+    fn dot3_orthogonal_vectors() {
+        let u = f32x4(1.0, 0.0, 0.0, 0.0);
+        let v = f32x4(0.0, 1.0, 0.0, 0.0);
+
+        let result = dot3(u, v);
+        approx::assert_relative_eq!(result, 0.0, epsilon = 1e-6);
+    }
 }
 
