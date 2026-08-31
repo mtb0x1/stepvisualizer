@@ -663,5 +663,16 @@ mod tests {
         approx::assert_relative_eq!(pos[1], 0.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos[2], 1.0, epsilon = 1e-6);
     }
+
+    /// Verifies that a 90° (pi/2) elevation angle maps distance directly onto the +Y pole
+    /// in world Cartesian space: [0.0, 1.0, 0.0].
+    #[wasm_bindgen_test]
+    fn spherical_elevation_pole() {
+        let pos = spherical_to_cartesian(0.0, std::f32::consts::FRAC_PI_2, 1.0, [0.0, 0.0, 0.0]);
+
+        approx::assert_relative_eq!(pos[0], 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[1], 1.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[2], 0.0, epsilon = 1e-6);
+    }
 }
 
