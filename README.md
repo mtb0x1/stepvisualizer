@@ -155,13 +155,9 @@ Not all of them render correctly - this is intentional. They serve as a test bed
 
 ## TODO
 
-- Tessellation: reduce precision to save memory and time.
-- Tessellation: allow user to select preferred precision (must stay within the allowed tolerance range).
-- Few FIXME and TODO are in the code, some are critical.
-- Add support for STEP file features that are not currently supported.
 - Unit tests for the pure logic (math, caches, parsing, mesh metrics).
+- Add support for STEP file features that are not currently supported.
 - Clean up:
-   - panics should be replaced with error notification instead (on UI).
    - a lot of `clone` calls, most probably adding to perf issues.
    - some callbacks are not needed and/or triggered too often.
    - Alternative to Yew: less convoluted and more performant ?
