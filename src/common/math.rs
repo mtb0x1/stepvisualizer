@@ -674,5 +674,17 @@ mod tests {
         approx::assert_relative_eq!(pos[1], 1.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos[2], 0.0, epsilon = 1e-6);
     }
+
+    /// Verifies that spherical coordinate conversion around a non-zero target center
+    /// correctly displaces the resulting Cartesian position by the target offset.
+    #[wasm_bindgen_test]
+    fn spherical_target_offset() {
+        let target = [10.0, 20.0, 30.0];
+        let pos = spherical_to_cartesian(0.0, 0.0, 2.0, target);
+
+        approx::assert_relative_eq!(pos[0], 12.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[1], 20.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[2], 30.0, epsilon = 1e-6);
+    }
 }
 
