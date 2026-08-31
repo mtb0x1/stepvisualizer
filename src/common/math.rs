@@ -98,7 +98,8 @@ pub fn cross3(a: v128, b: v128) -> v128 {
 #[inline(always)]
 fn dot3(a: v128, b: v128) -> f32 {
     let v = f32x4_mul(a, b);
-    let v1 = f32x4_add(v, i32x4_shuffle::<1, 0, 3, 2>(v, v));
+    let v_masked = v128_and(v, i32x4(-1, -1, -1, 0));
+    let v1 = f32x4_add(v_masked, i32x4_shuffle::<1, 0, 3, 2>(v_masked, v_masked));
     let v2 = f32x4_add(v1, i32x4_shuffle::<2, 3, 0, 1>(v1, v1));
     f32x4_extract_lane::<0>(v2)
 }
@@ -552,6 +553,17 @@ mod tests {
     fn dot3_known_vectors() {
         let u = f32x4(1.0, 2.0, 3.0, 0.0);
         let v = f32x4(4.0, 5.0, 6.0, 0.0);
+
+        let result = dot3(u, v);
+        approx::assert_relative_eq!(result, 32.0, epsilon = 1e-6);
+    }
+
+    /// Verifies that dot3 strictly evaluates only the low 3 coordinates (X, Y, Z)
+    /// and completely ignores non-zero noise/data in the fourth (W) lane.
+    #[wasm_bindgen_test]
+    fn dot3_ignores_fourth_lane() {
+        let u = f32x4(1.0, 2.0, 3.0, 9999.0);
+        let v = f32x4(4.0, 5.0, 6.0, -8888.0);
 
         let result = dot3(u, v);
         approx::assert_relative_eq!(result, 32.0, epsilon = 1e-6);
