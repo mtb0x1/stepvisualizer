@@ -397,5 +397,36 @@ mod tests {
             approx::assert_relative_eq!(ab_c.0[i], a_bc.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies that multiplying diagonal scale matrices produces the component-wise
+    /// product of scale factors along corresponding Cartesian axes.
+    #[wasm_bindgen_test]
+    fn multiply_scale_transformations() {
+        let s1 = Mat4([
+            2.0, 0.0, 0.0, 0.0,
+            0.0, 3.0, 0.0, 0.0,
+            0.0, 0.0, 4.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+
+        let s2 = Mat4([
+            5.0, 0.0, 0.0, 0.0,
+            0.0, 6.0, 0.0, 0.0,
+            0.0, 0.0, 7.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+
+        let expected = Mat4([
+            10.0, 0.0, 0.0, 0.0,
+            0.0, 18.0, 0.0, 0.0,
+            0.0, 0.0, 28.0, 0.0,
+            0.0, 0.0, 0.0, 1.0,
+        ]);
+
+        let result = multiply_matrices(&s1, &s2);
+        for i in 0..16 {
+            approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
+        }
+    }
 }
 
