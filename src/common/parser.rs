@@ -5,7 +5,12 @@ use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{DataSection, EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
-const SUPPORTED_SCHEMAS: &[&str] = &["AP201", "AP203", "AUTOMOTIVE_DESIGN", "CONFIG_CONTROL_DESIGN"];
+const SUPPORTED_SCHEMAS: &[&str] = &[
+    "AP201",
+    "AP203",
+    "AUTOMOTIVE_DESIGN",
+    "CONFIG_CONTROL_DESIGN",
+];
 
 use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 
@@ -168,9 +173,7 @@ pub fn build_initial_metadata(
     }
 
     let schema_upper = step_header.file_schema.to_ascii_uppercase();
-    let is_supported = SUPPORTED_SCHEMAS
-        .iter()
-        .any(|&s| schema_upper.contains(s));
+    let is_supported = SUPPORTED_SCHEMAS.iter().any(|&s| schema_upper.contains(s));
     if !is_supported {
         return Err(StepVizError::UnsupportedSchema {
             schema: step_header.file_schema.clone(),

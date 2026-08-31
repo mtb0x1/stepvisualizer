@@ -16,24 +16,31 @@ pub struct UploadBarProps {
 pub fn upload_bar(props: &UploadBarProps) -> Html {
     trace_span!("upload_bar");
 
-    let presets = [QualityPreset::Coarse, QualityPreset::Balanced, QualityPreset::Fine];
+    let presets = [
+        QualityPreset::Coarse,
+        QualityPreset::Balanced,
+        QualityPreset::Fine,
+    ];
 
-    let preset_buttons = presets.iter().map(|&preset| {
-        let on_quality_change = props.on_quality_change.clone();
-        let is_active = props.quality_preset == preset;
-        let class = if is_active {
-            "quality-btn quality-btn-active"
-        } else {
-            "quality-btn"
-        };
-        let onclick = Callback::from(move |_| on_quality_change.emit(preset));
-        let title = preset.tooltip();
-        html! {
-            <button {class} {onclick} type="button" {title}>
-                { preset.label() }
-            </button>
-        }
-    }).collect::<Html>();
+    let preset_buttons = presets
+        .iter()
+        .map(|&preset| {
+            let on_quality_change = props.on_quality_change.clone();
+            let is_active = props.quality_preset == preset;
+            let class = if is_active {
+                "quality-btn quality-btn-active"
+            } else {
+                "quality-btn"
+            };
+            let onclick = Callback::from(move |_| on_quality_change.emit(preset));
+            let title = preset.tooltip();
+            html! {
+                <button {class} {onclick} type="button" {title}>
+                    { preset.label() }
+                </button>
+            }
+        })
+        .collect::<Html>();
 
     html! {
         <div class="file-input-container">

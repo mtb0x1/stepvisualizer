@@ -16,7 +16,10 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
-use crate::common::constants::{CACHE_SIZE, MAX_FILE_BYTES, MIN_TOLERANCE, MAX_TOLERANCE, QualityPreset, compute_adaptive_tolerance};
+use crate::common::constants::{
+    CACHE_SIZE, MAX_FILE_BYTES, MAX_TOLERANCE, MIN_TOLERANCE, QualityPreset,
+    compute_adaptive_tolerance,
+};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
@@ -171,7 +174,8 @@ fn spawn_tessellation(
             return;
         }
 
-        if skipped_shells > 0 && renderable_parts.is_empty() && skipped_shells == total_shell_count {
+        if skipped_shells > 0 && renderable_parts.is_empty() && skipped_shells == total_shell_count
+        {
             states.fail_load(
                 "Tessellation produced no geometry. The file may be too complex or use unsupported geometry.",
             );
