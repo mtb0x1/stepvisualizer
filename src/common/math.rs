@@ -686,5 +686,17 @@ mod tests {
         approx::assert_relative_eq!(pos[1], 20.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos[2], 30.0, epsilon = 1e-6);
     }
+
+    /// Verifies that spherical coordinate conversion with zero distance degenerates
+    /// to the exact target point coordinates regardless of angular rotation.
+    #[wasm_bindgen_test]
+    fn spherical_zero_distance() {
+        let target = [1.0, 2.0, 3.0];
+        let pos = spherical_to_cartesian(1.23, 0.45, 0.0, target);
+
+        approx::assert_relative_eq!(pos[0], 1.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[1], 2.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[2], 3.0, epsilon = 1e-6);
+    }
 }
 
