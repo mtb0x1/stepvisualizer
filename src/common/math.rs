@@ -641,5 +641,16 @@ mod tests {
             assert_eq!(mat.0[idx], 0.0, "Matrix entry at index {idx} must be 0.0");
         }
     }
+
+    /// Verifies spherical to Cartesian coordinate conversion at zero azimuth and elevation
+    /// around the origin: az = 0, el = 0, dist = 5.0, target = [0,0,0] -> [5.0, 0.0, 0.0].
+    #[wasm_bindgen_test]
+    fn spherical_origin_target_zero_angles() {
+        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, [0.0, 0.0, 0.0]);
+
+        approx::assert_relative_eq!(pos[0], 5.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[1], 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos[2], 0.0, epsilon = 1e-6);
+    }
 }
 
