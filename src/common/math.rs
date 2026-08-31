@@ -306,5 +306,39 @@ mod tests {
             approx::assert_relative_eq!(i_times_a.0[i], a.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies SIMD matrix multiplication against hand-calculated analytical matrices
+    /// in column-major layout within single-precision floating point tolerance (1e-5).
+    #[wasm_bindgen_test]
+    fn multiply_known_analytic_matrices() {
+        // Matrix A in column-major order
+        let a = Mat4([
+            1.0, 0.0, 1.0, 0.0,
+            2.0, 1.0, 0.0, 0.0,
+            0.0, 1.0, 2.0, 0.0,
+            0.0, 0.0, 1.0, 1.0,
+        ]);
+
+        // Matrix B in column-major order
+        let b = Mat4([
+            2.0, 1.0, 0.0, 1.0,
+            0.0, 2.0, 1.0, 0.0,
+            1.0, 0.0, 1.0, 0.0,
+            3.0, 1.0, 0.0, 2.0,
+        ]);
+
+        // Hand-calculated expected product C = A * B in column-major order
+        let expected = Mat4([
+            4.0, 1.0, 3.0, 1.0,
+            4.0, 3.0, 2.0, 0.0,
+            1.0, 1.0, 3.0, 0.0,
+            5.0, 1.0, 5.0, 2.0,
+        ]);
+
+        let result = multiply_matrices(&a, &b);
+        for i in 0..16 {
+            approx::assert_relative_eq!(result.0[i], expected.0[i], epsilon = 1e-5);
+        }
+    }
 }
 
