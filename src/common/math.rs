@@ -623,5 +623,23 @@ mod tests {
         approx::assert_relative_eq!(mat.0[0], 1.0, epsilon = 1e-5);
         approx::assert_relative_eq!(mat.0[5], 1.0, epsilon = 1e-5);
     }
+
+    /// Verifies the sparsity pattern of a symmetric perspective projection matrix,
+    /// ensuring all non-frustum / off-diagonal cross-coupling terms are strictly 0.0.
+    #[wasm_bindgen_test]
+    fn perspective_symmetric_frustum() {
+        let mat = create_perspective_matrix(std::f32::consts::FRAC_PI_4, 16.0 / 9.0, 0.5, 500.0);
+
+        // Explicit indices of zero elements in column-major 4x4 perspective matrix:
+        // Col 0: m10, m20, m30
+        // Col 1: m01, m21, m31
+        // Col 2: m02, m12
+        // Col 3: m03, m13, m33
+        let zero_indices = [1, 2, 3, 4, 6, 7, 8, 9, 12, 13, 15];
+
+        for &idx in &zero_indices {
+            assert_eq!(mat.0[idx], 0.0, "Matrix entry at index {idx} must be 0.0");
+        }
+    }
 }
 
