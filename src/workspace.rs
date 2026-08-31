@@ -16,7 +16,7 @@ use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
-use crate::common::constants::{CACHE_SIZE, MAX_FILE_BYTES, compute_adaptive_tolerance};
+use crate::common::constants::{CACHE_SIZE, MAX_FILE_BYTES, MIN_TOLERANCE, MAX_TOLERANCE, QualityPreset, compute_adaptive_tolerance};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
@@ -57,6 +57,7 @@ pub struct StepWorkspace {
     pub part_visibility: UseStateHandle<Vec<bool>>,
     pub is_processing: UseStateHandle<bool>,
     pub pending_confirm: UseStateHandle<Option<ConfirmAction>>,
+    pub quality_preset: UseStateHandle<QualityPreset>,
     pub actions: WorkspaceActions,
 }
 
@@ -92,6 +93,7 @@ struct StateHandles {
     pending_confirm: UseStateHandle<Option<ConfirmAction>>,
     load_generation: UseStateHandle<u64>,
     file_reader: UseStateHandle<Option<FileReader>>,
+    quality_preset: UseStateHandle<QualityPreset>,
 }
 
 impl StateHandles {
@@ -155,9 +157,12 @@ fn spawn_tessellation(
     cache: Rc<RefCell<LruCache>>,
     generation: u64,
 ) {
-    let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
+    let base_tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
+    let multiplier = states.quality_preset.multiplier();
+    let tolerance = (base_tolerance * multiplier).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
     wasm_bindgen_futures::spawn_local(async move {
-        let renderable_parts = extract_render_parts(&step_tables, tolerance);
+        let total_shell_count: usize = step_tables.iter().map(|t| t.shell.len()).sum();
+        let (renderable_parts, skipped_shells) = extract_render_parts(&step_tables, tolerance);
         // Only abort if a *newer* upload has started (load_generation was
         // incremented again). An equal value means this is still the current
         // load  `UseStateHandle` deref still reads the pre-render snapshot
@@ -165,6 +170,14 @@ fn spawn_tessellation(
         if *states.load_generation > generation {
             return;
         }
+
+        if skipped_shells > 0 && renderable_parts.is_empty() && skipped_shells == total_shell_count {
+            states.fail_load(
+                "Tessellation produced no geometry. The file may be too complex or use unsupported geometry.",
+            );
+            return;
+        }
+
         let part_count = renderable_parts.len();
 
         let mut model = StepModel {
@@ -192,9 +205,21 @@ fn spawn_tessellation(
         }
 
         states.metadata.set(Some(model.metadata.clone()));
-        states.step_model.set(Some(Rc::new(model)));
+        states.step_model.set(Some(Rc::new(model.clone())));
         states.part_visibility.set(vec![true; part_count]);
-        states.set_result("Parsed STEP file successfully.", false);
+
+        let total_triangles = model.total_triangles();
+        let status_msg = if total_triangles == 0 {
+            "File loaded but no renderable geometry was found.".to_string()
+        } else if skipped_shells > 0 {
+            format!(
+                "Parsed STEP file. {} shell(s) could not be tessellated and were skipped.",
+                skipped_shells
+            )
+        } else {
+            "Parsed STEP file successfully.".to_string()
+        };
+        states.set_result(status_msg, false);
         states.is_processing.set(false);
     });
 }
@@ -281,8 +306,7 @@ fn use_file_processor(
                 Err(err) => return fail(err),
             };
 
-            if let Some(cached_model) = cache.borrow_mut().get_or_load(&id, load_model) {
-                let model_rc = Rc::new(cached_model);
+            if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, load_model) {
                 states_for_reader.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
                 update_and_persist_index(&files_index, |list| {
                     if let Some(pos) = list.iter().position(|i| i.id == id) {
@@ -351,8 +375,7 @@ fn use_workspace_management(
             let maybe_model = cache.borrow_mut().get_or_load(&id, load_model);
 
             match maybe_model {
-                Some(model) => {
-                    let model_rc = Rc::new(model);
+                Some(model_rc) => {
                     states.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
                     update_and_persist_index(&files_index, |list| {
                         if let Some(pos) = list.iter().position(|i| i.id == id) {
@@ -605,6 +628,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         is_processing: use_state(|| false),
         pending_confirm: use_state(|| None::<ConfirmAction>),
         load_generation: use_state(|| 0u64),
+        quality_preset: use_state(QualityPreset::default),
     };
 
     let (files_index, cache) = use_workspace_storage();
@@ -625,6 +649,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         part_visibility: states.part_visibility.clone(),
         is_processing: states.is_processing.clone(),
         pending_confirm: states.pending_confirm.clone(),
+        quality_preset: states.quality_preset.clone(),
         actions: WorkspaceActions {
             on_file_change,
             on_item_click: management.on_item_click,

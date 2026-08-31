@@ -91,6 +91,37 @@ pub fn compute_adaptive_tolerance(bbox: Option<&crate::common::types::BoundingBo
     }
     DEFAULT_TOLERANCE
 }
+
+/// User-selectable tessellation quality trade-off. The chosen variant applies
+/// a multiplier to the adaptive tolerance computed from the model bounding box.
+/// A higher multiplier means coarser (faster) tessellation; lower means finer.
+#[derive(Clone, Copy, PartialEq, Debug, Default)]
+pub enum QualityPreset {
+    Coarse,
+    #[default]
+    Balanced,
+    Fine,
+}
+
+impl QualityPreset {
+    /// Tolerance multiplier applied after `compute_adaptive_tolerance`.
+    /// Result is clamped to `[MIN_TOLERANCE, MAX_TOLERANCE]` at the call site.
+    pub fn multiplier(self) -> f64 {
+        match self {
+            Self::Coarse => 4.0,
+            Self::Balanced => 1.0,
+            Self::Fine => 0.25,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Coarse => "Coarse",
+            Self::Balanced => "Balanced",
+            Self::Fine => "Fine",
+        }
+    }
+}
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
 

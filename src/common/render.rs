@@ -149,21 +149,24 @@ fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
 pub fn extract_render_parts(
     step_tables: &[truck_stepio::r#in::Table],
     tolerance: f64,
-) -> Vec<RenderablePart> {
+) -> (Vec<RenderablePart>, usize) {
     trace_span!("extract_render_parts");
 
     let total_start = now_ms();
     let mut parts_to_render = Vec::new();
+    let mut total_skipped: usize = 0;
 
     for (i, table) in step_tables.iter().enumerate() {
         let section_start = now_ms();
-        tessellate_table(table, tolerance, &mut parts_to_render);
+        let skipped = tessellate_table(table, tolerance, &mut parts_to_render);
+        total_skipped += skipped;
         let tessellate_ms = now_ms() - section_start;
         let msg = format!(
-            "extract_render_parts => section {i}: tessellated {} parts in {:.2} ms (shells: {})",
+            "extract_render_parts => section {i}: tessellated {} parts in {:.2} ms (shells: {}, skipped: {})",
             parts_to_render.len(),
             tessellate_ms,
-            table.shell.len()
+            table.shell.len(),
+            skipped
         );
         AppTracer::debug(&msg);
     }
@@ -173,12 +176,13 @@ pub fn extract_render_parts(
     let triangles: usize = parts_to_render.iter().map(|p| p.triangle_count()).sum();
 
     let summary = format!(
-        "extract_render_parts => tessellation summary: {:.2} ms, sections={}, parts={}, vertices={}, triangles={}",
+        "extract_render_parts => tessellation summary: {:.2} ms, sections={}, parts={}, vertices={}, triangles={}, skipped={}",
         total_ms,
         step_tables.len(),
         parts_to_render.len(),
         vertices,
-        triangles
+        triangles,
+        total_skipped
     );
     AppTracer::debug(&summary);
 
@@ -191,7 +195,7 @@ pub fn extract_render_parts(
         part.translate(offset);
     }
 
-    parts_to_render
+    (parts_to_render, total_skipped)
 }
 
 /// Bounding box over a subset of parts, taking `visibility` into account.
@@ -320,9 +324,10 @@ fn tessellate_table(
     table: &truck_stepio::r#in::Table,
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
-) {
+) -> usize {
     let mut shells: Vec<_> = table.shell.iter().collect();
     shells.sort_by_key(|(k, _)| *k);
+    let mut skipped: usize = 0;
     for (shell_index, (_, shell)) in shells.into_iter().enumerate() {
         let model_matrix = Mat4::IDENTITY;
 
@@ -335,6 +340,7 @@ fn tessellate_table(
                     shell_index, err
                 );
                 AppTracer::warn(&msg);
+                skipped += 1;
                 continue;
             }
         };
@@ -375,4 +381,5 @@ fn tessellate_table(
         );
         AppTracer::debug(&shell_msg);
     }
+    skipped
 }

@@ -78,7 +78,7 @@ impl Worker for TessellationWorker {
             };
 
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
-        let renderable_parts = extract_render_parts(&step_tables, tolerance);
+        let (renderable_parts, _skipped) = extract_render_parts(&step_tables, tolerance);
         let part_count = renderable_parts.len();
 
         let mut model = StepModel {

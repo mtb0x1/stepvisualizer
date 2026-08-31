@@ -1,14 +1,15 @@
 //! LRU cache over parsed `StepModel`s (backed by persistence storage).
 use std::collections::{HashMap, VecDeque};
+use std::rc::Rc;
 
 use super::types::{FileId, StepModel};
 
-/// LRU over parsed models. Cheap to clone: `StepModel` moves, no `Rc`
-/// indirection, and the working set is bounded by `capacity`.
+/// LRU over parsed models. Stores `Rc<StepModel>` so cache hits return a
+/// cheap reference-count clone instead of a full deep-copy of geometry data.
 pub struct LruCache {
     capacity: usize,
     order: VecDeque<FileId>,
-    map: HashMap<FileId, StepModel>,
+    map: HashMap<FileId, Rc<StepModel>>,
 }
 
 impl LruCache {
@@ -36,8 +37,9 @@ impl LruCache {
         self.order.push_front(FileId::from(id));
     }
 
-    /// Clone of the model under `id`, promoting it to most-recently-used.
-    pub fn get(&mut self, id: &str) -> Option<StepModel> {
+    /// Returns a shared reference to the model under `id`, promoting it to
+    /// most-recently-used. No geometry data is copied on a cache hit.
+    pub fn get(&mut self, id: &str) -> Option<Rc<StepModel>> {
         let model = self.map.get(id).cloned();
         if model.is_some() {
             self.touch(id);
@@ -48,25 +50,30 @@ impl LruCache {
     /// Memory cache hit, else persistence backend, else `None`.
     ///
     /// Memory is the single in-memory layer; `load` is the persistence
-    /// backend (e.g. localStorage). On a miss we fall through to the backend,
-    /// promote the result into the cache, and return it. This removes the
-    /// duplicated get-or-load branching that previously lived at every caller.
+    /// backend (e.g. localStorage/IndexedDB). On a miss we fall through to the
+    /// backend, wrap the result in `Rc`, promote into the cache, and return it.
     pub fn get_or_load(
         &mut self,
         id: &str,
         load: impl Fn(&str) -> Option<StepModel>,
-    ) -> Option<StepModel> {
-        if let Some(model) = self.get(id) {
-            return Some(model);
+    ) -> Option<Rc<StepModel>> {
+        if let Some(rc) = self.get(id) {
+            return Some(rc);
         }
         let loaded = load(id)?;
-        self.insert(FileId::from(id), loaded.clone());
-        Some(loaded)
+        let rc = Rc::new(loaded);
+        self.insert_rc(FileId::from(id), rc.clone());
+        Some(rc)
     }
 
-    /// Insert or replace a model, then evict least-recently-used entries
-    /// beyond capacity.
+    /// Insert a plain model (wraps it in `Rc` internally), then evict
+    /// least-recently-used entries beyond capacity.
     pub fn insert(&mut self, id: FileId, model: StepModel) {
+        self.insert_rc(id, Rc::new(model));
+    }
+
+    /// Insert a pre-wrapped `Rc<StepModel>`, then evict beyond capacity.
+    pub fn insert_rc(&mut self, id: FileId, model: Rc<StepModel>) {
         // Capacity 0 means "cache nothing": get_or_load then simply falls
         // through to the persistence backend on every call.
         if self.capacity == 0 {
