@@ -121,6 +121,24 @@ impl QualityPreset {
             Self::Fine => "Fine",
         }
     }
+
+    /// Short description shown as a hover tooltip on the quality-preset button.
+    pub fn tooltip(self) -> &'static str {
+        match self {
+            Self::Coarse => {
+                "Coarse: Fastest tessellation, lower mesh detail. \
+                Best for large or complex files where speed matters."
+            }
+            Self::Balanced => {
+                "Balanced: Default quality. \
+                Good trade-off between detail and processing speed."
+            }
+            Self::Fine => {
+                "Fine: Highest mesh detail, slower tessellation. \
+                Best for inspecting small features or curved surfaces."
+            }
+        }
+    }
 }
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);

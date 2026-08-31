@@ -27,8 +27,9 @@ pub fn upload_bar(props: &UploadBarProps) -> Html {
             "quality-btn"
         };
         let onclick = Callback::from(move |_| on_quality_change.emit(preset));
+        let title = preset.tooltip();
         html! {
-            <button {class} {onclick} type="button">
+            <button {class} {onclick} type="button" {title}>
                 { preset.label() }
             </button>
         }
