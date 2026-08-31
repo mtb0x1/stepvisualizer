@@ -279,5 +279,12 @@ mod tests {
         let deserialized: Mat4 = serde_json::from_str(&json).expect("Deserialization to Mat4 failed");
         assert_eq!(deserialized, original);
     }
+
+    /// Verifies that multiplying the identity matrix by itself yields the exact identity matrix.
+    #[wasm_bindgen_test]
+    fn mat4_identity_multiplication() {
+        let result = multiply_matrices(&Mat4::IDENTITY, &Mat4::IDENTITY);
+        assert_eq!(result, Mat4::IDENTITY);
+    }
 }
 
