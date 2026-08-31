@@ -18,6 +18,8 @@ pub enum StepVizError {
     GpuInitFailed(String),
     /// Runtime failure during frame rendering or surface acquisition.
     RenderError(String),
+    /// FILE_SCHEMA declares a STEP application protocol not supported by the parser.
+    UnsupportedSchema { schema: String },
     /// General or unclassified error message.
     Generic(String),
 }
@@ -48,6 +50,10 @@ impl fmt::Display for StepVizError {
             Self::GpuInitFailed(msg) => write!(f, "Failed to initialize WebGPU: {msg}"),
             Self::RenderError(msg) => write!(f, "Render error: {msg}"),
             Self::Generic(msg) => write!(f, "{msg}"),
+            Self::UnsupportedSchema { schema } => write!(
+                f,
+                "Unsupported STEP schema: '{schema}'. Re-export the file as AP203 from your CAD application."
+            ),
         }
     }
 }

@@ -5,6 +5,8 @@ use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{DataSection, EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
 
+const SUPPORTED_SCHEMAS: &[&str] = &["AP201", "AP203", "AUTOMOTIVE_DESIGN", "CONFIG_CONTROL_DESIGN"];
+
 use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 
 /// Convert the STEP header section into the display-oriented [`StepHeader`].
@@ -164,6 +166,17 @@ pub fn build_initial_metadata(
     if step_header.file_name.is_empty() {
         step_header.file_name = fallback_name.to_string();
     }
+
+    let schema_upper = step_header.file_schema.to_ascii_uppercase();
+    let is_supported = SUPPORTED_SCHEMAS
+        .iter()
+        .any(|&s| schema_upper.contains(s));
+    if !is_supported {
+        return Err(StepVizError::UnsupportedSchema {
+            schema: step_header.file_schema.clone(),
+        });
+    }
+
     let meta = Metadata {
         header: step_header,
         entity_count,
