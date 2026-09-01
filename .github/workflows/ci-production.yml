@@ -1,0 +1,37 @@
+name: CI — Production
+
+on:
+  push:
+    branches: [release]
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v6
+
+      # Download the artifact that was built and deployed to testing for this
+      # exact commit SHA. No rebuild — full traceability: master → testing → production.
+      #
+      # If no successful ci-testing.yml run exists for this SHA (i.e. the commit
+      # never went through testing), this step fails and the gate holds.
+      - name: Download artifact from ci-testing.yml (same SHA, no rebuild)
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: ci-testing.yml
+          commit: ${{ github.sha }}
+          name: app-dist-${{ github.sha }}
+          path: ./dist
+          workflow_conclusion: success
+
+      - name: Deploy to gh-pages/production/
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          publish_branch: gh-pages
+          destination_dir: production
+          keep_files: true

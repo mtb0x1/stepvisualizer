@@ -1,4 +1,4 @@
-name: Deploy Yew site
+name: CI — Testing
 
 on:
   push:
@@ -9,11 +9,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
       - name: Install Rust (nightly + wasm target)
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: nightly
           target: wasm32-unknown-unknown
+
       - name: Install trunk (prebuilt binary)
         env:
           TRUNK_VERSION: v0.21.14
@@ -37,38 +39,75 @@ jobs:
         run: |
           rustup component add clippy
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
-      
+
       - name: Cargo Test
         run: wasm-pack test --headless --firefox
 
+      # Build with a relative public-url so the same artifact is valid in any
+      # subdirectory (testing/ or production/) without a rebuild.
       - name: Build Yew App
-        run: trunk build --release --dist ./dist --public-url /stepvisualizer/
+        run: trunk build --release --dist ./dist --public-url ./
+
+      - name: Copy index.html to 404.html
+        run: cp ./dist/index.html ./dist/404.html
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v5
         with:
-          name: app-dist
+          name: app-dist-${{ github.sha }}
           path: ./dist
 
-  deploy:
+  deploy-testing:
     runs-on: ubuntu-latest
     needs: build
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
+
       - name: Download build artifact
         uses: actions/download-artifact@v5
         with:
-          name: app-dist
+          name: app-dist-${{ github.sha }}
           path: ./dist
-      
-      #? I guess we need to cheat 404 errors
-      - name: Copy index.html to 404.html
-        run: cp ./dist/index.html ./dist/404.html
 
-      - name: Deploy
+      - name: Deploy to gh-pages/testing/
         uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist
           publish_branch: gh-pages
+          destination_dir: testing
+          keep_files: true
+
+      - name: Deploy landing page to gh-pages root
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./landing
+          publish_branch: gh-pages
+          destination_dir: .
+          keep_files: true
+
+  advance-testing-branch:
+    runs-on: ubuntu-latest
+    needs: deploy-testing
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Fast-forward the `testing` source branch to the current master HEAD.
+      # This only runs after deploy-testing succeeds, so `testing` always
+      # reflects what is actually live in the testing environment.
+      - name: Fast-forward testing branch to master
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git fetch origin
+          git checkout testing
+          git merge --ff-only origin/master
+          git push origin testing

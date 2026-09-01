@@ -4,13 +4,38 @@ A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This too
 
 ## Live Demo
 
-=======>  https://mtb0x1.github.io/stepvisualizer/  <=======
+| Environment | URL | Updated on |
+|---|---|---|
+| Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | push to `master` |
+| Production  | https://mtb0x1.github.io/stepvisualizer/production/ | PR `testing` -> `release` merged |
 
-Or
+A landing page at https://mtb0x1.github.io/stepvisualizer/ links to both environments.
 
-=======>  https://mtb0x1.github.io/stepvisualizer/?tracing=on&level=trace <=======
+To enable verbose tracing, append `?tracing=on&level=trace` to either URL and check the browser console.
 
-and check browser Web console.
+## Deployment
+
+The pipeline enforces a strict promotion chain — no gate skipping:
+
+```
+master (code)
+    |
+    +-- [ci-testing.yml] build once (--public-url ./) --> artifact tagged with commit SHA
+            |                |
+            |                +--> deploy --> /testing/
+            |                +--> update landing page root
+            |                +--> fast-forward `testing` branch to master HEAD
+            |
+            +-- (manual PR: testing --> release, review & merge)
+                    |
+                    +-- [ci-production.yml] download SAME artifact (no rebuild)
+                                |
+                                +--> deploy --> /production/
+```
+
+- Push to `master` -> CI builds once (artifact tagged by commit SHA) -> auto-deploys to **Testing**.
+- Open a PR from `testing` -> `release` and merge -> CI downloads the exact same artifact (no rebuild) -> deploys to **Production**.
+- There is no path from `master` directly to production.
 
 ## Current Status
 
@@ -110,9 +135,9 @@ sequenceDiagram
    trunk serve
    ```
 
-   or build the standalone WASM bundle:
+   or build the standalone WASM bundle (use `./` for local dev, a sub-path for subdirectory deployments):
    ```bash
-   cargo build --target wasm32-unknown-unknown --release
+   trunk build --release --public-url ./
    ```
 
 3. Open `http://localhost:8080` in a WebGPU-capable browser
