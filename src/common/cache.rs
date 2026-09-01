@@ -214,4 +214,80 @@ mod tests {
         assert_eq!(cache.map.len(), 0);
         assert_eq!(cache.order.len(), 0);
     }
+
+    /// Verifies that inserting entries beyond maximum capacity evicts the oldest
+    /// least-recently-used item (A evicted when inserting C with capacity 2).
+    #[wasm_bindgen_test]
+    fn cache_eviction_at_capacity() {
+        let mut cache = LruCache::new(2);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+        cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
+        cache.insert(FileId::from("model_C"), create_mock_model("model_C"));
+
+        assert!(cache.get("model_A").is_none());
+        assert!(cache.get("model_B").is_some());
+        assert!(cache.get("model_C").is_some());
+        assert_eq!(cache.map.len(), 2);
+    }
+
+    /// Verifies that accessing an entry via get promotes it to most-recently-used,
+    /// so the untouched item is evicted on the next insertion beyond capacity.
+    #[wasm_bindgen_test]
+    fn cache_touch_promotes_mru() {
+        let mut cache = LruCache::new(2);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+        cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
+
+        // Touch A to promote it to MRU
+        assert!(cache.get("model_A").is_some());
+
+        // Insert C -> B is now LRU and should be evicted
+        cache.insert(FileId::from("model_C"), create_mock_model("model_C"));
+
+        assert!(cache.get("model_A").is_some());
+        assert!(cache.get("model_B").is_none());
+        assert!(cache.get("model_C").is_some());
+    }
+
+    /// Verifies that re-inserting an existing key replaces its payload and promotes it
+    /// without increasing cache size or prematurely evicting other entries.
+    #[wasm_bindgen_test]
+    fn cache_reinsert_existing_key() {
+        let mut cache = LruCache::new(2);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+        cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
+
+        let mut updated_a = create_mock_model("model_A");
+        updated_a.metadata.entity_count = 999;
+        cache.insert(FileId::from("model_A"), updated_a);
+
+        assert_eq!(cache.map.len(), 2);
+        let a = cache.get("model_A").unwrap();
+        assert_eq!(a.metadata.entity_count, 999);
+        assert!(cache.get("model_B").is_some());
+    }
+
+    /// Verifies that a cache created with zero capacity does not retain any inserted items.
+    #[wasm_bindgen_test]
+    fn cache_zero_capacity() {
+        let mut cache = LruCache::new(0);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+
+        assert!(cache.get("model_A").is_none());
+        assert_eq!(cache.map.len(), 0);
+        assert_eq!(cache.order.len(), 0);
+    }
+
+    /// Verifies that a cache with capacity 1 immediately evicts the previous item on each new insert.
+    #[wasm_bindgen_test]
+    fn cache_capacity_one() {
+        let mut cache = LruCache::new(1);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+        assert!(cache.get("model_A").is_some());
+
+        cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
+        assert!(cache.get("model_A").is_none());
+        assert!(cache.get("model_B").is_some());
+        assert_eq!(cache.map.len(), 1);
+    }
 }
