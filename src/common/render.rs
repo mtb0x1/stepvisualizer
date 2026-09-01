@@ -532,4 +532,78 @@ mod tests {
         assert_eq!(part.model_matrix.0[14], 0.0);
         assert_eq!(part.model_matrix.0[15], 1.0);
     }
+
+    fn create_box_part(min_x: f32, max_x: f32) -> RenderablePart {
+        RenderablePart {
+            vertices: vec![
+                GpuVertex { position: [min_x, 0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                GpuVertex { position: [max_x, 1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+            ],
+            indices: vec![0, 1, 0],
+            model_matrix: Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        }
+    }
+
+    /// Verifies that visible_bounds encloses all parts when visibility flags are all true.
+    #[wasm_bindgen_test]
+    fn visible_bounds_all_visible() {
+        let part_a = create_box_part(0.0, 1.0);
+        let part_b = create_box_part(2.0, 4.0);
+        let parts = vec![part_a, part_b];
+        let visibility = vec![true, true];
+
+        let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
+        assert_eq!(bounds.min[0], 0.0);
+        assert_eq!(bounds.max[0], 4.0);
+    }
+
+    /// Verifies that hidden parts (visibility = false) are excluded from the calculated bounding box.
+    #[wasm_bindgen_test]
+    fn visible_bounds_single_part_hidden() {
+        let part_a = create_box_part(0.0, 1.0);
+        let part_b = create_box_part(2.0, 4.0);
+        let parts = vec![part_a, part_b];
+        let visibility = vec![false, true];
+
+        let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
+        assert_eq!(bounds.min[0], 2.0);
+        assert_eq!(bounds.max[0], 4.0);
+    }
+
+    /// Verifies that visible_bounds returns None when all parts are hidden.
+    #[wasm_bindgen_test]
+    fn visible_bounds_all_hidden() {
+        let part_a = create_box_part(0.0, 1.0);
+        let part_b = create_box_part(2.0, 4.0);
+        let parts = vec![part_a, part_b];
+        let visibility = vec![false, false];
+
+        assert!(visible_bounds(&parts, &visibility).is_none());
+    }
+
+    /// Verifies that an empty visibility slice defaults to treating all parts as visible.
+    #[wasm_bindgen_test]
+    fn visible_bounds_missing_visibility_defaults_true() {
+        let part_a = create_box_part(0.0, 1.0);
+        let part_b = create_box_part(2.0, 4.0);
+        let parts = vec![part_a, part_b];
+
+        let bounds = visible_bounds(&parts, &[]).expect("valid bounds");
+        assert_eq!(bounds.min[0], 0.0);
+        assert_eq!(bounds.max[0], 4.0);
+    }
+
+    /// Verifies that parts with empty vertex buffers are ignored and do not affect the bounds calculation.
+    #[wasm_bindgen_test]
+    fn visible_bounds_empty_vertex_part_ignored() {
+        let empty_part = RenderablePart::default();
+        let valid_part = create_box_part(2.0, 5.0);
+        let parts = vec![empty_part, valid_part];
+        let visibility = vec![true, true];
+
+        let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
+        assert_eq!(bounds.min[0], 2.0);
+        assert_eq!(bounds.max[0], 5.0);
+    }
 }
