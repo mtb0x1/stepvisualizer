@@ -657,4 +657,28 @@ mod tests {
         approx::assert_relative_eq!(dot(s, b), 0.0, epsilon = 1e-5);
         approx::assert_relative_eq!(dot(u, b), 0.0, epsilon = 1e-5);
     }
+
+    /// Verifies that column 3 of create_look_at_matrix contains the exact translation terms:
+    /// tx = -(s . eye), ty = -(u . eye), tz = (f . eye), and w = 1.0.
+    #[wasm_bindgen_test]
+    fn look_at_translation_column() {
+        let eye = [1.0, 2.0, 3.0];
+        let center = [0.0, 0.0, 0.0];
+        let up = [0.0, 1.0, 0.0];
+
+        let mat = create_look_at_matrix(eye, center, up);
+
+        let s = [mat.0[0], mat.0[1], mat.0[2]];
+        let u = [mat.0[4], mat.0[5], mat.0[6]];
+        let f = [-mat.0[8], -mat.0[9], -mat.0[10]];
+
+        let tx_expected = -(s[0] * eye[0] + s[1] * eye[1] + s[2] * eye[2]);
+        let ty_expected = -(u[0] * eye[0] + u[1] * eye[1] + u[2] * eye[2]);
+        let tz_expected = f[0] * eye[0] + f[1] * eye[1] + f[2] * eye[2];
+
+        approx::assert_relative_eq!(mat.0[12], tx_expected, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[13], ty_expected, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[14], tz_expected, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[15], 1.0, epsilon = 1e-5);
+    }
 }
