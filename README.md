@@ -7,7 +7,7 @@ A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This too
 | Environment | URL | Updated on |
 |---|---|---|
 | Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | push to `master` |
-| Production  | https://mtb0x1.github.io/stepvisualizer/production/ | PR `testing` -> `release` merged |
+| Production  | https://mtb0x1.github.io/stepvisualizer/production/ | PR `testing` -> `production` merged |
 
 A landing page at https://mtb0x1.github.io/stepvisualizer/ links to both environments.
 
@@ -29,16 +29,16 @@ push to master
             +-- [ci-testing.yml] check + clippy + test + build --> deploy /testing/
                                                                 --> update landing page root
 
-                    | (PR: testing --> release, reviewed & merged)
+            | (PR: testing --> production, reviewed & merged)
 
-            push to release
+            push to production
                     |
                     +-- [ci-production.yml] check + clippy + test + build --> deploy /production/
 ```
 
 - Push to `master` -> CI runs full build + tests, **no deploy**.
 - PR `master` -> `testing`, merge -> CI builds and deploys to **Testing**.
-- PR `testing` -> `release`, merge -> CI builds and deploys to **Production**.
+- PR `testing` -> `production`, merge -> CI builds and deploys to **Production**.
 - There is no path from `master` directly to production.
 
 ## Current Status
