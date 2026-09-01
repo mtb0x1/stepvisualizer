@@ -416,4 +416,74 @@ mod tests {
         let from_string = FileId::from(raw.to_string());
         assert_eq!(from_string, file_id);
     }
+
+    /// Verifies that an unexpanded BoundingBox::EMPTY sentinel is invalid (min = inf, max = -inf).
+    #[wasm_bindgen_test]
+    fn bbox_empty_invalid() {
+        let bbox = BoundingBox::EMPTY;
+        assert!(!bbox.is_valid());
+    }
+
+    /// Verifies that expanding BoundingBox::EMPTY with a single point creates a zero-size, valid bounding box
+    /// where min equals max at the point coordinates.
+    #[wasm_bindgen_test]
+    fn bbox_single_point_expansion() {
+        let mut bbox = BoundingBox::EMPTY;
+        bbox.expand_point([1.0, 2.0, 3.0]);
+
+        assert!(bbox.is_valid());
+        assert_eq!(bbox.min, [1.0, 2.0, 3.0]);
+        assert_eq!(bbox.max, [1.0, 2.0, 3.0]);
+    }
+
+    /// Verifies that sequentially expanding a bounding box with multiple points correctly computes
+    /// the component-wise minimum and maximum coordinate extrema.
+    #[wasm_bindgen_test]
+    fn bbox_multiple_points_expansion() {
+        let mut bbox = BoundingBox::EMPTY;
+        bbox.expand_point([0.0, 10.0, -5.0]);
+        bbox.expand_point([5.0, 2.0, 8.0]);
+
+        assert_eq!(bbox.min, [0.0, 2.0, -5.0]);
+        assert_eq!(bbox.max, [5.0, 10.0, 8.0]);
+    }
+
+    /// Verifies that center and center_f32 compute the exact midpoints of the bounding box coordinates.
+    #[wasm_bindgen_test]
+    fn bbox_center_f64_and_f32() {
+        let bbox = BoundingBox::new([-10.0, -20.0, -30.0], [10.0, 20.0, 30.0]);
+
+        assert_eq!(bbox.center(), [0.0, 0.0, 0.0]);
+        assert_eq!(bbox.center_f32(), [0.0, 0.0, 0.0]);
+    }
+
+    /// Verifies that size, size_x, size_y, size_z, and max_extent compute accurate bounding dimensions.
+    #[wasm_bindgen_test]
+    fn bbox_dimensions_and_extents() {
+        let bbox = BoundingBox::new([1.0, 2.0, 3.0], [5.0, 10.0, 7.0]);
+
+        assert_eq!(bbox.size(), [4.0, 8.0, 4.0]);
+        assert_eq!(bbox.size_x(), 4.0);
+        assert_eq!(bbox.size_y(), 8.0);
+        assert_eq!(bbox.size_z(), 4.0);
+        assert_eq!(bbox.max_extent(), 8.0);
+        assert_eq!(bbox.max_extent_f32(), 8.0);
+    }
+
+    /// Verifies that bounding boxes containing NaN or infinite values fail validity checks.
+    #[wasm_bindgen_test]
+    fn bbox_invalid_nan_infinity() {
+        let nan_bbox = BoundingBox::new([f64::NAN, 0.0, 0.0], [1.0, 1.0, 1.0]);
+        assert!(!nan_bbox.is_valid());
+
+        let inf_bbox = BoundingBox::new([f64::NEG_INFINITY, 0.0, 0.0], [1.0, 1.0, 1.0]);
+        assert!(!inf_bbox.is_valid());
+    }
+
+    /// Verifies that bounding boxes where min > max along any axis are recognized as invalid.
+    #[wasm_bindgen_test]
+    fn bbox_inverted_min_max() {
+        let inverted = BoundingBox::new([10.0, 0.0, 0.0], [5.0, 0.0, 0.0]);
+        assert!(!inverted.is_valid());
+    }
 }
