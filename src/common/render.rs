@@ -383,3 +383,128 @@ fn tessellate_table(
     }
     skipped
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    fn create_cube_part(size: f32) -> RenderablePart {
+        let vertices = vec![
+            GpuVertex { position: [0.0, 0.0, 0.0], normal: [-1.0, -1.0, -1.0] },
+            GpuVertex { position: [size, 0.0, 0.0], normal: [1.0, -1.0, -1.0] },
+            GpuVertex { position: [size, size, 0.0], normal: [1.0, 1.0, -1.0] },
+            GpuVertex { position: [0.0, size, 0.0], normal: [-1.0, 1.0, -1.0] },
+            GpuVertex { position: [0.0, 0.0, size], normal: [-1.0, -1.0, 1.0] },
+            GpuVertex { position: [size, 0.0, size], normal: [1.0, -1.0, 1.0] },
+            GpuVertex { position: [size, size, size], normal: [1.0, 1.0, 1.0] },
+            GpuVertex { position: [0.0, size, size], normal: [-1.0, 1.0, 1.0] },
+        ];
+
+        let indices = vec![
+            // Front (+Z)
+            4, 5, 6, 4, 6, 7,
+            // Back (-Z)
+            0, 3, 2, 0, 2, 1,
+            // Right (+X)
+            1, 2, 6, 1, 6, 5,
+            // Left (-X)
+            0, 4, 7, 0, 7, 3,
+            // Top (+Y)
+            3, 7, 6, 3, 6, 2,
+            // Bottom (-Y)
+            0, 1, 5, 0, 5, 4,
+        ];
+
+        RenderablePart {
+            vertices,
+            indices,
+            model_matrix: Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        }
+    }
+
+    /// Verifies the surface area of a single flat right-angle triangle with side lengths 1.
+    #[wasm_bindgen_test]
+    fn metric_unit_triangle_area() {
+        let part = RenderablePart {
+            vertices: vec![
+                GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex { position: [1.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex { position: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0] },
+            ],
+            indices: vec![0, 1, 2],
+            model_matrix: Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
+    }
+
+    /// Verifies that a closed 12-triangle unit cube evaluates to a surface area of exactly 6.0.
+    #[wasm_bindgen_test]
+    fn metric_unit_cube_surface_area() {
+        let cube = create_cube_part(1.0);
+        approx::assert_relative_eq!(cube.calculate_surface_area(), 6.0, epsilon = 1e-6);
+    }
+
+    /// Verifies that a closed 12-triangle unit cube evaluates to an enclosed volume of exactly 1.0.
+    #[wasm_bindgen_test]
+    fn metric_unit_cube_volume() {
+        let cube = create_cube_part(1.0);
+        approx::assert_relative_eq!(cube.calculate_volume(), 1.0, epsilon = 1e-6);
+    }
+
+    /// Verifies scaling invariance for surface area and volume of a closed cube of side length 3.0.
+    #[wasm_bindgen_test]
+    fn metric_scaled_cube_volume_and_area() {
+        let cube = create_cube_part(3.0);
+        approx::assert_relative_eq!(cube.calculate_surface_area(), 54.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(cube.calculate_volume(), 27.0, epsilon = 1e-6);
+    }
+
+    /// Verifies that an empty mesh yields zero volume and zero surface area.
+    #[wasm_bindgen_test]
+    fn metric_empty_mesh() {
+        let empty = RenderablePart::default();
+        assert_eq!(empty.calculate_surface_area(), 0.0);
+        assert_eq!(empty.calculate_volume(), 0.0);
+    }
+
+    /// Verifies that corrupted index buffers containing out-of-bounds indices or incomplete trailing triples
+    /// are gracefully skipped without panicking.
+    #[wasm_bindgen_test]
+    fn metric_corrupted_index_skipping() {
+        let part = RenderablePart {
+            vertices: vec![
+                GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex { position: [1.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex { position: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0] },
+            ],
+            // First triangle valid (area 0.5), second out of bounds (index 999), trailing incomplete triple (0, 1)
+            indices: vec![0, 1, 2, 0, 1, 999, 0, 1],
+            model_matrix: Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
+    }
+
+    /// Verifies that vertex_count and triangle_count reflect the buffers accurately.
+    #[wasm_bindgen_test]
+    fn metric_counts() {
+        let part = RenderablePart {
+            vertices: (0..24)
+                .map(|_| GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 1.0, 0.0] })
+                .collect(),
+            indices: (0..36).collect(),
+            model_matrix: Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        assert_eq!(part.vertex_count(), 24);
+        assert_eq!(part.triangle_count(), 12);
+    }
+}
