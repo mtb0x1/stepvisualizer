@@ -1,8 +1,247 @@
-<!doctype html><meta charset=utf-8><title>Step files Visualiser</title><link href=/stepvisualizer/main-36399fd0f034fa7d.css integrity=sha384-e9WQeUwlu+yZ/8G534uMezaYoSEJv3agzSkvVWXtyWFRblTpZwNobRsMEbBGyi4m rel=stylesheet><link integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw==" crossorigin href=https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css referrerpolicy=no-referrer rel=stylesheet><link crossorigin href=/stepvisualizer/stepvisualizer-a8b49b7fdda360d1.js integrity=sha384-/Ep/5V3rC6dFvGKkupkaaFuYdnpLQ9/HIIxNs4VO0CvCO+vhAj10EaPzGCgOO99Z rel=modulepreload><link as=fetch crossorigin href=/stepvisualizer/stepvisualizer-a8b49b7fdda360d1_bg.wasm integrity=sha384-JV0bTtTz/N5OI640Gv8Bimwy32EByemJrDn3guKjdBKlY9xRW/nM6igk6HutiRvl rel=preload type=application/wasm></head><body><div id=root></div><script type=module>import init, * as bindings from '/stepvisualizer/stepvisualizer-a8b49b7fdda360d1.js';
-const wasm = await init({ module_or_path: '/stepvisualizer/stepvisualizer-a8b49b7fdda360d1_bg.wasm' });
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>StepViz — Deployment Environments</title>
+    <meta
+      name="description"
+      content="StepViz is a WebAssembly-based 3D STEP file visualizer. Choose between the Testing (latest) or Production (stable) environment."
+    />
+    <style>
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+      :root {
+        --bg:        #0d1117;
+        --surface:   #161b22;
+        --border:    #30363d;
+        --text:      #e6edf3;
+        --muted:     #8b949e;
+        --accent:    #58a6ff;
+        --testing:   #3fb950;
+        --production:#f0883e;
+        --radius:    10px;
+        --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      }
 
-window.wasmBindings = bindings;
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--font);
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 2rem 1rem;
+        line-height: 1.6;
+      }
 
+      .container {
+        width: 100%;
+        max-width: 680px;
+      }
 
-dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));</script></body></html>
+      header {
+        text-align: center;
+        margin-bottom: 3rem;
+      }
+
+      .logo {
+        font-size: 2rem;
+        font-weight: 700;
+        letter-spacing: -0.5px;
+        color: var(--text);
+      }
+
+      .logo span {
+        color: var(--accent);
+      }
+
+      .tagline {
+        margin-top: 0.5rem;
+        color: var(--muted);
+        font-size: 0.95rem;
+      }
+
+      .cards {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+      }
+
+      @media (max-width: 480px) {
+        .cards { grid-template-columns: 1fr; }
+      }
+
+      .card {
+        display: flex;
+        flex-direction: column;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        padding: 1.5rem;
+        text-decoration: none;
+        color: inherit;
+        transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
+      }
+
+      .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      }
+
+      .card.testing  { --env-color: var(--testing); }
+      .card.production { --env-color: var(--production); }
+
+      .card:hover { border-color: var(--env-color); }
+
+      .card-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--env-color);
+        margin-bottom: 0.75rem;
+      }
+
+      .card-badge::before {
+        content: "";
+        display: inline-block;
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--env-color);
+      }
+
+      .card-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: var(--text);
+      }
+
+      .card-desc {
+        font-size: 0.85rem;
+        color: var(--muted);
+        flex: 1;
+      }
+
+      .card-link {
+        margin-top: 1.25rem;
+        font-size: 0.8rem;
+        color: var(--accent);
+        word-break: break-all;
+      }
+
+      footer {
+        margin-top: 3rem;
+        text-align: center;
+        font-size: 0.8rem;
+        color: var(--muted);
+      }
+
+      footer a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      footer a:hover { text-decoration: underline; }
+
+      .pipeline {
+        margin: 2.5rem 0;
+        padding: 1rem 1.25rem;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        font-size: 0.8rem;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        justify-content: center;
+      }
+
+      .pipeline .step {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-weight: 600;
+        font-size: 0.75rem;
+        letter-spacing: 0.03em;
+      }
+
+      .pipeline .step.master     { background: #21262d; color: var(--accent); }
+      .pipeline .step.testing    { background: #12261e; color: var(--testing); }
+      .pipeline .step.production { background: #271c11; color: var(--production); }
+      .pipeline .arrow           { color: var(--border); font-size: 1rem; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <div class="logo">Step<span>Viz</span></div>
+        <p class="tagline">
+          WebAssembly-based 3D STEP file visualizer &mdash; built with Rust and WebGPU
+        </p>
+      </header>
+
+      <div class="pipeline" aria-label="Deployment pipeline">
+        <span class="step master">master</span>
+        <span class="arrow">&#8594;</span>
+        <span>build once</span>
+        <span class="arrow">&#8594;</span>
+        <span class="step testing">testing</span>
+        <span class="arrow">&#8594;</span>
+        <span>manual PR</span>
+        <span class="arrow">&#8594;</span>
+        <span class="step production">production</span>
+      </div>
+
+      <div class="cards">
+        <a
+          id="link-testing"
+          class="card testing"
+          href="./testing/"
+          aria-label="Open Testing environment"
+        >
+          <span class="card-badge">Testing</span>
+          <div class="card-title">Latest Build</div>
+          <p class="card-desc">
+            Updated automatically on every push to <code>master</code>.
+            Reflects the newest changes; may occasionally be unstable.
+          </p>
+          <div class="card-link">stepvisualizer/testing/</div>
+        </a>
+
+        <a
+          id="link-production"
+          class="card production"
+          href="./production/"
+          aria-label="Open Production environment"
+        >
+          <span class="card-badge">Production</span>
+          <div class="card-title">Stable Release</div>
+          <p class="card-desc">
+            Promoted manually via a pull request from <code>testing</code>.
+            Always validated before deployment.
+          </p>
+          <div class="card-link">stepvisualizer/production/</div>
+        </a>
+      </div>
+
+      <footer>
+        <a
+          id="link-source"
+          href="https://github.com/mtb0x1/stepvisualizer"
+          target="_blank"
+          rel="noopener noreferrer"
+        >github.com/mtb0x1/stepvisualizer</a>
+      </footer>
+    </div>
+  </body>
+</html>
