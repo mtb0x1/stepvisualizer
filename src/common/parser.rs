@@ -242,4 +242,84 @@ mod tests {
 
         assert!(matches!(res, Err(StepVizError::InvalidHeader(_))));
     }
+
+    fn step_with_schema(schema: &str) -> String {
+        format!(
+            "ISO-10303-21;\n\
+             HEADER;\n\
+             FILE_DESCRIPTION(('Test'), '2;1');\n\
+             FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+             FILE_SCHEMA(('{schema}'));\n\
+             ENDSEC;\n\
+             DATA;\n\
+             ENDSEC;\n\
+             END-ISO-10303-21;"
+        )
+    }
+
+    /// Verifies that schemas specifying AP203 or CONFIG_CONTROL_DESIGN are accepted as supported.
+    #[wasm_bindgen_test]
+    fn schema_supported_ap203() {
+        let text1 = step_with_schema("CONFIG_CONTROL_DESIGN");
+        let parsed1 = ruststep::parser::parse(&text1).expect("parse");
+        assert!(build_initial_metadata("test", &parsed1, &[], &text1).is_ok());
+
+        let text2 = step_with_schema("AP203");
+        let parsed2 = ruststep::parser::parse(&text2).expect("parse");
+        assert!(build_initial_metadata("test", &parsed2, &[], &text2).is_ok());
+    }
+
+    /// Verifies that schemas specifying AP214 / AUTOMOTIVE_DESIGN are accepted as supported.
+    #[wasm_bindgen_test]
+    fn schema_supported_ap214() {
+        let text = step_with_schema("AUTOMOTIVE_DESIGN");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+    }
+
+    /// Verifies that schemas specifying AP201 are accepted as supported.
+    #[wasm_bindgen_test]
+    fn schema_supported_ap201() {
+        let text = step_with_schema("AP201");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+    }
+
+    /// Verifies that unsupported AP209 / STRUCTURAL_ANALYSIS_DESIGN schemas return an UnsupportedSchema error.
+    #[wasm_bindgen_test]
+    fn schema_unsupported_ap209() {
+        let text = step_with_schema("STRUCTURAL_ANALYSIS_DESIGN");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        let res = build_initial_metadata("test", &parsed, &[], &text);
+
+        match res {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "STRUCTURAL_ANALYSIS_DESIGN");
+            }
+            _ => panic!("Expected UnsupportedSchema error, got {:?}", res),
+        }
+    }
+
+    /// Verifies that unsupported AP224 FEATURE_BASED_PROCESS_PLANNING schema returns an UnsupportedSchema error.
+    #[wasm_bindgen_test]
+    fn schema_unsupported_ap224() {
+        let text = step_with_schema("FEATURE_BASED_PROCESS_PLANNING");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        let res = build_initial_metadata("test", &parsed, &[], &text);
+
+        match res {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
+            }
+            _ => panic!("Expected UnsupportedSchema error, got {:?}", res),
+        }
+    }
+
+    /// Verifies that schema validation is case-insensitive (e.g. lowercase config_control_design is accepted).
+    #[wasm_bindgen_test]
+    fn schema_case_insensitivity() {
+        let text = step_with_schema("config_control_design");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+    }
 }
