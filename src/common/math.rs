@@ -681,4 +681,27 @@ mod tests {
         approx::assert_relative_eq!(mat.0[14], tz_expected, epsilon = 1e-5);
         approx::assert_relative_eq!(mat.0[15], 1.0, epsilon = 1e-5);
     }
+
+    /// Verifies that when eye == center (zero length forward direction), the function
+    /// gracefully falls back to the default forward vector [0, 0, -1] without NaN generation,
+    /// panic, or divide-by-zero traps.
+    #[wasm_bindgen_test]
+    fn look_at_coincident_eye_center() {
+        let eye = [2.0, 3.0, 4.0];
+        let center = [2.0, 3.0, 4.0];
+        let up = [0.0, 1.0, 0.0];
+
+        let mat = create_look_at_matrix(eye, center, up);
+
+        for &elem in &mat.0 {
+            assert!(!elem.is_nan(), "Matrix element must not be NaN");
+            assert!(elem.is_finite(), "Matrix element must be finite");
+        }
+
+        // Expected fallback forward is [0, 0, -1], right is [1, 0, 0], up is [0, 1, 0]
+        approx::assert_relative_eq!(mat.0[0], 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[5], 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[10], 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(mat.0[15], 1.0, epsilon = 1e-5);
+    }
 }
