@@ -393,28 +393,47 @@ mod tests {
 
     fn create_cube_part(size: f32) -> RenderablePart {
         let vertices = vec![
-            GpuVertex { position: [0.0, 0.0, 0.0], normal: [-1.0, -1.0, -1.0] },
-            GpuVertex { position: [size, 0.0, 0.0], normal: [1.0, -1.0, -1.0] },
-            GpuVertex { position: [size, size, 0.0], normal: [1.0, 1.0, -1.0] },
-            GpuVertex { position: [0.0, size, 0.0], normal: [-1.0, 1.0, -1.0] },
-            GpuVertex { position: [0.0, 0.0, size], normal: [-1.0, -1.0, 1.0] },
-            GpuVertex { position: [size, 0.0, size], normal: [1.0, -1.0, 1.0] },
-            GpuVertex { position: [size, size, size], normal: [1.0, 1.0, 1.0] },
-            GpuVertex { position: [0.0, size, size], normal: [-1.0, 1.0, 1.0] },
+            GpuVertex {
+                position: [0.0, 0.0, 0.0],
+                normal: [-1.0, -1.0, -1.0],
+            },
+            GpuVertex {
+                position: [size, 0.0, 0.0],
+                normal: [1.0, -1.0, -1.0],
+            },
+            GpuVertex {
+                position: [size, size, 0.0],
+                normal: [1.0, 1.0, -1.0],
+            },
+            GpuVertex {
+                position: [0.0, size, 0.0],
+                normal: [-1.0, 1.0, -1.0],
+            },
+            GpuVertex {
+                position: [0.0, 0.0, size],
+                normal: [-1.0, -1.0, 1.0],
+            },
+            GpuVertex {
+                position: [size, 0.0, size],
+                normal: [1.0, -1.0, 1.0],
+            },
+            GpuVertex {
+                position: [size, size, size],
+                normal: [1.0, 1.0, 1.0],
+            },
+            GpuVertex {
+                position: [0.0, size, size],
+                normal: [-1.0, 1.0, 1.0],
+            },
         ];
 
         let indices = vec![
             // Front (+Z)
-            4, 5, 6, 4, 6, 7,
-            // Back (-Z)
-            0, 3, 2, 0, 2, 1,
-            // Right (+X)
-            1, 2, 6, 1, 6, 5,
-            // Left (-X)
-            0, 4, 7, 0, 7, 3,
-            // Top (+Y)
-            3, 7, 6, 3, 6, 2,
-            // Bottom (-Y)
+            4, 5, 6, 4, 6, 7, // Back (-Z)
+            0, 3, 2, 0, 2, 1, // Right (+X)
+            1, 2, 6, 1, 6, 5, // Left (-X)
+            0, 4, 7, 0, 7, 3, // Top (+Y)
+            3, 7, 6, 3, 6, 2, // Bottom (-Y)
             0, 1, 5, 0, 5, 4,
         ];
 
@@ -431,9 +450,18 @@ mod tests {
     fn metric_unit_triangle_area() {
         let part = RenderablePart {
             vertices: vec![
-                GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
-                GpuVertex { position: [1.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
-                GpuVertex { position: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [1.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [0.0, 1.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
             ],
             indices: vec![0, 1, 2],
             model_matrix: Mat4::IDENTITY,
@@ -479,9 +507,18 @@ mod tests {
     fn metric_corrupted_index_skipping() {
         let part = RenderablePart {
             vertices: vec![
-                GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
-                GpuVertex { position: [1.0, 0.0, 0.0], normal: [0.0, 0.0, 1.0] },
-                GpuVertex { position: [0.0, 1.0, 0.0], normal: [0.0, 0.0, 1.0] },
+                GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [1.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [0.0, 1.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
             ],
             // First triangle valid (area 0.5), second out of bounds (index 999), trailing incomplete triple (0, 1)
             indices: vec![0, 1, 2, 0, 1, 999, 0, 1],
@@ -497,7 +534,10 @@ mod tests {
     fn metric_counts() {
         let part = RenderablePart {
             vertices: (0..24)
-                .map(|_| GpuVertex { position: [0.0, 0.0, 0.0], normal: [0.0, 1.0, 0.0] })
+                .map(|_| GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 1.0, 0.0],
+                })
                 .collect(),
             indices: (0..36).collect(),
             model_matrix: Mat4::IDENTITY,
@@ -536,8 +576,14 @@ mod tests {
     fn create_box_part(min_x: f32, max_x: f32) -> RenderablePart {
         RenderablePart {
             vertices: vec![
-                GpuVertex { position: [min_x, 0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-                GpuVertex { position: [max_x, 1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                GpuVertex {
+                    position: [min_x, 0.0, 0.0],
+                    normal: [0.0, 1.0, 0.0],
+                },
+                GpuVertex {
+                    position: [max_x, 1.0, 1.0],
+                    normal: [0.0, 1.0, 0.0],
+                },
             ],
             indices: vec![0, 1, 0],
             model_matrix: Mat4::IDENTITY,
