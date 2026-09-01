@@ -27,6 +27,9 @@ jobs:
           tar -xzf /tmp/trunk.tar.gz -C "${HOME}/.local/bin"
           echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
 
+      - name: Install wasm-pack
+        run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
+
       - name: Cargo Check
         run: cargo check --target wasm32-unknown-unknown
 
@@ -34,6 +37,9 @@ jobs:
         run: |
           rustup component add clippy
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
+      
+      - name: Cargo Test
+        run: wasm-pack test --headless --firefox
 
       - name: Build Yew App
         run: trunk build --release --dist ./dist --public-url /stepvisualizer/
