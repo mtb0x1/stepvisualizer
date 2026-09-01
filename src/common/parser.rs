@@ -362,4 +362,62 @@ mod tests {
         assert_eq!(usable.len(), 1);
         assert_eq!(usable[0].entities.len(), 1);
     }
+
+    /// Verifies that parse_units prioritizes LENGTH_UNIT over preceding PLANE_ANGLE_UNIT or SOLID_ANGLE_UNIT declarations.
+    #[wasm_bindgen_test]
+    fn units_prefers_length_over_plane_angle() {
+        let step_text = "ISO-10303-21;\n\
+                         HEADER;\n\
+                         FILE_DESCRIPTION(('Test'), '2;1');\n\
+                         FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                         FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                         ENDSEC;\n\
+                         DATA;\n\
+                         #1 = ( NAMED_UNIT(*) PLANE_ANGLE_UNIT() SI_UNIT($, .RADIAN.) );\n\
+                         #2 = ( LENGTH_UNIT() NAMED_UNIT(*) SI_UNIT(.MILLI., .METRE.) );\n\
+                         ENDSEC;\n\
+                         END-ISO-10303-21;";
+
+        let parsed = ruststep::parser::parse(step_text).expect("parse");
+        let unit = parse_units(&parsed);
+        assert_eq!(unit, Some(LengthUnit::Millimetre));
+    }
+
+    /// Verifies that parse_units extracts conversion-based unit declarations (e.g. INCH).
+    #[wasm_bindgen_test]
+    fn units_conversion_based_unit() {
+        let step_text = "ISO-10303-21;\n\
+                         HEADER;\n\
+                         FILE_DESCRIPTION(('Test'), '2;1');\n\
+                         FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                         FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                         ENDSEC;\n\
+                         DATA;\n\
+                         #10 = CONVERSION_BASED_UNIT('INCH', #11);\n\
+                         ENDSEC;\n\
+                         END-ISO-10303-21;";
+
+        let parsed = ruststep::parser::parse(step_text).expect("parse");
+        let unit = parse_units(&parsed);
+        assert_eq!(unit, Some(LengthUnit::Inch));
+    }
+
+    /// Verifies that parse_units returns None when the file lacks any unit entity declarations.
+    #[wasm_bindgen_test]
+    fn units_absent_fallback() {
+        let step_text = "ISO-10303-21;\n\
+                         HEADER;\n\
+                         FILE_DESCRIPTION(('Test'), '2;1');\n\
+                         FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                         FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                         ENDSEC;\n\
+                         DATA;\n\
+                         #1 = CARTESIAN_POINT('', (0.0, 0.0, 0.0));\n\
+                         ENDSEC;\n\
+                         END-ISO-10303-21;";
+
+        let parsed = ruststep::parser::parse(step_text).expect("parse");
+        let unit = parse_units(&parsed);
+        assert_eq!(unit, None);
+    }
 }
