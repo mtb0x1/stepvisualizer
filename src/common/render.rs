@@ -507,4 +507,29 @@ mod tests {
         assert_eq!(part.vertex_count(), 24);
         assert_eq!(part.triangle_count(), 12);
     }
+
+    /// Verifies that translating a part initialized with the identity matrix sets the column 3 translation terms.
+    #[wasm_bindgen_test]
+    fn part_translate_identity() {
+        let mut part = RenderablePart::default();
+        part.translate([5.0, -3.0, 2.0]);
+
+        assert_eq!(part.model_matrix.0[12], 5.0);
+        assert_eq!(part.model_matrix.0[13], -3.0);
+        assert_eq!(part.model_matrix.0[14], 2.0);
+        assert_eq!(part.model_matrix.0[15], 1.0);
+    }
+
+    /// Verifies that successive translate calls accumulate translations additively into the model matrix.
+    #[wasm_bindgen_test]
+    fn part_translate_accumulation() {
+        let mut part = RenderablePart::default();
+        part.translate([1.0, 0.0, 0.0]);
+        part.translate([2.0, 0.0, 0.0]);
+
+        assert_eq!(part.model_matrix.0[12], 3.0);
+        assert_eq!(part.model_matrix.0[13], 0.0);
+        assert_eq!(part.model_matrix.0[14], 0.0);
+        assert_eq!(part.model_matrix.0[15], 1.0);
+    }
 }
