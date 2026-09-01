@@ -704,4 +704,37 @@ mod tests {
         approx::assert_relative_eq!(mat.0[10], 1.0, epsilon = 1e-5);
         approx::assert_relative_eq!(mat.0[15], 1.0, epsilon = 1e-5);
     }
+
+    /// Verifies that when forward is parallel to up (e.g. camera at [0, 5, 0] looking straight
+    /// down at origin [0, 0, 0] with up [0, 1, 0]), the function smoothly selects an alternative
+    /// reference up axis without generating NaNs or degenerate singular matrices.
+    #[wasm_bindgen_test]
+    fn look_at_parallel_forward_up() {
+        let eye = [0.0, 5.0, 0.0];
+        let center = [0.0, 0.0, 0.0];
+        let up = [0.0, 1.0, 0.0];
+
+        let mat = create_look_at_matrix(eye, center, up);
+
+        for &elem in &mat.0 {
+            assert!(!elem.is_nan(), "Matrix element must not be NaN");
+            assert!(elem.is_finite(), "Matrix element must be finite");
+        }
+
+        // Basis vectors must remain orthonormal
+        let s = [mat.0[0], mat.0[1], mat.0[2]];
+        let u = [mat.0[4], mat.0[5], mat.0[6]];
+        let b = [mat.0[8], mat.0[9], mat.0[10]];
+
+        let len_sq = |v: [f32; 3]| v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+        let dot = |v1: [f32; 3], v2: [f32; 3]| v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+
+        approx::assert_relative_eq!(len_sq(s), 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(len_sq(u), 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(len_sq(b), 1.0, epsilon = 1e-5);
+
+        approx::assert_relative_eq!(dot(s, u), 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(dot(s, b), 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(dot(u, b), 0.0, epsilon = 1e-5);
+    }
 }
