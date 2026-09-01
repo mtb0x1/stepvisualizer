@@ -351,3 +351,69 @@ impl StepModel {
             .sum()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Verifies that FileId content hashing with XXH3 produces an identical 16-character
+    /// hexadecimal string deterministically across multiple runs.
+    #[wasm_bindgen_test]
+    fn file_id_deterministic_hash() {
+        let content = "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Test STEP File'),'2;1');\nENDSEC;\nEND-ISO-10303-21;";
+        let id1 = FileId::from_content(content);
+        let id2 = FileId::from_content(content);
+
+        assert_eq!(id1, id2);
+        assert_eq!(id1.as_str().len(), 16);
+        assert!(id1.as_str().chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// Verifies that distinct input contents produce different FileId hashes.
+    #[wasm_bindgen_test]
+    fn file_id_distinct_content() {
+        let id_a = FileId::from_content("model_a");
+        let id_b = FileId::from_content("model_b");
+
+        assert_ne!(id_a, id_b);
+    }
+
+    /// Verifies that hashing an empty content string executes safely without panic
+    /// and yields a valid 16-character hexadecimal identifier.
+    #[wasm_bindgen_test]
+    fn file_id_empty_string() {
+        let id_empty = FileId::from_content("");
+        assert_eq!(id_empty.as_str().len(), 16);
+        assert!(id_empty.as_str().chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    /// Verifies string conversion and trait implementations for FileId (Deref, AsRef<str>, Display, Borrow<str>).
+    #[wasm_bindgen_test]
+    fn file_id_string_conversion_traits() {
+        use std::borrow::Borrow;
+
+        let raw = "0123456789abcdef";
+        let file_id = FileId::from(raw);
+
+        // Deref
+        let deref_str: &str = &file_id;
+        assert_eq!(deref_str, raw);
+
+        // AsRef<str>
+        assert_eq!(file_id.as_ref(), raw);
+
+        // Display
+        assert_eq!(format!("{file_id}"), raw);
+
+        // Borrow<str>
+        let borrowed: &str = file_id.borrow();
+        assert_eq!(borrowed, raw);
+
+        // From<String> and From<&str>
+        let from_string = FileId::from(raw.to_string());
+        assert_eq!(from_string, file_id);
+    }
+}
