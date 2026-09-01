@@ -32,7 +32,7 @@ fn detect_env_prefix() -> String {
 /// Returns the per-environment storage prefix (cached after first call).
 pub fn env_prefix() -> String {
     std::thread_local! {
-        static CACHE: std::cell::OnceCell<String> = std::cell::OnceCell::new();
+        static CACHE: std::cell::OnceCell<String> = const { std::cell::OnceCell::new() };
     }
     CACHE.with(|c| c.get_or_init(detect_env_prefix).clone())
 }
