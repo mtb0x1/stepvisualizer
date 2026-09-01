@@ -1,4 +1,4 @@
-# StepViz
+# StepVisualizer
 
 A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This tool parses and renders STEP files directly in the browser (CSR).
 
@@ -6,7 +6,7 @@ A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This too
 
 | Environment | URL | Updated on |
 |---|---|---|
-| Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | push to `master` |
+| Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | PR `master`  -> `testing` merged |
 | Production  | https://mtb0x1.github.io/stepvisualizer/production/ | PR `testing` -> `production` merged |
 
 A landing page at https://mtb0x1.github.io/stepvisualizer/ links to both environments.
