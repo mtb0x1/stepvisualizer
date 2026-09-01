@@ -18,6 +18,11 @@ use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 /// Fails when the records do not form a valid header.
 pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> {
     trace_span!("convert_header");
+    if header_in.len() < 3 {
+        return Err(StepVizError::InvalidHeader(
+            "Header section must contain at least 3 records".to_string(),
+        ));
+    }
     let header_in: Header =
         Header::from_records(header_in).map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
     let file_description = header_in.file_description.description;
@@ -191,4 +196,50 @@ pub fn build_initial_metadata(
         surface_area: None,
     };
     Ok((meta, hash_text_to_id(text)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    /// Verifies that valid STEP header AST records are properly converted into a StepHeader struct
+    /// with all metadata strings, author/org vectors, and schema fields populated.
+    #[wasm_bindgen_test]
+    fn header_valid_records() {
+        let step = "ISO-10303-21;\n\
+                    HEADER;\n\
+                    FILE_DESCRIPTION(('Test Description'), '2;1');\n\
+                    FILE_NAME('test_model.step', '2026-09-01T12:00:00', ('Author Name'), ('Organization Name'), 'Preprocessor 1.0', 'Originating Sys', 'Auth');\n\
+                    FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                    ENDSEC;\n\
+                    DATA;\n\
+                    ENDSEC;\n\
+                    END-ISO-10303-21;";
+
+        let exchange = ruststep::parser::parse(step).expect("valid step parse");
+        let header = convert_header(&exchange.header).expect("valid header conversion");
+
+        assert_eq!(header.file_description, "Test Description");
+        assert_eq!(header.implementation_level, "2;1");
+        assert_eq!(header.file_name, "test_model.step");
+        assert_eq!(header.time_stamp, "2026-09-01T12:00:00");
+        assert_eq!(header.author, vec!["Author Name".to_string()]);
+        assert_eq!(header.organization, vec!["Organization Name".to_string()]);
+        assert_eq!(header.preprocessor_version, "Preprocessor 1.0");
+        assert_eq!(header.originating_system, "Originating Sys");
+        assert_eq!(header.authorization, "Auth");
+        assert_eq!(header.file_schema, "CONFIG_CONTROL_DESIGN");
+    }
+
+    /// Verifies that an incomplete or empty slice of header records returns an InvalidHeader domain error.
+    #[wasm_bindgen_test]
+    fn header_missing_required_fields() {
+        let empty_records: Vec<Record> = Vec::new();
+        let res = convert_header(&empty_records);
+
+        assert!(matches!(res, Err(StepVizError::InvalidHeader(_))));
+    }
 }
