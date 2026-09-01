@@ -420,4 +420,67 @@ mod tests {
         let unit = parse_units(&parsed);
         assert_eq!(unit, None);
     }
+
+    /// End-to-end integration test reading, parsing, validating metadata, and tessellating a real AP214 STEP model.
+    #[wasm_bindgen_test]
+    fn step_pipeline_e2e_real_model() {
+        use crate::common::constants::compute_adaptive_tolerance;
+        use crate::common::render::{extract_render_parts, visible_bounds};
+        use crate::common::types::StepModel;
+
+        let stp_data = include_str!("../../examples/io1-ca-214.stp");
+
+        // 1. Full STEP text parse
+        let parsed = ruststep::parser::parse(stp_data).expect("successful STEP AST parse");
+
+        // 2. Data section filtering
+        let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
+        assert!(!usable_sections.is_empty());
+
+        // 3. Step table conversion
+        let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
+            .into_iter()
+            .map(truck_stepio::r#in::Table::from_data_section)
+            .collect();
+        assert_eq!(step_tables.len(), 1);
+
+        // 4. Initial metadata build & schema validation
+        let (meta, file_id) =
+            build_initial_metadata("io1-ca-214.stp", &parsed, &step_tables, stp_data)
+                .expect("metadata successfully built");
+
+        assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
+        assert_eq!(meta.header.file_schema, "AUTOMOTIVE_DESIGN");
+        assert_eq!(meta.units, Some(LengthUnit::Millimetre));
+        assert!(meta.entity_count > 0);
+        assert!(meta.bounding_box.is_some());
+        assert_eq!(file_id.as_str().len(), 16);
+
+        // 5. Tessellation & Part Extraction
+        let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
+        let (render_parts, _skipped) = extract_render_parts(&step_tables, tolerance);
+        assert!(!render_parts.is_empty());
+
+        // 6. Complete Model Assembly
+        let part_count = render_parts.len();
+        let mut model = StepModel {
+            id: file_id.clone(),
+            metadata: meta,
+            render_parts,
+            part_visibility: vec![true; part_count],
+            visibility_generation: 0,
+            cached_bounds: None,
+        };
+
+        model.metadata.vertex_count = model.total_vertices();
+        model.metadata.triangle_count = model.total_triangles();
+        if let Some(bbox) = visible_bounds(&model.render_parts, &model.part_visibility) {
+            model.metadata.bounding_box = Some(bbox);
+        }
+
+        assert!(model.total_vertices() > 0);
+        assert!(model.total_triangles() > 0);
+        assert!(model.calculate_total_surface_area() > 0.0);
+        assert!(model.metadata.bounding_box.as_ref().unwrap().is_valid());
+    }
 }
