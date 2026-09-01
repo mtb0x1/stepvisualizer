@@ -9,14 +9,14 @@ use rexie::{ObjectStore, Rexie, TransactionMode};
 use wasm_bindgen_futures::spawn_local;
 
 use super::types::{FileId, FileIndexItem, StepModel};
-use crate::common::constants::{LS_INDEX_KEY, LS_MODEL_KEY_PREFIX};
+use crate::common::constants::{db_name, ls_index_key, ls_model_key_prefix};
 
-const DB_NAME: &str = "stepviz_db";
 const STORE_MODELS: &str = "models";
 
 /// Open or initialize the IndexedDB database instance.
 pub async fn open_db() -> Result<Rexie, rexie::Error> {
-    Rexie::builder(DB_NAME)
+    let name = db_name();
+    Rexie::builder(&name)
         .version(1)
         .add_object_store(ObjectStore::new(STORE_MODELS))
         .build()
@@ -26,7 +26,7 @@ pub async fn open_db() -> Result<Rexie, rexie::Error> {
 /// Persist the recent-files index. Failure is logged, not propagated.
 pub fn save_index(index: &[FileIndexItem]) {
     trace_span!("save_index");
-    if let Err(err) = LocalStorage::set(LS_INDEX_KEY, index) {
+    if let Err(err) = LocalStorage::set(ls_index_key(), index) {
         AppTracer::warn(&format!("Failed to save file index to localStorage: {err}"));
     }
 }
@@ -34,7 +34,7 @@ pub fn save_index(index: &[FileIndexItem]) {
 /// Load the recent-files index; an empty history on first visit or on any storage failure.
 pub fn load_index() -> Vec<FileIndexItem> {
     trace_span!("load_index");
-    match LocalStorage::get(LS_INDEX_KEY) {
+    match LocalStorage::get(ls_index_key()) {
         Ok(index) => index,
         // A missing index is the normal first-visit case, not a failure.
         Err(StorageError::KeyNotFound(_)) => vec![],
@@ -48,7 +48,7 @@ pub fn load_index() -> Vec<FileIndexItem> {
 }
 
 fn model_key(id: &str) -> String {
-    format!("{}{}", LS_MODEL_KEY_PREFIX, id)
+    format!("{}{}", ls_model_key_prefix(), id)
 }
 
 /// Persist a whole model asynchronously to IndexedDB.
@@ -151,7 +151,7 @@ pub fn clear_all_storage(items: &[FileIndexItem]) {
         let mut keys_to_delete = Vec::new();
         for i in 0..count {
             if let Ok(Some(key)) = storage.key(i)
-                && (key.starts_with(LS_MODEL_KEY_PREFIX) || key == LS_INDEX_KEY)
+                && (key.starts_with(&ls_model_key_prefix()) || key == ls_index_key())
             {
                 keys_to_delete.push(key);
             }

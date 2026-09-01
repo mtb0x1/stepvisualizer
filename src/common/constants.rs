@@ -1,5 +1,6 @@
-//! Central knobs: cache sizes, localStorage keys, and render parameters.
-//! No logic here — just named values shared across modules.
+//! Central knobs: cache sizes, localStorage/IndexedDB keys, and render parameters.
+//! Storage keys are runtime functions (not consts) so they can be namespaced
+//! per deployment environment without a rebuild.
 
 /// Parsed [`StepModel`](super::types::StepModel)s kept in the in-memory LRU
 /// per session.
@@ -8,12 +9,62 @@ pub const CACHE_SIZE: usize = 5;
 /// Stored as `f64` because `web_sys::File::size()` returns `f64`. 20MB fits perfectly
 /// within the contiguous integer range of `f64` (up to 2^53), so there is no precision loss.
 pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file ...)
-/// localStorage key of the recent-files index (Vec<FileIndexItem>).
-pub const LS_INDEX_KEY: &str = "stepviz:index";
-/// Prefix on every persisted-model localStorage key (`stepviz:model:<id>`),
-/// kept alongside `LS_INDEX_KEY` so the key format is documented in one place
-/// rather than hard-coded in `storage.rs::model_key`.
-pub const LS_MODEL_KEY_PREFIX: &str = "stepviz:model:";
+/// Detect the deployment environment from `window.location.pathname` and return
+/// a namespacing prefix for storage keys:
+/// - `/stepvisualizer/testing/…`   → `"testing:"`
+/// - `/stepvisualizer/production/…` → `"production:"`
+/// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
+///
+/// The result is computed once per page load and cached in a thread-local.
+fn detect_env_prefix() -> String {
+    let path = web_sys::window()
+        .and_then(|w| w.location().pathname().ok())
+        .unwrap_or_default();
+    if path.contains("/testing") {
+        "testing:".to_string()
+    } else if path.contains("/production") {
+        "production:".to_string()
+    } else {
+        String::new()
+    }
+}
+
+/// Returns the per-environment storage prefix (cached after first call).
+pub fn env_prefix() -> String {
+    std::thread_local! {
+        static CACHE: std::cell::OnceCell<String> = const { std::cell::OnceCell::new() };
+    }
+    CACHE.with(|c| c.get_or_init(detect_env_prefix).clone())
+}
+
+/// localStorage key for the recent-files index (`Vec<FileIndexItem>`),
+/// namespaced by deployment environment.
+///
+/// Examples: `"stepviz:index"` (dev), `"testing:stepviz:index"`, `"production:stepviz:index"`.
+pub fn ls_index_key() -> String {
+    format!("{}stepviz:index", env_prefix())
+}
+
+/// Prefix for per-model localStorage keys, namespaced by deployment environment.
+///
+/// Full key format: `<env_prefix>stepviz:model:<id>`.
+/// Examples: `"stepviz:model:"` (dev), `"testing:stepviz:model:"`, `"production:stepviz:model:"`.
+pub fn ls_model_key_prefix() -> String {
+    format!("{}stepviz:model:", env_prefix())
+}
+
+/// IndexedDB database name, namespaced by deployment environment.
+///
+/// Examples: `"stepviz_db"` (dev), `"stepviz_db_testing"`, `"stepviz_db_production"`.
+pub fn db_name() -> String {
+    let prefix = env_prefix();
+    if prefix.is_empty() {
+        "stepviz_db".to_string()
+    } else {
+        // Strip trailing ":" from prefix ("testing:" → "stepviz_db_testing")
+        format!("stepviz_db_{}", prefix.trim_end_matches(':'))
+    }
+}
 /// Placeholder shown for missing metadata fields in the UI.
 pub const NA: &str = "N/A";
 /// Prefix on every tracing message/span, so logs are greppable in the console.
