@@ -486,4 +486,195 @@ mod tests {
         let inverted = BoundingBox::new([10.0, 0.0, 0.0], [5.0, 0.0, 0.0]);
         assert!(!inverted.is_valid());
     }
+
+    /// Verifies that total_vertices and total_triangles compute the accurate aggregate sum across all parts.
+    #[wasm_bindgen_test]
+    fn step_model_vertex_triangle_sums() {
+        use crate::common::render::GpuVertex;
+
+        let part1 = RenderablePart {
+            vertices: (0..30)
+                .map(|_| GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 1.0, 0.0],
+                })
+                .collect(),
+            indices: (0..30).collect(), // 30 indices = 10 triangles
+            model_matrix: crate::common::math::Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        let part2 = RenderablePart {
+            vertices: (0..12)
+                .map(|_| GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 1.0, 0.0],
+                })
+                .collect(),
+            indices: (0..12).collect(), // 12 indices = 4 triangles
+            model_matrix: crate::common::math::Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        let model = StepModel {
+            id: FileId::from("model_test"),
+            metadata: Metadata {
+                header: StepHeader {
+                    file_description: "test".to_string(),
+                    implementation_level: "2;1".to_string(),
+                    file_name: "test.step".to_string(),
+                    time_stamp: "2026-09-01T00:00:00".to_string(),
+                    author: vec![],
+                    organization: vec![],
+                    preprocessor_version: "1.0".to_string(),
+                    originating_system: "sys".to_string(),
+                    authorization: "none".to_string(),
+                    file_schema: "AP203".to_string(),
+                },
+                entity_count: 0,
+                bounding_box: None,
+                units: None,
+                vertex_count: 0,
+                triangle_count: 0,
+                volume: None,
+                surface_area: None,
+            },
+            render_parts: vec![part1, part2],
+            part_visibility: vec![],
+            visibility_generation: 0,
+            cached_bounds: None,
+        };
+
+        assert_eq!(model.total_vertices(), 42);
+        assert_eq!(model.total_triangles(), 14);
+    }
+
+    /// Verifies that calculate_total_volume and calculate_total_surface_area aggregate correctly across render parts.
+    #[wasm_bindgen_test]
+    fn step_model_volume_area_sums() {
+        use crate::common::render::GpuVertex;
+
+        let part1 = RenderablePart {
+            vertices: vec![
+                GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [1.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [0.0, 1.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+            ],
+            indices: vec![0, 1, 2],
+            model_matrix: crate::common::math::Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        let part2 = RenderablePart {
+            vertices: vec![
+                GpuVertex {
+                    position: [0.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [2.0, 0.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+                GpuVertex {
+                    position: [0.0, 2.0, 0.0],
+                    normal: [0.0, 0.0, 1.0],
+                },
+            ],
+            indices: vec![0, 1, 2],
+            model_matrix: crate::common::math::Mat4::IDENTITY,
+            color: [1.0, 1.0, 1.0, 1.0],
+        };
+
+        let part1_vol = part1.calculate_volume();
+        let part2_vol = part2.calculate_volume();
+        let part1_area = part1.calculate_surface_area();
+        let part2_area = part2.calculate_surface_area();
+
+        let model = StepModel {
+            id: FileId::from("model_test"),
+            metadata: Metadata {
+                header: StepHeader {
+                    file_description: "test".to_string(),
+                    implementation_level: "2;1".to_string(),
+                    file_name: "test.step".to_string(),
+                    time_stamp: "2026-09-01T00:00:00".to_string(),
+                    author: vec![],
+                    organization: vec![],
+                    preprocessor_version: "1.0".to_string(),
+                    originating_system: "sys".to_string(),
+                    authorization: "none".to_string(),
+                    file_schema: "AP203".to_string(),
+                },
+                entity_count: 0,
+                bounding_box: None,
+                units: None,
+                vertex_count: 0,
+                triangle_count: 0,
+                volume: None,
+                surface_area: None,
+            },
+            render_parts: vec![part1, part2],
+            part_visibility: vec![],
+            visibility_generation: 0,
+            cached_bounds: None,
+        };
+
+        approx::assert_relative_eq!(
+            model.calculate_total_volume(),
+            part1_vol + part2_vol,
+            epsilon = 1e-6
+        );
+        approx::assert_relative_eq!(
+            model.calculate_total_surface_area(),
+            part1_area + part2_area,
+            epsilon = 1e-6
+        );
+    }
+
+    /// Verifies that empty StepModels evaluate cleanly to zero vertices, triangles, volume, and surface area.
+    #[wasm_bindgen_test]
+    fn step_model_empty_parts() {
+        let model = StepModel {
+            id: FileId::from("empty_model"),
+            metadata: Metadata {
+                header: StepHeader {
+                    file_description: "test".to_string(),
+                    implementation_level: "2;1".to_string(),
+                    file_name: "empty.step".to_string(),
+                    time_stamp: "2026-09-01T00:00:00".to_string(),
+                    author: vec![],
+                    organization: vec![],
+                    preprocessor_version: "1.0".to_string(),
+                    originating_system: "sys".to_string(),
+                    authorization: "none".to_string(),
+                    file_schema: "AP203".to_string(),
+                },
+                entity_count: 0,
+                bounding_box: None,
+                units: None,
+                vertex_count: 0,
+                triangle_count: 0,
+                volume: None,
+                surface_area: None,
+            },
+            render_parts: vec![],
+            part_visibility: vec![],
+            visibility_generation: 0,
+            cached_bounds: None,
+        };
+
+        assert_eq!(model.total_vertices(), 0);
+        assert_eq!(model.total_triangles(), 0);
+        assert_eq!(model.calculate_total_volume(), 0.0);
+        assert_eq!(model.calculate_total_surface_area(), 0.0);
+    }
 }
