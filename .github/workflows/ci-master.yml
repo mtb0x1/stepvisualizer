@@ -1,14 +1,12 @@
-name: CI — Testing
+name: CI — Master
 
 on:
   push:
-    branches: [testing]
+    branches: [master]
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
       - uses: actions/checkout@v6
 
@@ -45,26 +43,7 @@ jobs:
       - name: Cargo Test
         run: wasm-pack test --headless --firefox
 
+      # Build to catch any trunk/wasm compilation failures early.
+      # Output is discarded — no artifact upload, no deploy.
       - name: Build Yew App
         run: trunk build --release --dist ./dist --public-url ./
-
-      - name: Copy index.html to 404.html
-        run: cp ./dist/index.html ./dist/404.html
-
-      - name: Deploy to gh-pages/testing/
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist
-          publish_branch: gh-pages
-          destination_dir: testing
-          keep_files: true
-
-      - name: Deploy landing page to gh-pages root
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./landing
-          publish_branch: gh-pages
-          destination_dir: .
-          keep_files: true

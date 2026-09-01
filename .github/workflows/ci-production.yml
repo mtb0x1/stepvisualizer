@@ -5,27 +5,51 @@ on:
     branches: [release]
 
 jobs:
-  deploy-production:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-      actions: read
     steps:
       - uses: actions/checkout@v6
 
-      # Download the artifact that was built and deployed to testing for this
-      # exact commit SHA. No rebuild — full traceability: master → testing → production.
-      #
-      # If no successful ci-testing.yml run exists for this SHA (i.e. the commit
-      # never went through testing), this step fails and the gate holds.
-      - name: Download artifact from ci-testing.yml (same SHA, no rebuild)
-        uses: dawidd6/action-download-artifact@v6
+      - name: Install Rust (nightly + wasm target)
+        uses: dtolnay/rust-toolchain@master
         with:
-          workflow: ci-testing.yml
-          commit: ${{ github.sha }}
-          name: app-dist-${{ github.sha }}
-          path: ./dist
-          workflow_conclusion: success
+          toolchain: nightly
+          target: wasm32-unknown-unknown
+
+      - name: Install trunk (prebuilt binary)
+        env:
+          TRUNK_VERSION: v0.21.14
+        run: |
+          curl -fsSL -o /tmp/trunk.tar.gz "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL -o /tmp/trunk.tar.gz.sha256 "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz.sha256"
+          EXPECTED=$(cat /tmp/trunk.tar.gz.sha256)
+          ACTUAL=$(sha256sum /tmp/trunk.tar.gz)
+          test "$EXPECTED" = "${ACTUAL%% *}"
+          mkdir -p "${HOME}/.local/bin"
+          tar -xzf /tmp/trunk.tar.gz -C "${HOME}/.local/bin"
+          echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+      - name: Install wasm-pack
+        run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
+
+      - name: Cargo Check
+        run: cargo check --target wasm32-unknown-unknown
+
+      - name: Cargo Clippy
+        run: |
+          rustup component add clippy
+          cargo clippy --target wasm32-unknown-unknown -- -D warnings
+
+      - name: Cargo Test
+        run: wasm-pack test --headless --firefox
+
+      - name: Build Yew App
+        run: trunk build --release --dist ./dist --public-url ./
+
+      - name: Copy index.html to 404.html
+        run: cp ./dist/index.html ./dist/404.html
 
       - name: Deploy to gh-pages/production/
         uses: peaceiris/actions-gh-pages@v4
