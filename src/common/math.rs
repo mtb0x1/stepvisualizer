@@ -606,4 +606,26 @@ mod tests {
         approx::assert_relative_eq!(pos[1], 2.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos[2], 3.0, epsilon = 1e-6);
     }
+
+    /// Verifies that placing the camera at [0, 0, 5] looking at origin [0, 0, 0]
+    /// with up [0, 1, 0] creates an orthonormal basis looking down -Z with tz = -5.0.
+    #[wasm_bindgen_test]
+    fn look_at_standard_camera() {
+        let eye = [0.0, 0.0, 5.0];
+        let center = [0.0, 0.0, 0.0];
+        let up = [0.0, 1.0, 0.0];
+
+        let mat = create_look_at_matrix(eye, center, up);
+
+        let expected = Mat4([
+            1.0, 0.0, 0.0, 0.0,
+            0.0, 1.0, 0.0, 0.0,
+            0.0, 0.0, 1.0, 0.0,
+            0.0, 0.0, -5.0, 1.0,
+        ]);
+
+        for i in 0..16 {
+            approx::assert_relative_eq!(mat.0[i], expected.0[i], epsilon = 1e-5);
+        }
+    }
 }
