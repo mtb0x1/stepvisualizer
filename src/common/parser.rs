@@ -322,4 +322,44 @@ mod tests {
         let parsed = ruststep::parser::parse(&text).expect("parse");
         assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
     }
+
+    /// Verifies that an exchange structure containing only empty data sections returns an EmptyDataSection error.
+    #[wasm_bindgen_test]
+    fn usable_sections_empty_data() {
+        let step_no_data = "ISO-10303-21;\n\
+                            HEADER;\n\
+                            FILE_DESCRIPTION(('Test'), '2;1');\n\
+                            FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                            FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                            ENDSEC;\n\
+                            DATA;\n\
+                            ENDSEC;\n\
+                            END-ISO-10303-21;";
+
+        let parsed = ruststep::parser::parse(step_no_data).expect("parse");
+        let res = all_usable_sections(&parsed);
+        assert!(matches!(res, Err(StepVizError::EmptyDataSection)));
+    }
+
+    /// Verifies that all_usable_sections filters out empty sections and retains sections containing entities.
+    #[wasm_bindgen_test]
+    fn usable_sections_filters_empty_sections() {
+        let step_multi_data = "ISO-10303-21;\n\
+                               HEADER;\n\
+                               FILE_DESCRIPTION(('Test'), '2;1');\n\
+                               FILE_NAME('test.step', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                               FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                               ENDSEC;\n\
+                               DATA;\n\
+                               ENDSEC;\n\
+                               DATA;\n\
+                               #1 = CARTESIAN_POINT('', (0.0, 0.0, 0.0));\n\
+                               ENDSEC;\n\
+                               END-ISO-10303-21;";
+
+        let parsed = ruststep::parser::parse(step_multi_data).expect("parse");
+        let usable = all_usable_sections(&parsed).expect("usable sections");
+        assert_eq!(usable.len(), 1);
+        assert_eq!(usable[0].entities.len(), 1);
+    }
 }
