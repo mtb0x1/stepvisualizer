@@ -290,4 +290,93 @@ mod tests {
         assert!(cache.get("model_B").is_some());
         assert_eq!(cache.map.len(), 1);
     }
+
+    /// Verifies that when an entry is already cached in memory, get_or_load returns
+    /// the cached Rc<StepModel> without invoking the fallback loader callback.
+    #[wasm_bindgen_test]
+    fn get_or_load_memory_hit() {
+        let mut cache = LruCache::new(5);
+        cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+
+        let loader_called = std::cell::Cell::new(false);
+        let res = cache.get_or_load("model_A", |_| {
+            loader_called.set(true);
+            Some(create_mock_model("model_A"))
+        });
+
+        assert!(res.is_some());
+        assert!(!loader_called.get());
+    }
+
+    /// Verifies that when an entry is missing, get_or_load invokes the fallback loader,
+    /// caches the returned model, and yields a valid Rc<StepModel>.
+    #[wasm_bindgen_test]
+    fn get_or_load_fallback_invoked() {
+        let mut cache = LruCache::new(5);
+        let load_count = std::cell::Cell::new(0);
+
+        let res = cache.get_or_load("model_A", |id| {
+            load_count.set(load_count.get() + 1);
+            Some(create_mock_model(id))
+        });
+
+        assert!(res.is_some());
+        assert_eq!(load_count.get(), 1);
+        assert!(cache.get("model_A").is_some());
+    }
+
+    /// Verifies that when the fallback loader returns None, get_or_load returns None
+    /// and does not insert any entry into the cache.
+    #[wasm_bindgen_test]
+    fn get_or_load_fallback_miss() {
+        let mut cache = LruCache::new(5);
+
+        let res = cache.get_or_load("model_missing", |_| None);
+
+        assert!(res.is_none());
+        assert_eq!(cache.map.len(), 0);
+        assert_eq!(cache.order.len(), 0);
+    }
+
+    /// Verifies that calling get_or_load multiple times for the same missing key invokes
+    /// the fallback loader exactly once on the first call, serving subsequent calls from memory.
+    #[wasm_bindgen_test]
+    fn get_or_load_subsequent_request() {
+        let mut cache = LruCache::new(5);
+        let load_count = std::cell::Cell::new(0);
+
+        let res1 = cache.get_or_load("model_A", |id| {
+            load_count.set(load_count.get() + 1);
+            Some(create_mock_model(id))
+        });
+        let res2 = cache.get_or_load("model_A", |id| {
+            load_count.set(load_count.get() + 1);
+            Some(create_mock_model(id))
+        });
+
+        assert_eq!(load_count.get(), 1);
+        assert!(Rc::ptr_eq(&res1.unwrap(), &res2.unwrap()));
+    }
+
+    /// Verifies that for a zero-capacity cache, get_or_load executes the fallback loader
+    /// on every call without caching the model in memory.
+    #[wasm_bindgen_test]
+    fn get_or_load_zero_capacity() {
+        let mut cache = LruCache::new(0);
+        let load_count = std::cell::Cell::new(0);
+
+        let res1 = cache.get_or_load("model_A", |id| {
+            load_count.set(load_count.get() + 1);
+            Some(create_mock_model(id))
+        });
+        let res2 = cache.get_or_load("model_A", |id| {
+            load_count.set(load_count.get() + 1);
+            Some(create_mock_model(id))
+        });
+
+        assert!(res1.is_some());
+        assert!(res2.is_some());
+        assert_eq!(load_count.get(), 2);
+        assert_eq!(cache.map.len(), 0);
+    }
 }
