@@ -106,3 +106,112 @@ impl LruCache {
         self.map.clear();
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::common::types::{LengthUnit, Metadata, StepHeader};
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    fn create_mock_model(id: &str) -> StepModel {
+        StepModel {
+            id: FileId::from(id),
+            metadata: Metadata {
+                header: StepHeader {
+                    file_description: "test".to_string(),
+                    implementation_level: "2;1".to_string(),
+                    file_name: format!("{id}.step"),
+                    time_stamp: "2026-09-01T00:00:00".to_string(),
+                    author: vec!["Author".to_string()],
+                    organization: vec!["Org".to_string()],
+                    preprocessor_version: "1.0".to_string(),
+                    originating_system: "TestSys".to_string(),
+                    authorization: "None".to_string(),
+                    file_schema: "AP214".to_string(),
+                },
+                entity_count: 10,
+                bounding_box: None,
+                units: Some(LengthUnit::Millimetre),
+                vertex_count: 100,
+                triangle_count: 50,
+                volume: Some(100.0),
+                surface_area: Some(250.0),
+            },
+            render_parts: vec![],
+            part_visibility: vec![],
+            visibility_generation: 0,
+            cached_bounds: None,
+        }
+    }
+
+    /// Verifies that querying a non-existent key in an empty cache returns None.
+    #[wasm_bindgen_test]
+    fn cache_empty_miss() {
+        let mut cache = LruCache::new(5);
+        let res = cache.get("nonexistent");
+        assert!(res.is_none());
+    }
+
+    /// Verifies that inserting a model into the cache allows subsequent retrieval
+    /// returning Some(Rc<StepModel>) with matching metadata and ID.
+    #[wasm_bindgen_test]
+    fn cache_insert_and_hit() {
+        let mut cache = LruCache::new(5);
+        let id = FileId::from("model_1");
+        let model = create_mock_model("model_1");
+
+        cache.insert(id.clone(), model);
+
+        let cached = cache.get("model_1");
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().id, id);
+    }
+
+    /// Verifies that multiple cache hits return reference-counted Rc pointers to the
+    /// same underlying heap allocation without performing deep clones of geometry data.
+    #[wasm_bindgen_test]
+    fn cache_rc_pointer_equality() {
+        let mut cache = LruCache::new(5);
+        let id = FileId::from("model_1");
+        cache.insert(id.clone(), create_mock_model("model_1"));
+
+        let rc1 = cache.get("model_1").expect("cache hit 1");
+        let rc2 = cache.get("model_1").expect("cache hit 2");
+
+        assert!(Rc::ptr_eq(&rc1, &rc2));
+    }
+
+    /// Verifies that removing an entry from the cache deletes it from both the internal
+    /// lookup map and eviction order, causing subsequent get calls to return None.
+    #[wasm_bindgen_test]
+    fn cache_remove_entry() {
+        let mut cache = LruCache::new(5);
+        cache.insert(FileId::from("model_1"), create_mock_model("model_1"));
+
+        assert!(cache.get("model_1").is_some());
+        cache.remove("model_1");
+        assert!(cache.get("model_1").is_none());
+    }
+
+    /// Verifies that clearing the cache empties all stored models and reset internal order tracking.
+    #[wasm_bindgen_test]
+    fn cache_clear_all() {
+        let mut cache = LruCache::new(5);
+        cache.insert(FileId::from("model_1"), create_mock_model("model_1"));
+        cache.insert(FileId::from("model_2"), create_mock_model("model_2"));
+        cache.insert(FileId::from("model_3"), create_mock_model("model_3"));
+
+        assert_eq!(cache.map.len(), 3);
+        assert_eq!(cache.order.len(), 3);
+
+        cache.clear();
+
+        assert!(cache.get("model_1").is_none());
+        assert!(cache.get("model_2").is_none());
+        assert!(cache.get("model_3").is_none());
+        assert_eq!(cache.map.len(), 0);
+        assert_eq!(cache.order.len(), 0);
+    }
+}
