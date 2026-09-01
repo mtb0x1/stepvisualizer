@@ -628,4 +628,33 @@ mod tests {
             approx::assert_relative_eq!(mat.0[i], expected.0[i], epsilon = 1e-5);
         }
     }
+
+    /// Verifies that the 3x3 rotation submatrix of create_look_at_matrix forms an
+    /// orthonormal basis: column vectors have unit length (1.0) and are mutually orthogonal (dot product 0.0).
+    #[wasm_bindgen_test]
+    fn look_at_orthonormality() {
+        let eye = [3.4, 5.6, 7.8];
+        let center = [1.2, -0.5, 2.1];
+        let up = [0.0, 1.0, 0.0];
+
+        let mat = create_look_at_matrix(eye, center, up);
+
+        // Column 0 (right), Column 1 (up), Column 2 (back / -forward)
+        let s = [mat.0[0], mat.0[1], mat.0[2]];
+        let u = [mat.0[4], mat.0[5], mat.0[6]];
+        let b = [mat.0[8], mat.0[9], mat.0[10]];
+
+        let len_sq = |v: [f32; 3]| v[0] * v[0] + v[1] * v[1] + v[2] * v[2];
+        let dot = |v1: [f32; 3], v2: [f32; 3]| v1[0] * v2[0] + v1[1] * v2[1] + v1[2] * v2[2];
+
+        // Unit lengths
+        approx::assert_relative_eq!(len_sq(s), 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(len_sq(u), 1.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(len_sq(b), 1.0, epsilon = 1e-5);
+
+        // Pairwise orthogonality
+        approx::assert_relative_eq!(dot(s, u), 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(dot(s, b), 0.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(dot(u, b), 0.0, epsilon = 1e-5);
+    }
 }
