@@ -113,8 +113,10 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
     html! {
         <div class="panel panel-details">
             <div class="panel-header">
-                <span>{ "Details " }</span>
-                <span class="icon fas fa-circle-info"></span>
+                <div class="panel-header-title">
+                    <span class="icon fas fa-circle-info"></span>
+                    <span>{ "Details" }</span>
+                </div>
             </div>
             <div class="panel-content">
                 if let Some(meta) = &props.metadata {

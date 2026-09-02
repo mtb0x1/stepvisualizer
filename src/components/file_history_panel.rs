@@ -20,8 +20,10 @@ pub fn file_history_panel(props: &FileHistoryPanelProps) -> Html {
     html! {
         <div class="panel">
             <div class="panel-header">
-                <span>{ "File History " }</span>
-                <span class="icon fas fa-file"></span>
+                <div class="panel-header-title">
+                    <span class="icon fas fa-file"></span>
+                    <span>{ "File History" }</span>
+                </div>
                 <button
                     class="clear-history-button"
                     onclick={Callback::from({
@@ -29,8 +31,9 @@ pub fn file_history_panel(props: &FileHistoryPanelProps) -> Html {
                         move |_| on_clear.emit(())
                     })}
                     disabled={props.files_index.is_empty()}
+                    title="Clear all files"
                 >
-                    { "Clear" }
+                    <i class="fa-solid fa-trash-can"></i>
                 </button>
             </div>
             <div class="panel-content">

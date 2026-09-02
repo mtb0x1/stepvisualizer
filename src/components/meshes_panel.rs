@@ -90,32 +90,23 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
         .collect::<Html>();
 
     html! {
-        <div class="panel panel-meshes">
-            <div class="panel-header">
-                <span class="panel-header-left">
-                    <span class="toggle toggle-closed"></span>
-                    <span>{"Meshes "}</span>
-                    <span class="icon fas fa-cubes"></span>
-                </span>
+        <div class="meshes-container">
+            <div class="mesh-controls">
+                <button
+                    class="btn btn-small"
+                    onclick={props.on_show_all.reform(|_| ())}
+                >
+                    <span class="fas fa-eye"></span> {" Show All"}
+                </button>
+                <button
+                    class="btn btn-small"
+                    onclick={props.on_hide_all.reform(|_| ())}
+                >
+                    <span class="fas fa-eye-slash"></span> {" Hide All"}
+                </button>
             </div>
-            <div class="panel-content">
-                <div class="mesh-controls">
-                    <button
-                        class="btn btn-small"
-                        onclick={props.on_show_all.reform(|_| ())}
-                    >
-                        <span class="fas fa-eye"></span> {" Show All"}
-                    </button>
-                    <button
-                        class="btn btn-small"
-                        onclick={props.on_hide_all.reform(|_| ())}
-                    >
-                        <span class="fas fa-eye-slash"></span> {" Hide All"}
-                    </button>
-                </div>
-                <div class="meshes-list">
-                    {meshes_list}
-                </div>
+            <div class="meshes-list">
+                {meshes_list}
             </div>
         </div>
     }

@@ -94,7 +94,9 @@ body {
 }
 
 .file-input-container {
-    padding: 0.4em 1em;
+    height: 48px;
+    min-height: 48px;
+    padding: 0 1em;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -102,6 +104,7 @@ body {
     flex-wrap: wrap;
     background: #f3f3f7;
     border-bottom: 1px solid #ddd;
+    box-sizing: border-box;
 }
 
 .quality-preset-bar {
@@ -237,9 +240,86 @@ body {
     height: 100%;
     background: #f3f3f7;
     border-right: 1px solid #ddd;
-    padding: 1.2em;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+.panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    width: 100%;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.panel-header {
+    height: 48px;
+    min-height: 48px;
+    padding: 0 1.2em;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #ddd;
+    box-sizing: border-box;
+    background: #f3f3f7;
+    flex-shrink: 0;
+}
+
+.panel-header-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5em;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #09090a;
+}
+
+.panel-header-title .icon {
+    font-size: 0.95em;
+    color: #555;
+}
+
+.clear-history-button {
+    width: 36px;
+    height: 32px;
+    border: 1px solid #ddd;
+    background: #fff;
+    border-radius: 6px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #555;
+    font-size: 13px;
+    transition: all 0.15s ease;
+    box-sizing: border-box;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.clear-history-button:hover:not(:disabled) {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #dc2626;
+}
+
+.clear-history-button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: #f4f4f5;
+    border-color: #e4e4e7;
+    color: #a1a1aa;
+    box-shadow: none;
+}
+
+.panel-content {
+    flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
+    padding: 1.2em;
     box-sizing: border-box;
 }
 
@@ -298,7 +378,7 @@ body {
 
 .delete-button {
     width: 36px;
-    height: 36px;
+    align-self: stretch;
     border: 1px solid #ddd;
     background: #fff;
     border-radius: 6px;
@@ -307,6 +387,17 @@ body {
     align-items: center;
     justify-content: center;
     line-height: 0;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    color: #666;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+}
+
+.delete-button:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+    color: #dc2626;
 }
 
 .delete-icon {
@@ -384,9 +475,10 @@ body {
     height: 100%;
     background: #f3f3f7;
     border-left: 1px solid #ddd;
-    padding: 1.5em;
-    overflow-y: auto;
-    overflow-x: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
     box-sizing: border-box;
 }
 
@@ -454,20 +546,25 @@ body {
 }
 
 .back-button {
-    width: 100%;
-    padding: 8px;
-    text-align: left;
-    background: var(--bg-secondary);
-    border: none;
-    border-bottom: 1px solid var(--border-color);
+    padding: 0.35em 0.7em;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 6px;
     cursor: pointer;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 0.4em;
+    font-size: 0.85em;
+    font-weight: 500;
+    color: #3b3e4a;
+    transition: all 0.15s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
 }
 
 .back-button:hover {
-    background: var(--hover-bg);
+    background: #e2e6ff;
+    border-color: #6677cc;
+    color: #2233aa;
 }
 
 /* WebGPU-unavailable fallback page (replaces the whole app) */

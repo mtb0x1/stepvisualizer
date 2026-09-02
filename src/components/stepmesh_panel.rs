@@ -44,13 +44,21 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
 
     html! {
         <div class="panel panel-meshes">
-            <div class="panel-content">
+            <div class="panel-header">
                 <button
                     class="back-button"
                     onclick={props.on_deselect.reform(|_| ())}
+                    title="Back to file history"
                 >
-                    <span class="fas fa-arrow-left"></span> { " Back"}
+                    <span class="fas fa-arrow-left"></span>
+                    <span>{ "Back" }</span>
                 </button>
+                <div class="panel-header-title">
+                    <span class="icon fas fa-cubes"></span>
+                    <span>{ "Meshes" }</span>
+                </div>
+            </div>
+            <div class="panel-content">
                 <MeshesPanel
                     meshes={(*meshes).clone()}
                     on_visibility_change={props.on_visibility_change.clone()}
