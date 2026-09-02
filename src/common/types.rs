@@ -240,20 +240,12 @@ impl BoundingBox {
 
     /// True if the bounding box has valid, finite dimensions.
     pub fn is_valid(&self) -> bool {
-        self.min.is_finite()
-            && self.max.is_finite()
-            && self.min.x <= self.max.x
-            && self.min.y <= self.max.y
-            && self.min.z <= self.max.z
+        self.min.is_finite() && self.max.is_finite() && self.min.cmple(self.max).all()
     }
 
     /// Center point of the bounding box as f64.
-    pub const fn center(&self) -> [f64; 3] {
-        [
-            (self.min.x + self.max.x) * 0.5,
-            (self.min.y + self.max.y) * 0.5,
-            (self.min.z + self.max.z) * 0.5,
-        ]
+    pub fn center(&self) -> [f64; 3] {
+        self.center_dvec3().to_array()
     }
 
     /// Center point as double-precision `DVec3`.
@@ -281,27 +273,19 @@ impl BoundingBox {
         (self.max - self.min).max(glam::DVec3::ZERO)
     }
 
-    /// Dimensions (width, height, depth) as f64.
-    pub const fn size(&self) -> [f64; 3] {
-        [self.size_x(), self.size_y(), self.size_z()]
-    }
-
     /// Size along the X axis.
-    pub const fn size_x(&self) -> f64 {
-        let diff = self.max.x - self.min.x;
-        if diff > 0.0 { diff } else { 0.0 }
+    pub fn size_x(&self) -> f64 {
+        self.size_dvec3().x
     }
 
     /// Size along the Y axis.
-    pub const fn size_y(&self) -> f64 {
-        let diff = self.max.y - self.min.y;
-        if diff > 0.0 { diff } else { 0.0 }
+    pub fn size_y(&self) -> f64 {
+        self.size_dvec3().y
     }
 
     /// Size along the Z axis.
-    pub const fn size_z(&self) -> f64 {
-        let diff = self.max.z - self.min.z;
-        if diff > 0.0 { diff } else { 0.0 }
+    pub fn size_z(&self) -> f64 {
+        self.size_dvec3().z
     }
 
     /// Maximum dimension across X, Y, Z as f64.
@@ -328,6 +312,12 @@ impl BoundingBox {
     /// Expands this bounding box to include the given `Vec3` point.
     pub fn expand_point_vec3(&mut self, p: glam::Vec3) {
         self.expand_point_dvec3(p.as_dvec3());
+    }
+
+    /// Expands this bounding box to include another bounding box.
+    pub fn expand_bbox(&mut self, other: Self) {
+        self.min = self.min.min(other.min);
+        self.max = self.max.max(other.max);
     }
 }
 
@@ -478,10 +468,24 @@ mod tests {
         assert_eq!(bbox.max, DVec3::new(5.0, 10.0, 8.0));
     }
 
+    /// Verifies that merging two bounding boxes with expand_bbox yields the enclosing bounds.
+    #[wasm_bindgen_test]
+    fn bbox_expand_bbox() {
+        let mut bbox1 = BoundingBox::new(DVec3::new(0.0, 0.0, 0.0), DVec3::new(5.0, 5.0, 5.0));
+        let bbox2 = BoundingBox::new(DVec3::new(-2.0, 1.0, 3.0), DVec3::new(3.0, 8.0, 10.0));
+        bbox1.expand_bbox(bbox2);
+
+        assert_eq!(bbox1.min, DVec3::new(-2.0, 0.0, 0.0));
+        assert_eq!(bbox1.max, DVec3::new(5.0, 8.0, 10.0));
+    }
+
     /// Verifies that center and center_f32 compute the exact midpoints of the bounding box coordinates.
     #[wasm_bindgen_test]
     fn bbox_center_f64_and_f32() {
-        let bbox = BoundingBox::new(DVec3::new(-10.0, -20.0, -30.0), DVec3::new(10.0, 20.0, 30.0));
+        let bbox = BoundingBox::new(
+            DVec3::new(-10.0, -20.0, -30.0),
+            DVec3::new(10.0, 20.0, 30.0),
+        );
 
         assert_eq!(bbox.center(), [0.0, 0.0, 0.0]);
         assert_eq!(bbox.center_f32(), glam::Vec3::ZERO);
@@ -492,7 +496,6 @@ mod tests {
     fn bbox_dimensions_and_extents() {
         let bbox = BoundingBox::new(DVec3::new(1.0, 2.0, 3.0), DVec3::new(5.0, 10.0, 7.0));
 
-        assert_eq!(bbox.size(), [4.0, 8.0, 4.0]);
         assert_eq!(bbox.size_x(), 4.0);
         assert_eq!(bbox.size_y(), 8.0);
         assert_eq!(bbox.size_z(), 4.0);
@@ -506,7 +509,10 @@ mod tests {
         let nan_bbox = BoundingBox::new(DVec3::new(f64::NAN, 0.0, 0.0), DVec3::new(1.0, 1.0, 1.0));
         assert!(!nan_bbox.is_valid());
 
-        let inf_bbox = BoundingBox::new(DVec3::new(f64::NEG_INFINITY, 0.0, 0.0), DVec3::new(1.0, 1.0, 1.0));
+        let inf_bbox = BoundingBox::new(
+            DVec3::new(f64::NEG_INFINITY, 0.0, 0.0),
+            DVec3::new(1.0, 1.0, 1.0),
+        );
         assert!(!inf_bbox.is_valid());
     }
 
