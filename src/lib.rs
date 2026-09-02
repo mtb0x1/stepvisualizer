@@ -11,7 +11,7 @@
 //! - `main_panel`: the WebGPU viewport component (canvas, camera, render loop)
 //! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
 //! - `common`: domain types + pure logic (parsing, tessellation, caches, math)
-//! - `components`, `header`, `left_panel`, `right_panel`: UI panels
+//! - `components`, `left_panel`, `right_panel`: UI panels
 //! - `apptracing`: URL-query-driven tracing setup
 //! - `error`: the crate-wide error type
 use wasm_bindgen::prelude::*;
@@ -20,7 +20,6 @@ mod apptracing;
 mod common;
 mod components;
 mod error;
-mod header;
 mod left_panel;
 mod main_panel;
 mod rendering;
@@ -30,7 +29,6 @@ use apptracing::{AppTracer, AppTracerTrait};
 use common::constants::NO_WEBGPU_MSG;
 use components::upload_bar::UploadBar;
 use components::webgpu_unavailable::WebGpuUnavailable;
-use header::Header;
 use main_panel::AppStepviz;
 use rendering::wgpu_state::browser_has_webgpu;
 use right_panel::RightPanel as MetadataPanel;
@@ -68,7 +66,7 @@ struct MainAppProps {
     on_gpu_unavailable: Callback<String>,
 }
 
-/// The application shell: workspace hook + header, sidebars, viewport.
+/// The application shell: workspace hook + sidebars, viewport.
 /// Mounted only after the WebGPU gate passes.
 use crate::components::confirm_modal::ConfirmModal;
 use crate::workspace::ConfirmAction;
@@ -76,11 +74,6 @@ use crate::workspace::ConfirmAction;
 #[function_component(MainApp)]
 fn main_app(props: &MainAppProps) -> Html {
     let workspace = use_step_workspace();
-    let current_file_name = workspace
-        .metadata
-        .as_ref()
-        .map(|m| m.header.file_name.clone())
-        .unwrap_or_default();
     let render_error_callback = {
         let result = workspace.result.clone();
         let result_is_error = workspace.result_is_error.clone();
@@ -123,8 +116,6 @@ fn main_app(props: &MainAppProps) -> Html {
 
     html! {
         <div class="app-container">
-            <Header file_name={current_file_name} />
-
             // Left Sidebar: file history and model parts
             <aside class="sidebar sidebar-left">
                 <crate::left_panel::LeftPanel
