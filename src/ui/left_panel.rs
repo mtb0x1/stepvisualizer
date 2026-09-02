@@ -1,8 +1,8 @@
 //! Left sidebar: file history when nothing is selected, part list otherwise.
+use super::components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel};
 use crate::common::types::StepModel;
 use crate::{
     common::{FileId, FileIndexItem},
-    components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel},
     trace_span,
 };
 use std::rc::Rc;

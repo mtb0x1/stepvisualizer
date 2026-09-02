@@ -1,10 +1,10 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
+use super::components::fps_graph::FpsGraph;
 use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::{
     common::fps_meter::FpsMeter,
     common::{FileId, Metadata, StepModel, ViewportSize, constants::WEBGPU_INIT_FAILED_MSG},
-    components::fps_graph::FpsGraph,
     rendering::{
         camera::{CAMERA_PRESETS, CameraPreset, CameraState},
         renderer::render_wgpu_on_canvas,

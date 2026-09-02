@@ -8,31 +8,26 @@
 //!
 //! Module map:
 //! - `workspace`: the app-wide state hook wiring parsing → storage → UI
-//! - `main_panel`: the WebGPU viewport component (canvas, camera, render loop)
+//! - `ui`: UI panels, viewport, dialogs, and reusable components
 //! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
 //! - `common`: domain types + pure logic (parsing, tessellation, caches, math)
-//! - `components`, `left_panel`, `right_panel`: UI panels
 //! - `apptracing`: URL-query-driven tracing setup
 //! - `error`: the crate-wide error type
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 mod apptracing;
 pub mod common;
-mod components;
 mod error;
-mod left_panel;
-mod main_panel;
 mod rendering;
-mod right_panel;
+mod ui;
 mod workspace;
 use apptracing::{AppTracer, AppTracerTrait};
 use common::constants::NO_WEBGPU_MSG;
-use components::upload_bar::UploadBar;
-use components::webgpu_unavailable::WebGpuUnavailable;
-use main_panel::AppStepviz;
 use rendering::wgpu_state::browser_has_webgpu;
-use right_panel::RightPanel as MetadataPanel;
-use workspace::use_step_workspace;
+use ui::{
+    AppStepviz, ConfirmModal, LeftPanel, RightPanel as MetadataPanel, UploadBar, WebGpuUnavailable,
+};
+use workspace::{ConfirmAction, use_step_workspace};
 
 /// Root component: a WebGPU gate in front of the real application.
 ///
@@ -69,8 +64,6 @@ struct MainAppProps {
 
 /// The application shell: workspace hook + sidebars, viewport.
 /// Mounted only after the WebGPU gate passes.
-use crate::components::confirm_modal::ConfirmModal;
-use crate::workspace::ConfirmAction;
 
 #[function_component(MainApp)]
 fn main_app(props: &MainAppProps) -> Html {
@@ -119,7 +112,7 @@ fn main_app(props: &MainAppProps) -> Html {
         <div class="app-container">
             // Left Sidebar: file history and model parts
             <aside class="sidebar sidebar-left">
-                <crate::left_panel::LeftPanel
+                <LeftPanel
                     files_index={(*workspace.files_index).clone()}
                     selected_file={(*workspace.selected_file).clone()}
                     model={(*workspace.step_model).clone()}

@@ -1,6 +1,7 @@
 //! Right sidebar: the metadata details panel.
+use super::components::details_panel::DetailsPanel;
+use crate::common::Metadata;
 use crate::trace_span;
-use crate::{common::Metadata, components::details_panel::DetailsPanel};
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
