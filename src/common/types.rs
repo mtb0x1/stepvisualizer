@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 
 use super::render::RenderablePart;
 use crate::common::utils::clean_unit_name;
+use glam::DVec3;
 
 /// Strongly-typed file content hash ID.
 ///
@@ -221,43 +222,43 @@ pub struct FileIndexItem {
 /// Axis-aligned bounds in 3D space.
 #[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
 pub struct BoundingBox {
-    pub min: [f64; 3],
-    pub max: [f64; 3],
+    pub min: DVec3,
+    pub max: DVec3,
 }
 
 impl BoundingBox {
     /// An empty/inverted bounding box ready to be expanded.
     pub const EMPTY: Self = Self {
-        min: [f64::INFINITY; 3],
-        max: [f64::NEG_INFINITY; 3],
+        min: DVec3::INFINITY,
+        max: DVec3::NEG_INFINITY,
     };
 
     /// Create a bounding box with the given min and max coordinates.
-    pub const fn new(min: [f64; 3], max: [f64; 3]) -> Self {
+    pub const fn new(min: DVec3, max: DVec3) -> Self {
         Self { min, max }
     }
 
     /// True if the bounding box has valid, finite dimensions.
     pub fn is_valid(&self) -> bool {
-        self.min[0].is_finite()
-            && self.max[0].is_finite()
-            && self.min[0] <= self.max[0]
-            && self.min[1] <= self.max[1]
-            && self.min[2] <= self.max[2]
+        self.min.is_finite()
+            && self.max.is_finite()
+            && self.min.x <= self.max.x
+            && self.min.y <= self.max.y
+            && self.min.z <= self.max.z
     }
 
     /// Center point of the bounding box as f64.
     pub const fn center(&self) -> [f64; 3] {
         [
-            (self.min[0] + self.max[0]) * 0.5,
-            (self.min[1] + self.max[1]) * 0.5,
-            (self.min[2] + self.max[2]) * 0.5,
+            (self.min.x + self.max.x) * 0.5,
+            (self.min.y + self.max.y) * 0.5,
+            (self.min.z + self.max.z) * 0.5,
         ]
     }
 
     /// Center point as double-precision `DVec3`.
     pub fn center_dvec3(&self) -> glam::DVec3 {
-        (self.min_dvec3() + self.max_dvec3()) * 0.5
+        (self.min + self.max) * 0.5
     }
 
     /// Center point converted to `Vec3` for GPU and camera framing.
@@ -266,18 +267,18 @@ impl BoundingBox {
     }
 
     /// Minimum bound as `DVec3`.
-    pub fn min_dvec3(&self) -> glam::DVec3 {
-        glam::DVec3::from_array(self.min)
+    pub const fn min_dvec3(&self) -> glam::DVec3 {
+        self.min
     }
 
     /// Maximum bound as `DVec3`.
-    pub fn max_dvec3(&self) -> glam::DVec3 {
-        glam::DVec3::from_array(self.max)
+    pub const fn max_dvec3(&self) -> glam::DVec3 {
+        self.max
     }
 
     /// Dimensions (width, height, depth) as `DVec3`.
     pub fn size_dvec3(&self) -> glam::DVec3 {
-        (self.max_dvec3() - self.min_dvec3()).max(glam::DVec3::ZERO)
+        (self.max - self.min).max(glam::DVec3::ZERO)
     }
 
     /// Dimensions (width, height, depth) as f64.
@@ -287,26 +288,25 @@ impl BoundingBox {
 
     /// Size along the X axis.
     pub const fn size_x(&self) -> f64 {
-        let diff = self.max[0] - self.min[0];
+        let diff = self.max.x - self.min.x;
         if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Size along the Y axis.
     pub const fn size_y(&self) -> f64 {
-        let diff = self.max[1] - self.min[1];
+        let diff = self.max.y - self.min.y;
         if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Size along the Z axis.
     pub const fn size_z(&self) -> f64 {
-        let diff = self.max[2] - self.min[2];
+        let diff = self.max.z - self.min.z;
         if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Maximum dimension across X, Y, Z as f64.
     pub fn max_extent(&self) -> f64 {
-        let s = self.size();
-        s[0].max(s[1]).max(s[2])
+        self.size_dvec3().max_element()
     }
 
     /// Maximum dimension converted to f32.
@@ -321,10 +321,8 @@ impl BoundingBox {
 
     /// Expands this bounding box to include the given `DVec3` point.
     pub fn expand_point_dvec3(&mut self, p: glam::DVec3) {
-        let min = self.min_dvec3().min(p);
-        let max = self.max_dvec3().max(p);
-        self.min = min.to_array();
-        self.max = max.to_array();
+        self.min = self.min.min(p);
+        self.max = self.max.max(p);
     }
 
     /// Expands this bounding box to include the given `Vec3` point.
@@ -464,8 +462,8 @@ mod tests {
         bbox.expand_point([1.0, 2.0, 3.0]);
 
         assert!(bbox.is_valid());
-        assert_eq!(bbox.min, [1.0, 2.0, 3.0]);
-        assert_eq!(bbox.max, [1.0, 2.0, 3.0]);
+        assert_eq!(bbox.min, DVec3::new(1.0, 2.0, 3.0));
+        assert_eq!(bbox.max, DVec3::new(1.0, 2.0, 3.0));
     }
 
     /// Verifies that sequentially expanding a bounding box with multiple points correctly computes
@@ -476,14 +474,14 @@ mod tests {
         bbox.expand_point([0.0, 10.0, -5.0]);
         bbox.expand_point([5.0, 2.0, 8.0]);
 
-        assert_eq!(bbox.min, [0.0, 2.0, -5.0]);
-        assert_eq!(bbox.max, [5.0, 10.0, 8.0]);
+        assert_eq!(bbox.min, DVec3::new(0.0, 2.0, -5.0));
+        assert_eq!(bbox.max, DVec3::new(5.0, 10.0, 8.0));
     }
 
     /// Verifies that center and center_f32 compute the exact midpoints of the bounding box coordinates.
     #[wasm_bindgen_test]
     fn bbox_center_f64_and_f32() {
-        let bbox = BoundingBox::new([-10.0, -20.0, -30.0], [10.0, 20.0, 30.0]);
+        let bbox = BoundingBox::new(DVec3::new(-10.0, -20.0, -30.0), DVec3::new(10.0, 20.0, 30.0));
 
         assert_eq!(bbox.center(), [0.0, 0.0, 0.0]);
         assert_eq!(bbox.center_f32(), glam::Vec3::ZERO);
@@ -492,7 +490,7 @@ mod tests {
     /// Verifies that size, size_x, size_y, size_z, and max_extent compute accurate bounding dimensions.
     #[wasm_bindgen_test]
     fn bbox_dimensions_and_extents() {
-        let bbox = BoundingBox::new([1.0, 2.0, 3.0], [5.0, 10.0, 7.0]);
+        let bbox = BoundingBox::new(DVec3::new(1.0, 2.0, 3.0), DVec3::new(5.0, 10.0, 7.0));
 
         assert_eq!(bbox.size(), [4.0, 8.0, 4.0]);
         assert_eq!(bbox.size_x(), 4.0);
@@ -505,17 +503,17 @@ mod tests {
     /// Verifies that bounding boxes containing NaN or infinite values fail validity checks.
     #[wasm_bindgen_test]
     fn bbox_invalid_nan_infinity() {
-        let nan_bbox = BoundingBox::new([f64::NAN, 0.0, 0.0], [1.0, 1.0, 1.0]);
+        let nan_bbox = BoundingBox::new(DVec3::new(f64::NAN, 0.0, 0.0), DVec3::new(1.0, 1.0, 1.0));
         assert!(!nan_bbox.is_valid());
 
-        let inf_bbox = BoundingBox::new([f64::NEG_INFINITY, 0.0, 0.0], [1.0, 1.0, 1.0]);
+        let inf_bbox = BoundingBox::new(DVec3::new(f64::NEG_INFINITY, 0.0, 0.0), DVec3::new(1.0, 1.0, 1.0));
         assert!(!inf_bbox.is_valid());
     }
 
     /// Verifies that bounding boxes where min > max along any axis are recognized as invalid.
     #[wasm_bindgen_test]
     fn bbox_inverted_min_max() {
-        let inverted = BoundingBox::new([10.0, 0.0, 0.0], [5.0, 0.0, 0.0]);
+        let inverted = BoundingBox::new(DVec3::new(10.0, 0.0, 0.0), DVec3::new(5.0, 0.0, 0.0));
         assert!(!inverted.is_valid());
     }
 

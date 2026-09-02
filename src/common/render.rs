@@ -105,7 +105,7 @@ impl RenderablePart {
     pub fn calculate_volume(&self) -> f64 {
         let volume: f64 = self
             .triangles()
-            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_signed_volume(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3()))
             .sum();
         (volume / 6.0).abs()
     }
@@ -113,7 +113,7 @@ impl RenderablePart {
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
         self.triangles()
-            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_area(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3()))
             .sum()
     }
 }
@@ -511,8 +511,8 @@ mod tests {
         let visibility = vec![true, true];
 
         let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
-        assert_eq!(bounds.min[0], 0.0);
-        assert_eq!(bounds.max[0], 4.0);
+        assert_eq!(bounds.min.x, 0.0);
+        assert_eq!(bounds.max.x, 4.0);
     }
 
     /// Verifies that hidden parts (visibility = false) are excluded from the calculated bounding box.
@@ -524,8 +524,8 @@ mod tests {
         let visibility = vec![false, true];
 
         let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
-        assert_eq!(bounds.min[0], 2.0);
-        assert_eq!(bounds.max[0], 4.0);
+        assert_eq!(bounds.min.x, 2.0);
+        assert_eq!(bounds.max.x, 4.0);
     }
 
     /// Verifies that visible_bounds returns None when all parts are hidden.
@@ -547,8 +547,8 @@ mod tests {
         let parts = vec![part_a, part_b];
 
         let bounds = visible_bounds(&parts, &[]).expect("valid bounds");
-        assert_eq!(bounds.min[0], 0.0);
-        assert_eq!(bounds.max[0], 4.0);
+        assert_eq!(bounds.min.x, 0.0);
+        assert_eq!(bounds.max.x, 4.0);
     }
 
     /// Verifies that parts with empty vertex buffers are ignored and do not affect the bounds calculation.
@@ -560,7 +560,7 @@ mod tests {
         let visibility = vec![true, true];
 
         let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
-        assert_eq!(bounds.min[0], 2.0);
-        assert_eq!(bounds.max[0], 5.0);
+        assert_eq!(bounds.min.x, 2.0);
+        assert_eq!(bounds.max.x, 5.0);
     }
 }

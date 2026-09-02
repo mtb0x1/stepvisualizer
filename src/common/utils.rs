@@ -58,27 +58,15 @@ pub fn clean_unit_name(name: &str) -> &str {
     name.trim().trim_matches('\'').trim_matches('"')
 }
 
-/// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
-#[inline(always)]
-pub fn triangle_signed_volume(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
-    triangle_signed_volume_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
-}
-
 /// Signed tetrahedron volume for 3D vertices using double-precision glam vectors.
 #[inline(always)]
-pub fn triangle_signed_volume_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
+pub fn triangle_signed_volume(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
     p0.dot(p1.cross(p2))
-}
-
-/// Area of a single 3D triangle with vertices v0, v1, v2.
-#[inline(always)]
-pub fn triangle_area(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
-    triangle_area_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
 }
 
 /// Area of a single 3D triangle using double-precision glam vectors.
 #[inline(always)]
-pub fn triangle_area_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
+pub fn triangle_area(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
     0.5 * (p1 - p0).cross(p2 - p0).length()
 }
 
@@ -142,17 +130,8 @@ pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32
     }
 }
 
-/// Formats 3D bounding box coordinates into formatted min/max display strings.
-pub fn format_bbox_coordinates(
-    min: [f64; 3],
-    max: [f64; 3],
-    unit_symbol: Option<&str>,
-) -> (String, String) {
-    format_dvec3_bbox_coordinates(DVec3::from_array(min), DVec3::from_array(max), unit_symbol)
-}
-
 /// Formats 3D bounding box coordinates from `DVec3` into formatted min/max display strings.
-pub fn format_dvec3_bbox_coordinates(
+pub fn format_bbox_coordinates(
     min: DVec3,
     max: DVec3,
     unit_symbol: Option<&str>,
@@ -184,21 +163,6 @@ pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_v
         };
         let y = height - (v.min(max_val) / max_val) * height;
         let pt = Vec2::new(x, y);
-        let _ = write!(out, "{:.1},{:.1}", pt.x, pt.y);
-    }
-    out
-}
-
-/// Maps a slice of `Vec2` points directly to an SVG polyline points string `"x,y x,y ..."`.
-pub fn build_svg_polyline_points_from_vec2(points: &[Vec2]) -> String {
-    if points.is_empty() {
-        return String::new();
-    }
-    let mut out = String::with_capacity(points.len() * 12);
-    for (i, pt) in points.iter().enumerate() {
-        if i > 0 {
-            out.push(' ');
-        }
         let _ = write!(out, "{:.1},{:.1}", pt.x, pt.y);
     }
     out
@@ -373,18 +337,18 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_triangle_signed_volume() {
-        let v0 = Vec3::new(1.0, 0.0, 0.0);
-        let v1 = Vec3::new(0.0, 1.0, 0.0);
-        let v2 = Vec3::new(0.0, 0.0, 1.0);
+        let v0 = DVec3::new(1.0, 0.0, 0.0);
+        let v1 = DVec3::new(0.0, 1.0, 0.0);
+        let v2 = DVec3::new(0.0, 0.0, 1.0);
         let vol = triangle_signed_volume(v0, v1, v2);
         approx::assert_relative_eq!(vol, 1.0, epsilon = 1e-6);
     }
 
     #[wasm_bindgen_test]
     fn test_triangle_area() {
-        let v0 = Vec3::new(0.0, 0.0, 0.0);
-        let v1 = Vec3::new(1.0, 0.0, 0.0);
-        let v2 = Vec3::new(0.0, 1.0, 0.0);
+        let v0 = DVec3::new(0.0, 0.0, 0.0);
+        let v1 = DVec3::new(1.0, 0.0, 0.0);
+        let v2 = DVec3::new(0.0, 1.0, 0.0);
         let area = triangle_area(v0, v1, v2);
         approx::assert_relative_eq!(area, 0.5, epsilon = 1e-6);
     }
@@ -407,13 +371,46 @@ mod tests {
     fn test_compute_adaptive_tolerance() {
         assert_eq!(compute_adaptive_tolerance(None), DEFAULT_TOLERANCE);
 
-        let small_bbox = BoundingBox::new([0.0, 0.0, 0.0], [0.01, 0.01, 0.01]);
+        let small_bbox = BoundingBox::new(
+            DVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            DVec3 {
+                x: 0.01,
+                y: 0.01,
+                z: 0.01,
+            },
+        );
         assert_eq!(compute_adaptive_tolerance(Some(&small_bbox)), MIN_TOLERANCE);
 
-        let huge_bbox = BoundingBox::new([0.0, 0.0, 0.0], [1000.0, 1000.0, 1000.0]);
+        let huge_bbox = BoundingBox::new(
+            DVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            DVec3 {
+                x: 1000.0,
+                y: 1000.0,
+                z: 1000.0,
+            },
+        );
         assert_eq!(compute_adaptive_tolerance(Some(&huge_bbox)), MAX_TOLERANCE);
 
-        let mid_bbox = BoundingBox::new([0.0, 0.0, 0.0], [10.0, 10.0, 10.0]);
+        let mid_bbox = BoundingBox::new(
+            DVec3 {
+                x: 0.0,
+                y: 0.0,
+                z: 0.0,
+            },
+            DVec3 {
+                x: 10.0,
+                y: 10.0,
+                z: 10.0,
+            },
+        );
         approx::assert_relative_eq!(
             compute_adaptive_tolerance(Some(&mid_bbox)),
             0.01,
@@ -457,8 +454,8 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_format_bbox_coordinates() {
-        let min = [1.1234, 2.5678, 3.9];
-        let max = [10.0, 20.0, 30.0];
+        let min = DVec3::new(1.1234, 2.5678, 3.9);
+        let max = DVec3::new(10.0, 20.0, 30.0);
         let (min_s, max_s) = format_bbox_coordinates(min, max, Some("mm"));
         assert_eq!(min_s, "min: 1.123, 2.568, 3.900 mm");
         assert_eq!(max_s, "max: 10.000, 20.000, 30.000 mm");
@@ -487,23 +484,5 @@ mod tests {
         assert_eq!(param_as_str(&enum_param), Some("INCH"));
         assert_eq!(param_as_str(&str_param), Some("foot"));
         assert_eq!(param_as_str(&int_param), None);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_triangle_signed_volume_glam_variants() {
-        let p0 = DVec3::new(1.0, 0.0, 0.0);
-        let p1 = DVec3::new(0.0, 1.0, 0.0);
-        let p2 = DVec3::new(0.0, 0.0, 1.0);
-        let vol_dvec3 = triangle_signed_volume_dvec3(p0, p1, p2);
-        approx::assert_relative_eq!(vol_dvec3, 1.0, epsilon = 1e-6);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_format_dvec3_bbox_coordinates() {
-        let min = DVec3::new(1.1234, 2.5678, 3.9);
-        let max = DVec3::new(10.0, 20.0, 30.0);
-        let (min_s, max_s) = format_dvec3_bbox_coordinates(min, max, Some("mm"));
-        assert_eq!(min_s, "min: 1.123, 2.568, 3.900 mm");
-        assert_eq!(max_s, "max: 10.000, 20.000, 30.000 mm");
     }
 }

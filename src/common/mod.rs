@@ -31,9 +31,7 @@ pub use types::{
 };
 #[allow(unused_imports)]
 pub use utils::{
-    PART_COLORS, PART_COLORS_COUNT, build_svg_polyline_points, build_svg_polyline_points_from_vec2,
-    clean_unit_name, contains_ignore_ascii_case, format_bbox_coordinates,
-    format_dvec3_bbox_coordinates, format_list_or_na, format_or_na, geometric_normal, part_color,
-    spherical_to_cartesian, triangle_area, triangle_area_dvec3, triangle_signed_volume,
-    triangle_signed_volume_dvec3,
+    PART_COLORS, PART_COLORS_COUNT, build_svg_polyline_points, clean_unit_name,
+    contains_ignore_ascii_case, format_bbox_coordinates, format_list_or_na, format_or_na,
+    geometric_normal, part_color, spherical_to_cartesian, triangle_area, triangle_signed_volume,
 };
