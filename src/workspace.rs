@@ -20,6 +20,7 @@ use crate::common::constants::{
     CACHE_SIZE, MAX_FILE_BYTES, MAX_TOLERANCE, MIN_TOLERANCE, QualityPreset,
     compute_adaptive_tolerance,
 };
+use crate::common::utils::input_file;
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
@@ -139,14 +140,6 @@ impl StateHandles {
         self.set_result(status_msg, false);
         self.is_processing.set(false);
     }
-}
-
-/// Extracts the first selected file from an `<input type="file">` change event.
-fn input_file(event: &Event) -> Option<web_sys::File> {
-    let input: HtmlInputElement = event
-        .target()
-        .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())?;
-    input.files()?.get(0)
 }
 
 /// Spawns the async tessellation pass: tessellates the STEP tables, wraps the

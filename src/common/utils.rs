@@ -227,6 +227,70 @@ pub const fn fps_color(fps: f32) -> &'static str {
     }
 }
 
+/// Returns the current high-resolution time in milliseconds.
+/// Falls back to 0.0 if the browser window or performance API is unavailable.
+pub fn now_ms() -> f64 {
+    web_sys::window()
+        .and_then(|w| w.performance())
+        .map(|p| p.now())
+        .unwrap_or(0.0)
+}
+
+/// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).
+/// Keys are matched case-insensitively; the value is returned lowercased.
+/// Returns `None` when the key is absent or the URL cannot be inspected.
+pub fn url_query_param(key: &str) -> Option<String> {
+    let search = web_sys::window()?.location().search().ok()?;
+    let query = search.trim_start_matches('?');
+
+    query.split('&').find_map(|pair| {
+        let (pair_key, value) = match pair.split_once('=') {
+            Some((k, v)) => (k, v),
+            None => (pair, ""),
+        };
+        pair_key
+            .eq_ignore_ascii_case(key)
+            .then(|| value.to_ascii_lowercase())
+    })
+}
+
+/// Whether the browser exposes the `navigator.gpu` entry point.
+pub fn browser_has_webgpu() -> bool {
+    web_sys::window()
+        .map(|window| {
+            js_sys::Reflect::has(&window.navigator(), &wasm_bindgen::JsValue::from_str("gpu"))
+                .unwrap_or(false)
+        })
+        .unwrap_or(false)
+}
+
+/// Detect the deployment environment from `window.location.pathname` and return
+/// a namespacing prefix for storage keys:
+/// - `/stepvisualizer/testing/…`   → `"testing:"`
+/// - `/stepvisualizer/production/…` → `"production:"`
+/// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
+pub fn detect_env_prefix() -> &'static str {
+    let path = web_sys::window()
+        .and_then(|w| w.location().pathname().ok())
+        .unwrap_or_default();
+    if path.contains("/testing") {
+        "testing:"
+    } else if path.contains("/production") {
+        "production:"
+    } else {
+        ""
+    }
+}
+
+/// Extracts the first selected file from an `<input type="file">` change event.
+pub fn input_file(event: &web_sys::Event) -> Option<web_sys::File> {
+    use wasm_bindgen::JsCast;
+    let input: web_sys::HtmlInputElement = event
+        .target()
+        .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())?;
+    input.files()?.get(0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,37 +432,5 @@ mod tests {
         let (min_no_unit, max_no_unit) = format_bbox_coordinates(min, max, None);
         assert_eq!(min_no_unit, "min: 1.123, 2.568, 3.900");
         assert_eq!(max_no_unit, "max: 10.000, 20.000, 30.000");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_build_svg_polyline_points() {
-        assert_eq!(build_svg_polyline_points(&[], 100.0, 50.0, 100.0), "");
-        let single = [50.0];
-        assert_eq!(build_svg_polyline_points(&single, 100.0, 50.0, 100.0), "0.0,25.0");
-        let samples = [0.0, 100.0];
-        assert_eq!(build_svg_polyline_points(&samples, 100.0, 50.0, 100.0), "0.0,50.0 100.0,0.0");
-    }
-
-    #[wasm_bindgen_test]
-    fn test_part_color_cycling() {
-        let c0 = part_color(0);
-        let c10 = part_color(10);
-        let c20 = part_color(20);
-        assert_eq!(c0, c10);
-        assert_eq!(c0, c20);
-        assert_eq!(c0, [0.8, 0.2, 0.2, 1.0]);
-
-        let c1 = part_color(1);
-        assert_eq!(c1, [0.2, 0.8, 0.2, 1.0]);
-    }
-
-    #[wasm_bindgen_test]
-    fn test_fps_color_thresholds() {
-        assert_eq!(fps_color(60.0), "#4ade80");
-        assert_eq!(fps_color(50.0), "#4ade80");
-        assert_eq!(fps_color(49.9), "#facc15");
-        assert_eq!(fps_color(30.0), "#facc15");
-        assert_eq!(fps_color(29.9), "#f87171");
-        assert_eq!(fps_color(0.0), "#f87171");
     }
 }

@@ -17,6 +17,7 @@ use web_sys::console;
 pub struct AppTracer;
 
 use crate::common::constants::STEP_TRACER;
+use crate::common::utils::url_query_param;
 
 /// Logging contract for the crate.
 ///
@@ -97,27 +98,6 @@ impl AppTracerTrait for AppTracer {
     fn warn(message: &str) {
         tracing::warn!("{} {}", STEP_TRACER, message);
     }
-}
-
-/// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).
-///
-/// Keys are matched case-insensitively; the value is returned lowercased.
-/// Returns `None` when the key is absent or the URL cannot be inspected.
-fn url_query_param(key: &str) -> Option<String> {
-    let search = web_sys::window()?.location().search().ok()?;
-    let query = search.trim_start_matches('?');
-
-    query.split('&').find_map(|pair| {
-        // A bare key without '=' counts as present with an empty value,
-        // matching the original `splitn(2, '=')` parser.
-        let (pair_key, value) = match pair.split_once('=') {
-            Some((k, v)) => (k, v),
-            None => (pair, ""),
-        };
-        pair_key
-            .eq_ignore_ascii_case(key)
-            .then(|| value.to_ascii_lowercase())
-    })
 }
 
 /// Open an INFO span named after the call site, entered for the remainder of

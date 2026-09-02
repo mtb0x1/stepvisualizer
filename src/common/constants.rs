@@ -16,18 +16,7 @@ pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file .
 /// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
 ///
 /// The result is computed once per page load and cached in a thread-local.
-fn detect_env_prefix() -> &'static str {
-    let path = web_sys::window()
-        .and_then(|w| w.location().pathname().ok())
-        .unwrap_or_default();
-    if path.contains("/testing") {
-        "testing:"
-    } else if path.contains("/production") {
-        "production:"
-    } else {
-        ""
-    }
-}
+use crate::common::utils::detect_env_prefix;
 
 /// Returns the per-environment storage prefix (cached after first call).
 pub fn env_prefix() -> &'static str {
