@@ -1,7 +1,7 @@
 use crate::common::constants::NA;
+use crate::common::utils::{format_list_or_na, format_or_na};
 use crate::common::{BoundingBox, Metadata};
 use crate::trace_span;
-use std::borrow::Cow;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -18,20 +18,6 @@ fn detail_row(label: &'static str, value: impl Into<Html>) -> Html {
             <dt class="detail-label">{ label }</dt>
             <dd>{ value.into() }</dd>
         </div>
-    }
-}
-
-/// Helper to format a string value, defaulting to `N/A` if empty.
-fn format_or_na(val: &str) -> &str {
-    if val.is_empty() { NA } else { val }
-}
-
-/// Helper to format a list of strings, defaulting to `N/A` if empty.
-fn format_list_or_na(list: &[String]) -> Cow<'_, str> {
-    if list.is_empty() || list.iter().all(|s| s.is_empty()) {
-        Cow::Borrowed(NA)
-    } else {
-        Cow::Owned(list.join(", "))
     }
 }
 

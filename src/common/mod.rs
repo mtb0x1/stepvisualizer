@@ -9,6 +9,7 @@ pub mod render;
 pub mod storage;
 pub mod time;
 pub mod types;
+pub mod utils;
 
 pub use cache::LruCache;
 pub use glam::Vec3;

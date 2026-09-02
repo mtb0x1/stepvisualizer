@@ -1,6 +1,7 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::common::storage::hash_text_to_id;
+use crate::common::utils::contains_ignore_ascii_case;
 use crate::{error::StepVizError, trace_span};
 use ruststep::ast::{DataSection, EntityInstance, Exchange, Parameter, Record};
 use ruststep::header::Header;
@@ -133,38 +134,6 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
         return LengthUnit::from_name(name);
     }
     None
-}
-
-/// this might be an overkill, but at least it is fast and const
-/// TODO: maybe this and other similare fns should be moved to
-/// utils.rs ?
-const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
-    let h = haystack.as_bytes();
-    let n = needle.as_bytes();
-    if n.is_empty() {
-        return true;
-    }
-    if n.len() > h.len() {
-        return false;
-    }
-    let max_start = h.len() - n.len();
-    let mut i = 0;
-    while i <= max_start {
-        let mut j = 0;
-        let mut matches = true;
-        while j < n.len() {
-            if !h[i + j].eq_ignore_ascii_case(&n[j]) {
-                matches = false;
-                break;
-            }
-            j += 1;
-        }
-        if matches {
-            return true;
-        }
-        i += 1;
-    }
-    false
 }
 
 /// Returns all data sections carrying usable STEP content, or a

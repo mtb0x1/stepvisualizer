@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use super::render::RenderablePart;
+use crate::common::utils::clean_unit_name;
 
 /// Strongly-typed file content hash ID.
 ///
@@ -151,7 +152,7 @@ impl LengthUnit {
 
     /// Parse from unit name string (e.g. from CONVERSION_BASED_UNIT).
     pub fn from_name(name: &str) -> Option<Self> {
-        let clean = name.trim().trim_matches('\'').trim_matches('"');
+        let clean = clean_unit_name(name);
         match clean.to_ascii_uppercase().as_str() {
             "MM" | "MILLIMETRE" | "MILLIMETER" => Some(Self::Millimetre),
             "CM" | "CENTIMETRE" | "CENTIMETER" => Some(Self::Centimetre),
