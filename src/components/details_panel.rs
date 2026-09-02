@@ -1,5 +1,4 @@
-//! Metadata panel: header fields, geometry stats, and volume/surface-area
-//! calculate actions.
+use std::borrow::Cow;
 use crate::common::constants::NA;
 use crate::common::{BoundingBox, Metadata};
 use crate::trace_span;
@@ -28,11 +27,11 @@ fn format_or_na(val: &str) -> &str {
 }
 
 /// Helper to format a list of strings, defaulting to `N/A` if empty.
-fn format_list_or_na(list: &[String]) -> String {
+fn format_list_or_na(list: &[String]) -> Cow<'_, str> {
     if list.is_empty() || list.iter().all(|s| s.is_empty()) {
-        NA.to_string()
+        Cow::Borrowed(NA)
     } else {
-        list.join(", ")
+        Cow::Owned(list.join(", "))
     }
 }
 
@@ -131,11 +130,11 @@ pub fn details_panel(props: &DetailsPanelProps) -> Html {
                         { detail_row("Authorization :", format_or_na(&meta.header.authorization)) }
                         { detail_row("Description :", format_or_na(&meta.header.file_description)) }
                         { detail_row("Schema :", format_or_na(&meta.header.file_schema)) }
-                        { detail_row("Entity count :", meta.entity_count.to_string()) }
+                        { detail_row("Entity count :", meta.entity_count) }
                         { detail_row("Bounding box :", format_bbox(meta.bounding_box.as_ref(), meta.units.map(|u| u.symbol()))) }
                         { detail_row("Units :", meta.units.map(|u| u.symbol()).unwrap_or(NA)) }
-                        { detail_row("Vertices :", meta.vertex_count.to_string()) }
-                        { detail_row("Triangles :", meta.triangle_count.to_string()) }
+                        { detail_row("Vertices :", meta.vertex_count) }
+                        { detail_row("Triangles :", meta.triangle_count) }
                         if let Some(bb) = &meta.bounding_box {
                             { detail_row("Size X :", format!("{:.2}{}", bb.size_x(), unit_suffix)) }
                             { detail_row("Size Y :", format!("{:.2}{}", bb.size_y(), unit_suffix)) }

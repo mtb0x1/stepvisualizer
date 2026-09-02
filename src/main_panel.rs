@@ -233,9 +233,9 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
     let stats_overlay = if let Some(meta) = props.metadata.as_ref() {
         html! {
             <div class="canvas-stats">
-                <div>{ format!("{} triangles", meta.triangle_count) }</div>
-                <div>{ format!("{} vertices", meta.vertex_count) }</div>
-                { meta.units.as_ref().map(|u| html!{ <div>{ format!("Units: {}", u) }</div> }).unwrap_or(Html::default()) }
+                <div>{ meta.triangle_count }{ " triangles" }</div>
+                <div>{ meta.vertex_count }{ " vertices" }</div>
+                { meta.units.as_ref().map(|u| html!{ <div>{ "Units: " }{ u }</div> }).unwrap_or_default() }
             </div>
         }
     } else {

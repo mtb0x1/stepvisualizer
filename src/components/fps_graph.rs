@@ -24,6 +24,9 @@ impl PartialEq for FpsGraphProps {
 /// Sparkline dimensions in CSS pixels.
 const GRAPH_W: u32 = 120;
 const GRAPH_H: u32 = 32;
+const GRAPH_W_STR: &str = "120";
+const GRAPH_H_STR: &str = "32";
+const VIEWBOX_STR: &str = "0 0 120 32";
 /// FPS value mapped to the top of the graph; higher clamps to the top.
 const MAX_FPS: f32 = 120.0;
 /// How often the overlay polls the meter (ms). Cheap: just reads two values.
@@ -70,12 +73,12 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
 
     html! {
         <div class="fps-graph">
-            <div class="fps-graph-label">{ format!("{:.0} FPS", snapshot.current_fps) }</div>
+            <div class="fps-graph-label">{ snapshot.current_fps.round() as i32 }{ " FPS" }</div>
             <svg
                 class="fps-graph-svg"
-                width={GRAPH_W.to_string()}
-                height={GRAPH_H.to_string()}
-                viewBox={format!("0 0 {GRAPH_W} {GRAPH_H}")}
+                width={GRAPH_W_STR}
+                height={GRAPH_H_STR}
+                viewBox={VIEWBOX_STR}
             >
                 <polyline points={points} fill="none" stroke={stroke} stroke-width="1.5" />
             </svg>

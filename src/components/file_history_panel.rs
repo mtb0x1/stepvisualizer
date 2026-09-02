@@ -61,7 +61,7 @@ pub fn file_history_panel(props: &FileHistoryPanelProps) -> Html {
                                     <div class="file-item-container">
                                         <button onclick={click} class="file-item-button">
                                             <div class="file-item-name">{ &item.name }</div>
-                                            <div class="file-item-details">{ format!("{} entities • {}", item.entity_count, item.time_stamp) }</div>
+                                            <div class="file-item-details">{ item.entity_count }{ " entities • " }{ &item.time_stamp }</div>
                                         </button>
                                         <button title="Remove" onclick={ondelete} class="delete-button">
                                             <i class="fa-solid fa-trash delete-icon"></i>

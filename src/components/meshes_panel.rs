@@ -38,9 +38,7 @@ fn mesh_item(props: &MeshItemProps) -> Html {
             </div>
             <div class="mesh-details">
                 <span class="mesh-stats">
-                    {format!("{} triangles", props.triangle_count)}
-                    {" | "}
-                    {format!("{} vertices", props.vertex_count)}
+                    { props.triangle_count }{ " triangles | " }{ props.vertex_count }{ " vertices" }
                 </span>
             </div>
         </div>

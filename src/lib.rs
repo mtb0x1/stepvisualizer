@@ -47,14 +47,14 @@ fn app() -> Html {
     trace_span!("app");
     // Single hook, called unconditionally before the early return, so hook
     // order is stable across renders.
-    let gpu_unavailable = use_state(|| (!browser_has_webgpu()).then(|| NO_WEBGPU_MSG.to_string()));
+    let gpu_unavailable = use_state(|| (!browser_has_webgpu()).then(|| AttrValue::Static(NO_WEBGPU_MSG)));
     if let Some(reason) = gpu_unavailable.as_ref() {
         return html! { <WebGpuUnavailable reason={reason.clone()} /> };
     }
 
     let on_gpu_unavailable = {
         let gpu_unavailable = gpu_unavailable.clone();
-        Callback::from(move |reason: String| gpu_unavailable.set(Some(reason)))
+        Callback::from(move |reason: String| gpu_unavailable.set(Some(AttrValue::from(reason))))
     };
 
     html! { <MainApp {on_gpu_unavailable} /> }

@@ -11,7 +11,7 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct WebGpuUnavailableProps {
     /// Human-readable explanation of why WebGPU is unusable.
-    pub reason: String,
+    pub reason: AttrValue,
 }
 
 #[function_component(WebGpuUnavailable)]
