@@ -6,44 +6,20 @@ A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This too
 
 | Environment | URL | Updated on |
 |---|---|---|
-| Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | PR `master`  -> `testing` merged |
-| Production  | https://mtb0x1.github.io/stepvisualizer/production/ | PR `testing` -> `release` merged |
+| Testing     | https://mtb0x1.github.io/stepvisualizer/testing/    | Push/PR `master`  -> `testing` merged |
+| Production  | https://mtb0x1.github.io/stepvisualizer/production/ | Push/PR `testing` -> `release` merged |
 
 A landing page at https://mtb0x1.github.io/stepvisualizer/ links to both environments.
 
 To enable verbose tracing, append `?tracing=on&level=trace` to either URL and check the browser console.
 
-## Deployment
-
-Three-stage gated pipeline — each stage must pass before promoting to the next:
-
-```
-push to master
-    |
-    +-- [ci-master.yml] check + clippy + test + build  (no deploy)
-
-            | (PR: master --> testing, reviewed & merged)
-
-    push to testing
-            |
-            +-- [ci-testing.yml] check + clippy + test + build --> deploy /testing/
-                                                                --> update landing page root
-
-            | (PR: testing --> production, reviewed & merged)
-
-            push to production
-                    |
-                    +-- [ci-production.yml] check + clippy + test + build --> deploy /production/
-```
-
-- Push to `master` -> CI runs full build + tests, **no deploy**.
-- PR `master` -> `testing`, merge -> CI builds and deploys to **Testing**.
-- PR `testing` -> `production`, merge -> CI builds and deploys to **Production**.
-- There is no path from `master` directly to production.
-
 ## Current Status
 
-This is an experimental project. The visualization works for basic STEP files but may fail or crash with complex models. Performance and stability are not guaranteed.
+This is an experimental project.
+
+The visualization works for basic STEP files but may fail or crash with complex models. 
+
+Performance and stability are not guaranteed.
 
 ## Supported STEP Formats
 
