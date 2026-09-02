@@ -3,6 +3,7 @@
 //! here, so most of it is unit-testable on the host target as well.
 pub mod cache;
 pub mod constants;
+pub mod error;
 pub mod fps_meter;
 pub mod logger;
 pub mod parser;

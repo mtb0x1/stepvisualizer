@@ -15,7 +15,7 @@
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 pub mod common;
-mod error;
+use common::error;
 mod rendering;
 mod ui;
 mod workspace;
