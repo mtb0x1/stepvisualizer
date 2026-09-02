@@ -1,7 +1,7 @@
-use std::borrow::Cow;
 use crate::common::constants::NA;
 use crate::common::{BoundingBox, Metadata};
 use crate::trace_span;
+use std::borrow::Cow;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]

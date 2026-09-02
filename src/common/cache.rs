@@ -35,7 +35,9 @@ impl LruCache {
     }
 
     fn touch(&mut self, id: &str) {
-        let file_id = self.remove_from_order(id).unwrap_or_else(|| FileId::from(id));
+        let file_id = self
+            .remove_from_order(id)
+            .unwrap_or_else(|| FileId::from(id));
         self.order.push_front(file_id);
     }
 
