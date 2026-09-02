@@ -48,12 +48,12 @@ impl Default for RenderablePart {
 
 impl RenderablePart {
     /// Returns the number of triangles in this part.
-    pub fn triangle_count(&self) -> usize {
+    pub const fn triangle_count(&self) -> usize {
         self.indices.len() / 3
     }
 
     /// Returns the number of vertices in this part.
-    pub fn vertex_count(&self) -> usize {
+    pub const fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 

@@ -92,10 +92,10 @@ pub async fn render_wgpu_on_canvas(
     let view_matrix = look_at_mat4(eye, view_target, Vec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
-    let fov_y = std::f32::consts::PI / 3.0;
+    const FOV_Y: f32 = std::f32::consts::FRAC_PI_3;
     let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
-    let projection_matrix = perspective(fov_y, aspect, near, far);
+    let projection_matrix = perspective(FOV_Y, aspect, near, far);
 
     // wgpu 30 returns `CurrentSurfaceTexture` instead of a `Result`:
     // - Success / Suboptimal hand us a presentable texture (Suboptimal also
@@ -150,12 +150,7 @@ pub async fn render_wgpu_on_canvas(
                 view: &texture_view,
                 resolve_target: None,
                 ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: crate::common::constants::CLEAR_COLOR_RGB.0,
-                        g: crate::common::constants::CLEAR_COLOR_RGB.1,
-                        b: crate::common::constants::CLEAR_COLOR_RGB.2,
-                        a: 1.0,
-                    }),
+                    load: wgpu::LoadOp::Clear(crate::common::constants::CLEAR_COLOR),
                     store: wgpu::StoreOp::Store,
                 },
                 depth_slice: None,

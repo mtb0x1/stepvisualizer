@@ -101,7 +101,7 @@ pub const CAMERA_PRESETS: [CameraPreset; 4] = [
 impl CameraPreset {
     /// Camera with this preset's angles and distance, keeping the current
     /// target (presets never move the orbit center).
-    pub fn apply(&self, current: &CameraState) -> CameraState {
+    pub const fn apply(&self, current: &CameraState) -> CameraState {
         CameraState {
             azimuth: self.azimuth,
             elevation: self.elevation,

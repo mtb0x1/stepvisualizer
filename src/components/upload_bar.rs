@@ -12,17 +12,17 @@ pub struct UploadBarProps {
     pub on_quality_change: Callback<QualityPreset>,
 }
 
+const PRESETS: [QualityPreset; 3] = [
+    QualityPreset::Coarse,
+    QualityPreset::Balanced,
+    QualityPreset::Fine,
+];
+
 #[function_component(UploadBar)]
 pub fn upload_bar(props: &UploadBarProps) -> Html {
     trace_span!("upload_bar");
 
-    let presets = [
-        QualityPreset::Coarse,
-        QualityPreset::Balanced,
-        QualityPreset::Fine,
-    ];
-
-    let preset_buttons = presets
+    let preset_buttons = PRESETS
         .iter()
         .map(|&preset| {
             let on_quality_change = props.on_quality_change.clone();

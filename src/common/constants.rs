@@ -157,7 +157,7 @@ pub enum QualityPreset {
 impl QualityPreset {
     /// Tolerance multiplier applied after `compute_adaptive_tolerance`.
     /// Result is clamped to `[MIN_TOLERANCE, MAX_TOLERANCE]` at the call site.
-    pub fn multiplier(self) -> f64 {
+    pub const fn multiplier(self) -> f64 {
         match self {
             Self::Coarse => 4.0,
             Self::Balanced => 1.0,
@@ -165,7 +165,7 @@ impl QualityPreset {
         }
     }
 
-    pub fn label(self) -> &'static str {
+    pub const fn label(self) -> &'static str {
         match self {
             Self::Coarse => "Coarse",
             Self::Balanced => "Balanced",
@@ -174,7 +174,7 @@ impl QualityPreset {
     }
 
     /// Short description shown as a hover tooltip on the quality-preset button.
-    pub fn tooltip(self) -> &'static str {
+    pub const fn tooltip(self) -> &'static str {
         match self {
             Self::Coarse => {
                 "Coarse: Fastest tessellation, lower mesh detail. \
@@ -193,6 +193,13 @@ impl QualityPreset {
 }
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
+/// Static clear color pre-formatted for wgpu render pass descriptor.
+pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
+    r: CLEAR_COLOR_RGB.0,
+    g: CLEAR_COLOR_RGB.1,
+    b: CLEAR_COLOR_RGB.2,
+    a: 1.0,
+};
 
 /// GPU adapter power preference requested at init.
 ///

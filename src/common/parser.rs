@@ -98,21 +98,21 @@ fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
     records.iter().find_map(unit_from_record)
 }
 
-fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
+const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
     match param {
-        Parameter::List(list) => Some(list),
+        Parameter::List(list) => Some(list.as_slice()),
         _ => None,
     }
 }
 
-fn param_as_enum(param: &Parameter) -> Option<&str> {
+const fn param_as_enum(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
         _ => None,
     }
 }
 
-fn param_as_str(param: &Parameter) -> Option<&str> {
+const fn param_as_str(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
         Parameter::String(value) => Some(value.as_str()),

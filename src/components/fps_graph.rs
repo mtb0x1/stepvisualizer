@@ -109,7 +109,7 @@ fn build_points(samples: &[f32]) -> String {
 }
 
 /// Green when smooth, yellow when sluggish, red when effectively stalled.
-fn fps_color(fps: f32) -> &'static str {
+const fn fps_color(fps: f32) -> &'static str {
     if fps >= 50.0 {
         "#4ade80"
     } else if fps >= 30.0 {

@@ -43,11 +43,11 @@ struct FpsInner {
 }
 
 impl FpsMeter {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             inner: RefCell::new(FpsInner {
-                frame_times: VecDeque::with_capacity(64),
-                samples: VecDeque::with_capacity(MAX_SAMPLES),
+                frame_times: VecDeque::new(),
+                samples: VecDeque::new(),
                 last_sample_at: 0.0,
             }),
         }
@@ -111,5 +111,11 @@ impl FpsMeter {
             return 0.0;
         }
         ((times.len() - 1) as f64 / (span / 1000.0)) as f32
+    }
+}
+
+impl Default for FpsMeter {
+    fn default() -> Self {
+        Self::new()
     }
 }

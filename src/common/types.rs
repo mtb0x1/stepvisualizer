@@ -11,8 +11,8 @@ use super::render::RenderablePart;
 pub struct FileId(pub String);
 
 impl FileId {
-    pub fn as_str(&self) -> &str {
-        &self.0
+    pub const fn as_str(&self) -> &str {
+        self.0.as_str()
     }
 }
 
@@ -75,7 +75,7 @@ impl ViewportSize {
     };
 
     /// Construct new viewport dimensions.
-    pub fn new(width: u32, height: u32) -> Self {
+    pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
 
@@ -88,7 +88,7 @@ impl ViewportSize {
     }
 
     /// Whether both width and height are non-zero.
-    pub fn is_valid(&self) -> bool {
+    pub const fn is_valid(&self) -> bool {
         self.width > 0 && self.height > 0
     }
 
@@ -117,7 +117,7 @@ pub enum LengthUnit {
 
 impl LengthUnit {
     /// Standard unit symbol ("mm", "cm", "m", etc.).
-    pub fn symbol(&self) -> &'static str {
+    pub const fn symbol(&self) -> &'static str {
         match self {
             Self::Millimetre => "mm",
             Self::Centimetre => "cm",
@@ -229,7 +229,7 @@ impl BoundingBox {
     };
 
     /// Create a bounding box with the given min and max coordinates.
-    pub fn new(min: [f64; 3], max: [f64; 3]) -> Self {
+    pub const fn new(min: [f64; 3], max: [f64; 3]) -> Self {
         Self { min, max }
     }
 
@@ -243,7 +243,7 @@ impl BoundingBox {
     }
 
     /// Center point of the bounding box as f64.
-    pub fn center(&self) -> [f64; 3] {
+    pub const fn center(&self) -> [f64; 3] {
         [
             (self.min[0] + self.max[0]) * 0.5,
             (self.min[1] + self.max[1]) * 0.5,
@@ -258,27 +258,26 @@ impl BoundingBox {
     }
 
     /// Dimensions (width, height, depth) as f64.
-    pub fn size(&self) -> [f64; 3] {
-        [
-            (self.max[0] - self.min[0]).max(0.0),
-            (self.max[1] - self.min[1]).max(0.0),
-            (self.max[2] - self.min[2]).max(0.0),
-        ]
+    pub const fn size(&self) -> [f64; 3] {
+        [self.size_x(), self.size_y(), self.size_z()]
     }
 
     /// Size along the X axis.
-    pub fn size_x(&self) -> f64 {
-        (self.max[0] - self.min[0]).max(0.0)
+    pub const fn size_x(&self) -> f64 {
+        let diff = self.max[0] - self.min[0];
+        if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Size along the Y axis.
-    pub fn size_y(&self) -> f64 {
-        (self.max[1] - self.min[1]).max(0.0)
+    pub const fn size_y(&self) -> f64 {
+        let diff = self.max[1] - self.min[1];
+        if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Size along the Z axis.
-    pub fn size_z(&self) -> f64 {
-        (self.max[2] - self.min[2]).max(0.0)
+    pub const fn size_z(&self) -> f64 {
+        let diff = self.max[2] - self.min[2];
+        if diff > 0.0 { diff } else { 0.0 }
     }
 
     /// Maximum dimension across X, Y, Z as f64.

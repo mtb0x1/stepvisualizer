@@ -47,6 +47,9 @@ pub struct PartGpu {
     pub uniforms_dirty: bool,
 }
 
+const ZERO_MAT4: [f32; 16] = [0.0; 16];
+const ZERO_COLOR: [f32; 4] = [0.0; 4];
+
 impl PartGpu {
     /// Allocate vertex, index, and uniform buffers on `device` for `part`, and
     /// construct the matching part bind group under `layout`.
@@ -67,12 +70,12 @@ impl PartGpu {
         });
         let model_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Model Uniform Buffer"),
-            contents: bytemuck::bytes_of(&[0.0f32; 16]),
+            contents: bytemuck::bytes_of(&ZERO_MAT4),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
         let color_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Color Uniform Buffer"),
-            contents: bytemuck::bytes_of(&[0.0f32; 4]),
+            contents: bytemuck::bytes_of(&ZERO_COLOR),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         });
 
