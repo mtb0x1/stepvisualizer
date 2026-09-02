@@ -3,12 +3,7 @@ use glam::Vec3;
 /// Converts spherical coordinates (azimuth, elevation, distance) around a
 /// `target` center into Cartesian 3D coordinates.
 #[inline(always)]
-pub fn spherical_to_cartesian(
-    azimuth: f32,
-    elevation: f32,
-    distance: f32,
-    target: Vec3,
-) -> Vec3 {
+pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, target: Vec3) -> Vec3 {
     target
         + Vec3::new(
             distance * azimuth.cos() * elevation.cos(),

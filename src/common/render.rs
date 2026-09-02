@@ -270,8 +270,16 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let d1 = Vec3::new((p1.x - p0.x) as f32, (p1.y - p0.y) as f32, (p1.z - p0.z) as f32);
-        let d2 = Vec3::new((p2.x - p0.x) as f32, (p2.y - p0.y) as f32, (p2.z - p0.z) as f32);
+        let d1 = Vec3::new(
+            (p1.x - p0.x) as f32,
+            (p1.y - p0.y) as f32,
+            (p1.z - p0.z) as f32,
+        );
+        let d2 = Vec3::new(
+            (p2.x - p0.x) as f32,
+            (p2.y - p0.y) as f32,
+            (p2.z - p0.z) as f32,
+        );
         let fallback_normal = d1.cross(d2).normalize_or(Vec3::Y).to_array();
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
@@ -539,7 +547,10 @@ mod tests {
         part.translate(Vec3::new(1.0, 2.0, 3.0));
         part.translate(Vec3::new(4.0, 5.0, 6.0));
 
-        assert_eq!(part.model_matrix.w_axis.truncate(), Vec3::new(5.0, 7.0, 9.0));
+        assert_eq!(
+            part.model_matrix.w_axis.truncate(),
+            Vec3::new(5.0, 7.0, 9.0)
+        );
     }
 
     /// Verifies serde serialization and deserialization roundtrip for RenderablePart.

@@ -2,7 +2,10 @@
 use std::rc::Rc;
 
 use crate::{
-    common::{BoundingBox, Mat4, RenderablePart, Vec3, ViewportSize, fps_meter::FpsMeter},
+    common::{
+        BoundingBox, RenderablePart, Vec3, ViewportSize, fps_meter::FpsMeter, look_at_mat4,
+        perspective,
+    },
     error::StepVizError,
     rendering::camera::CameraState,
     rendering::wgpu_state::{PartGpu, WgpuState},
@@ -86,13 +89,13 @@ pub async fn render_wgpu_on_canvas(
         ..(*camera).clone()
     };
     let eye = camera_target.eye_position();
-    let view_matrix = Mat4::look_at_rh(eye, view_target, Vec3::Y);
+    let view_matrix = look_at_mat4(eye, view_target, Vec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
     let fov_y = std::f32::consts::PI / 3.0;
     let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
-    let projection_matrix = Mat4::perspective_rh_gl(fov_y, aspect, near, far);
+    let projection_matrix = perspective(fov_y, aspect, near, far);
 
     // wgpu 30 returns `CurrentSurfaceTexture` instead of a `Result`:
     // - Success / Suboptimal hand us a presentable texture (Suboptimal also

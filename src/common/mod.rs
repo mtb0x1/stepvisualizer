@@ -11,7 +11,9 @@ pub mod time;
 pub mod types;
 
 pub use cache::LruCache;
-pub use glam::{Mat4, Vec3};
+pub use glam::Vec3;
+pub use glam::camera::rh::proj::opengl::perspective;
+pub use glam::camera::rh::view::look_at_mat4;
 #[allow(unused_imports)]
 pub use parser::{
     all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header, parse_units,
