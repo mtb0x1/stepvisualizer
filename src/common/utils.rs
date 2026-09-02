@@ -7,6 +7,7 @@ use glam::Vec3;
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
 use crate::common::types::BoundingBox;
+use ruststep::ast::Parameter;
 
 /// Case-insensitive ASCII substring search without heap allocations.
 pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
@@ -291,6 +292,31 @@ pub fn input_file(event: &web_sys::Event) -> Option<web_sys::File> {
     input.files()?.get(0)
 }
 
+/// Extracts a slice of `Parameter`s if the parameter is a `Parameter::List`.
+pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
+    match param {
+        Parameter::List(list) => Some(list.as_slice()),
+        _ => None,
+    }
+}
+
+/// Extracts the string slice if the parameter is a `Parameter::Enumeration`.
+pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
+    match param {
+        Parameter::Enumeration(value) => Some(value.as_str()),
+        _ => None,
+    }
+}
+
+/// Extracts a string slice if the parameter is either `Parameter::Enumeration` or `Parameter::String`.
+pub const fn param_as_str(param: &Parameter) -> Option<&str> {
+    match param {
+        Parameter::Enumeration(value) => Some(value.as_str()),
+        Parameter::String(value) => Some(value.as_str()),
+        _ => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,5 +458,26 @@ mod tests {
         let (min_no_unit, max_no_unit) = format_bbox_coordinates(min, max, None);
         assert_eq!(min_no_unit, "min: 1.123, 2.568, 3.900");
         assert_eq!(max_no_unit, "max: 10.000, 20.000, 30.000");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_param_helpers() {
+        let list_param = Parameter::List(vec![
+            Parameter::Enumeration("MILLI".to_string()),
+            Parameter::Enumeration("METRE".to_string()),
+        ]);
+        let enum_param = Parameter::Enumeration("INCH".to_string());
+        let str_param = Parameter::String("foot".to_string());
+        let int_param = Parameter::Integer(42);
+
+        assert_eq!(param_as_list(&list_param).map(|l| l.len()), Some(2));
+        assert_eq!(param_as_list(&enum_param), None);
+
+        assert_eq!(param_as_enum(&enum_param), Some("INCH"));
+        assert_eq!(param_as_enum(&str_param), None);
+
+        assert_eq!(param_as_str(&enum_param), Some("INCH"));
+        assert_eq!(param_as_str(&str_param), Some("foot"));
+        assert_eq!(param_as_str(&int_param), None);
     }
 }

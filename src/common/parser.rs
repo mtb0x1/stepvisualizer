@@ -1,9 +1,11 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use crate::apptracing::{AppTracer, AppTracerTrait};
 use crate::common::storage::hash_text_to_id;
-use crate::common::utils::contains_ignore_ascii_case;
+use crate::common::utils::{
+    contains_ignore_ascii_case, param_as_enum, param_as_list, param_as_str,
+};
 use crate::{error::StepVizError, trace_span};
-use ruststep::ast::{DataSection, EntityInstance, Exchange, Parameter, Record};
+use ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
 use ruststep::header::Header;
 
 const SUPPORTED_SCHEMAS: &[&str] = &[
@@ -97,28 +99,6 @@ pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option
 
 fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
     records.iter().find_map(unit_from_record)
-}
-
-const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
-    match param {
-        Parameter::List(list) => Some(list.as_slice()),
-        _ => None,
-    }
-}
-
-const fn param_as_enum(param: &Parameter) -> Option<&str> {
-    match param {
-        Parameter::Enumeration(value) => Some(value.as_str()),
-        _ => None,
-    }
-}
-
-const fn param_as_str(param: &Parameter) -> Option<&str> {
-    match param {
-        Parameter::Enumeration(value) => Some(value.as_str()),
-        Parameter::String(value) => Some(value.as_str()),
-        _ => None,
-    }
 }
 
 fn unit_from_record(record: &Record) -> Option<LengthUnit> {
