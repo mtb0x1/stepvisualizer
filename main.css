@@ -100,8 +100,8 @@ body {
     justify-content: center;
     gap: 1.5em;
     flex-wrap: wrap;
-    background: #fdfdfd;
-    border-bottom: 1px solid #e2e2e8;
+    background: #f3f3f7;
+    border-bottom: 1px solid #ddd;
 }
 
 .quality-preset-bar {
@@ -208,8 +208,8 @@ body {
 .result-message {
     padding: 0.4em 1em;
     font-size: 0.85em;
-    border-top: 1px solid #e2e2e8;
-    background: #fafbfc;
+    border-top: 1px solid #ddd;
+    background: #f3f3f7;
     min-height: 1.6em;
     box-sizing: border-box;
     white-space: pre-wrap;
