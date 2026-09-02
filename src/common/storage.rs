@@ -148,10 +148,12 @@ pub fn clear_all_storage(items: &[FileIndexItem]) {
 
     if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
         let count = storage.length().unwrap_or(0);
-        let mut keys_to_delete = Vec::new();
+        let mut keys_to_delete = Vec::with_capacity(count as usize);
+        let model_prefix = ls_model_key_prefix();
+        let index_key = ls_index_key();
         for i in 0..count {
             if let Ok(Some(key)) = storage.key(i)
-                && (key.starts_with(&ls_model_key_prefix()) || key == ls_index_key())
+                && (key.starts_with(model_prefix.as_ref()) || key == index_key.as_ref())
             {
                 keys_to_delete.push(key);
             }

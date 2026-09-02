@@ -135,6 +135,38 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
     None
 }
 
+/// this might be an overkill, but at least it is fast and const
+/// TODO: maybe this and other similare fns should be moved to
+/// utils.rs ?
+const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    let h = haystack.as_bytes();
+    let n = needle.as_bytes();
+    if n.is_empty() {
+        return true;
+    }
+    if n.len() > h.len() {
+        return false;
+    }
+    let max_start = h.len() - n.len();
+    let mut i = 0;
+    while i <= max_start {
+        let mut j = 0;
+        let mut matches = true;
+        while j < n.len() {
+            if !h[i + j].eq_ignore_ascii_case(&n[j]) {
+                matches = false;
+                break;
+            }
+            j += 1;
+        }
+        if matches {
+            return true;
+        }
+        i += 1;
+    }
+    false
+}
+
 /// Returns all data sections carrying usable STEP content, or a
 /// domain error explaining why the file has none.
 pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
@@ -177,8 +209,9 @@ pub fn build_initial_metadata(
         step_header.file_name = fallback_name.to_string();
     }
 
-    let schema_upper = step_header.file_schema.to_ascii_uppercase();
-    let is_supported = SUPPORTED_SCHEMAS.iter().any(|&s| schema_upper.contains(s));
+    let is_supported = SUPPORTED_SCHEMAS
+        .iter()
+        .any(|&s| contains_ignore_ascii_case(&step_header.file_schema, s));
     if !is_supported {
         return Err(StepVizError::UnsupportedSchema {
             schema: step_header.file_schema.clone(),

@@ -25,8 +25,11 @@ impl std::fmt::Display for FileId {
 impl FileId {
     /// Content-based model identity (16 hex chars) computed via stable XXH3-64 hash.
     pub fn from_content(text: &str) -> Self {
+        use std::fmt::Write;
         let hash = xxhash_rust::xxh3::xxh3_64(text.as_bytes());
-        Self(format!("{:016x}", hash))
+        let mut s = String::with_capacity(16);
+        let _ = write!(s, "{:016x}", hash);
+        Self(s)
     }
 }
 

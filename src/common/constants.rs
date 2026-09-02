@@ -16,53 +16,63 @@ pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file .
 /// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
 ///
 /// The result is computed once per page load and cached in a thread-local.
-fn detect_env_prefix() -> String {
+fn detect_env_prefix() -> &'static str {
     let path = web_sys::window()
         .and_then(|w| w.location().pathname().ok())
         .unwrap_or_default();
     if path.contains("/testing") {
-        "testing:".to_string()
+        "testing:"
     } else if path.contains("/production") {
-        "production:".to_string()
+        "production:"
     } else {
-        String::new()
+        ""
     }
 }
 
 /// Returns the per-environment storage prefix (cached after first call).
-pub fn env_prefix() -> String {
+pub fn env_prefix() -> &'static str {
     std::thread_local! {
-        static CACHE: std::cell::OnceCell<String> = const { std::cell::OnceCell::new() };
+        static CACHE: std::cell::OnceCell<&'static str> = const { std::cell::OnceCell::new() };
     }
-    CACHE.with(|c| c.get_or_init(detect_env_prefix).clone())
+    CACHE.with(|c| *c.get_or_init(detect_env_prefix))
 }
 
 /// localStorage key for the recent-files index (`Vec<FileIndexItem>`),
 /// namespaced by deployment environment.
 ///
 /// Examples: `"stepviz:index"` (dev), `"testing:stepviz:index"`, `"production:stepviz:index"`.
-pub fn ls_index_key() -> String {
-    format!("{}stepviz:index", env_prefix())
+pub fn ls_index_key() -> std::borrow::Cow<'static, str> {
+    let prefix = env_prefix();
+    if prefix.is_empty() {
+        std::borrow::Cow::Borrowed("stepviz:index")
+    } else {
+        std::borrow::Cow::Owned(format!("{prefix}stepviz:index"))
+    }
 }
 
 /// Prefix for per-model localStorage keys, namespaced by deployment environment.
 ///
 /// Full key format: `<env_prefix>stepviz:model:<id>`.
 /// Examples: `"stepviz:model:"` (dev), `"testing:stepviz:model:"`, `"production:stepviz:model:"`.
-pub fn ls_model_key_prefix() -> String {
-    format!("{}stepviz:model:", env_prefix())
+pub fn ls_model_key_prefix() -> std::borrow::Cow<'static, str> {
+    let prefix = env_prefix();
+    if prefix.is_empty() {
+        std::borrow::Cow::Borrowed("stepviz:model:")
+    } else {
+        std::borrow::Cow::Owned(format!("{prefix}stepviz:model:"))
+    }
 }
 
 /// IndexedDB database name, namespaced by deployment environment.
 ///
 /// Examples: `"stepviz_db"` (dev), `"stepviz_db_testing"`, `"stepviz_db_production"`.
-pub fn db_name() -> String {
+pub fn db_name() -> std::borrow::Cow<'static, str> {
     let prefix = env_prefix();
     if prefix.is_empty() {
-        "stepviz_db".to_string()
+        std::borrow::Cow::Borrowed("stepviz_db")
     } else {
         // Strip trailing ":" from prefix ("testing:" → "stepviz_db_testing")
-        format!("stepviz_db_{}", prefix.trim_end_matches(':'))
+        std::borrow::Cow::Owned(format!("stepviz_db_{}", prefix.trim_end_matches(':')))
     }
 }
 /// Placeholder shown for missing metadata fields in the UI.

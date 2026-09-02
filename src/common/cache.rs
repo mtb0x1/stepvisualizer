@@ -26,15 +26,17 @@ impl LruCache {
 
     // Capacity is tiny (CACHE_SIZE = 5), so a linear scan here is cheaper than
     // the pointer bookkeeping a true O(1) linked-list LRU would require.
-    fn remove_from_order(&mut self, id: &str) {
+    fn remove_from_order(&mut self, id: &str) -> Option<FileId> {
         if let Some(pos) = self.order.iter().position(|k| k.as_str() == id) {
-            self.order.remove(pos);
+            self.order.remove(pos)
+        } else {
+            None
         }
     }
 
     fn touch(&mut self, id: &str) {
-        self.remove_from_order(id);
-        self.order.push_front(FileId::from(id));
+        let file_id = self.remove_from_order(id).unwrap_or_else(|| FileId::from(id));
+        self.order.push_front(file_id);
     }
 
     /// Returns a shared reference to the model under `id`, promoting it to
@@ -79,9 +81,9 @@ impl LruCache {
         if self.capacity == 0 {
             return;
         }
-        let id_str = id.to_string();
+        self.remove_from_order(id.as_str());
+        self.order.push_front(id.clone());
         self.map.insert(id, model);
-        self.touch(&id_str);
         // `>` (not `==`) so any map/order desync self-heals on the next
         // insertion instead of growing past capacity forever.
         while self.map.len() > self.capacity {
