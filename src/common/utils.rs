@@ -1,7 +1,11 @@
 //! General utilities: pure text processing, math, formatting, color mapping, and Web/DOM helpers.
 use std::borrow::Cow;
 
-use crate::common::constants::NA;
+use glam::Vec3;
+
+use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
+use crate::common::render::{RenderablePart, visible_bounds};
+use crate::common::types::BoundingBox;
 
 /// Case-insensitive ASCII substring search without heap allocations.
 pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
@@ -52,6 +56,74 @@ pub fn clean_unit_name(name: &str) -> &str {
     name.trim().trim_matches('\'').trim_matches('"')
 }
 
+/// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
+#[inline(always)]
+pub fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
+    let p0 = [v0[0] as f64, v0[1] as f64, v0[2] as f64];
+    let p1 = [v1[0] as f64, v1[1] as f64, v1[2] as f64];
+    let p2 = [v2[0] as f64, v2[1] as f64, v2[2] as f64];
+    let cross_x = p1[1] * p2[2] - p1[2] * p2[1];
+    let cross_y = p1[2] * p2[0] - p1[0] * p2[2];
+    let cross_z = p1[0] * p2[1] - p1[1] * p2[0];
+    p0[0] * cross_x + p0[1] * cross_y + p0[2] * cross_z
+}
+
+/// Area of a single 3D triangle with vertices v0, v1, v2.
+#[inline(always)]
+pub fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
+    let edge1 = [
+        (v1[0] - v0[0]) as f64,
+        (v1[1] - v0[1]) as f64,
+        (v1[2] - v0[2]) as f64,
+    ];
+    let edge2 = [
+        (v2[0] - v0[0]) as f64,
+        (v2[1] - v0[1]) as f64,
+        (v2[2] - v0[2]) as f64,
+    ];
+    let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
+    let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
+    let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
+    0.5 * (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt()
+}
+
+/// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into Cartesian 3D coordinates.
+#[inline(always)]
+pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, target: Vec3) -> Vec3 {
+    target
+        + Vec3::new(
+            distance * azimuth.cos() * elevation.cos(),
+            distance * elevation.sin(),
+            distance * azimuth.sin() * elevation.cos(),
+        )
+}
+
+/// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
+pub fn compute_adaptive_tolerance(bbox: Option<&BoundingBox>) -> f64 {
+    if let Some(bbox) = bbox {
+        let extent = bbox.max_extent();
+        if extent > 0.0 {
+            return (extent * 0.001).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
+        }
+    }
+    DEFAULT_TOLERANCE
+}
+
+/// Bounding-box center across all parts; `Vec3::ZERO` when there is no geometry.
+pub fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
+    visible_bounds(parts, &[])
+        .map(|b| b.center_f32())
+        .unwrap_or(Vec3::ZERO)
+}
+
+/// Computes a normalized geometric face normal from three points, falling back to Vec3::Y if degenerate.
+#[inline(always)]
+pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> [f32; 3] {
+    let d1 = p1 - p0;
+    let d2 = p2 - p0;
+    d1.cross(d2).normalize_or(Vec3::Y).to_array()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -96,5 +168,71 @@ mod tests {
         assert_eq!(clean_unit_name("  'MM'  "), "MM");
         assert_eq!(clean_unit_name("\"INCH\""), "INCH");
         assert_eq!(clean_unit_name("  MILLIMETRE  "), "MILLIMETRE");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_triangle_signed_volume() {
+        // Tetrahedron with vertices (0,0,0), (1,0,0), (0,1,0), (0,0,1)
+        // Expected signed volume = 1.0 (before dividing by 6.0 in calculate_volume)
+        let v0 = [1.0, 0.0, 0.0];
+        let v1 = [0.0, 1.0, 0.0];
+        let v2 = [0.0, 0.0, 1.0];
+        let vol = triangle_signed_volume(v0, v1, v2);
+        approx::assert_relative_eq!(vol, 1.0, epsilon = 1e-6);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_triangle_area() {
+        // Right-angle triangle with legs 1.0 along X and Y
+        let v0 = [0.0, 0.0, 0.0];
+        let v1 = [1.0, 0.0, 0.0];
+        let v2 = [0.0, 1.0, 0.0];
+        let area = triangle_area(v0, v1, v2);
+        approx::assert_relative_eq!(area, 0.5, epsilon = 1e-6);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_spherical_to_cartesian() {
+        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, Vec3::ZERO);
+        approx::assert_relative_eq!(pos.x, 5.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos.y, 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos.z, 0.0, epsilon = 1e-6);
+
+        let target = Vec3::new(1.0, 2.0, 3.0);
+        let pos_offset = spherical_to_cartesian(0.0, 0.0, 5.0, target);
+        approx::assert_relative_eq!(pos_offset.x, 6.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos_offset.y, 2.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos_offset.z, 3.0, epsilon = 1e-6);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_compute_adaptive_tolerance() {
+        assert_eq!(compute_adaptive_tolerance(None), DEFAULT_TOLERANCE);
+
+        let small_bbox = BoundingBox::new([0.0, 0.0, 0.0], [0.01, 0.01, 0.01]);
+        assert_eq!(compute_adaptive_tolerance(Some(&small_bbox)), MIN_TOLERANCE);
+
+        let huge_bbox = BoundingBox::new([0.0, 0.0, 0.0], [1000.0, 1000.0, 1000.0]);
+        assert_eq!(compute_adaptive_tolerance(Some(&huge_bbox)), MAX_TOLERANCE);
+
+        let mid_bbox = BoundingBox::new([0.0, 0.0, 0.0], [10.0, 10.0, 10.0]);
+        approx::assert_relative_eq!(
+            compute_adaptive_tolerance(Some(&mid_bbox)),
+            0.01,
+            epsilon = 1e-6
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_geometric_normal() {
+        let p0 = Vec3::new(0.0, 0.0, 0.0);
+        let p1 = Vec3::new(1.0, 0.0, 0.0);
+        let p2 = Vec3::new(0.0, 1.0, 0.0);
+        let normal = geometric_normal(p0, p1, p2);
+        assert_eq!(normal, [0.0, 0.0, 1.0]);
+
+        // Degenerate colinear triangle falls back to Vec3::Y
+        let degenerate_normal = geometric_normal(p0, p1, Vec3::new(2.0, 0.0, 0.0));
+        assert_eq!(degenerate_normal, [0.0, 1.0, 0.0]);
     }
 }

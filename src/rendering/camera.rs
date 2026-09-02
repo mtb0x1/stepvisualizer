@@ -1,16 +1,6 @@
 use glam::Vec3;
 
-/// Converts spherical coordinates (azimuth, elevation, distance) around a
-/// `target` center into Cartesian 3D coordinates.
-#[inline(always)]
-pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, target: Vec3) -> Vec3 {
-    target
-        + Vec3::new(
-            distance * azimuth.cos() * elevation.cos(),
-            distance * elevation.sin(),
-            distance * azimuth.sin() * elevation.cos(),
-        )
-}
+pub use crate::common::utils::spherical_to_cartesian;
 
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
 /// point. Dragging mutates the angles, zooming the distance; the target is

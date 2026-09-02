@@ -142,16 +142,7 @@ pub const MIN_TOLERANCE: f64 = 1e-4;
 /// Maximum tessellation tolerance (ensures adequate curve smoothness on tiny models).
 pub const MAX_TOLERANCE: f64 = 0.05;
 
-/// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
-pub fn compute_adaptive_tolerance(bbox: Option<&crate::common::types::BoundingBox>) -> f64 {
-    if let Some(bbox) = bbox {
-        let extent = bbox.max_extent();
-        if extent > 0.0 {
-            return (extent * 0.001).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
-        }
-    }
-    DEFAULT_TOLERANCE
-}
+pub use crate::common::utils::compute_adaptive_tolerance;
 
 /// User-selectable tessellation quality trade-off. The chosen variant applies
 /// a multiplier to the adaptive tolerance computed from the model bounding box.

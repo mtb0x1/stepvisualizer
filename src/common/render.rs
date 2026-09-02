@@ -13,6 +13,9 @@ use truck_meshalgo::prelude::*;
 use crate::common::constants::part_color;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
+use crate::common::utils::{
+    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
+};
 use glam::{Mat4, Vec3};
 
 /// Vertex layout shared with the render pipeline: position + normal, both
@@ -107,37 +110,6 @@ impl RenderablePart {
     }
 }
 
-/// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
-#[inline(always)]
-fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let p0 = [v0[0] as f64, v0[1] as f64, v0[2] as f64];
-    let p1 = [v1[0] as f64, v1[1] as f64, v1[2] as f64];
-    let p2 = [v2[0] as f64, v2[1] as f64, v2[2] as f64];
-    let cross_x = p1[1] * p2[2] - p1[2] * p2[1];
-    let cross_y = p1[2] * p2[0] - p1[0] * p2[2];
-    let cross_z = p1[0] * p2[1] - p1[1] * p2[0];
-    p0[0] * cross_x + p0[1] * cross_y + p0[2] * cross_z
-}
-
-/// Area of a single triangle with vertices v0, v1, v2.
-#[inline(always)]
-fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let edge1 = [
-        (v1[0] - v0[0]) as f64,
-        (v1[1] - v0[1]) as f64,
-        (v1[2] - v0[2]) as f64,
-    ];
-    let edge2 = [
-        (v2[0] - v0[0]) as f64,
-        (v2[1] - v0[1]) as f64,
-        (v2[2] - v0[2]) as f64,
-    ];
-    let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
-    let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
-    let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
-    0.5 * (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt()
-}
-
 /// Tessellate `step_table` into renderable parts — or return the cached
 /// result for `file_id` when it was computed earlier this session.
 ///
@@ -223,13 +195,6 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
     }
 }
 
-/// Bounding-box center across all parts; `Vec3::ZERO` when there is no geometry.
-fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
-    visible_bounds(parts, &[])
-        .map(|b| b.center_f32())
-        .unwrap_or(Vec3::ZERO)
-}
-
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
 ///
 /// `orientation` is the shell face's orientation flag. Reversed faces get
@@ -271,17 +236,11 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let d1 = Vec3::new(
-            (p1.x - p0.x) as f32,
-            (p1.y - p0.y) as f32,
-            (p1.z - p0.z) as f32,
+        let fallback_normal = geometric_normal(
+            Vec3::new(p0.x as f32, p0.y as f32, p0.z as f32),
+            Vec3::new(p1.x as f32, p1.y as f32, p1.z as f32),
+            Vec3::new(p2.x as f32, p2.y as f32, p2.z as f32),
         );
-        let d2 = Vec3::new(
-            (p2.x - p0.x) as f32,
-            (p2.y - p0.y) as f32,
-            (p2.z - p0.z) as f32,
-        );
-        let fallback_normal = d1.cross(d2).normalize_or(Vec3::Y).to_array();
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
         for i in 1..(face.len() - 1) {
