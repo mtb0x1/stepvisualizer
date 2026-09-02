@@ -81,12 +81,12 @@ pub async fn render_wgpu_on_canvas(
     // swallow the camera (eye ends up inside the geometry).
     let fit_distance = camera.distance * max_size;
     let camera_target = CameraState {
-        target: [view_target.x, view_target.y, view_target.z],
+        target: view_target,
         distance: fit_distance,
         ..(*camera).clone()
     };
     let eye = camera_target.eye_position();
-    let view_matrix = Mat4::look_at_rh(Vec3::from(eye), view_target, Vec3::Y);
+    let view_matrix = Mat4::look_at_rh(eye, view_target, Vec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
     let fov_y = std::f32::consts::PI / 3.0;

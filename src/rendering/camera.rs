@@ -1,17 +1,20 @@
+use glam::Vec3;
+
 /// Converts spherical coordinates (azimuth, elevation, distance) around a
-/// `target` center into Cartesian 3D coordinates `[x, y, z]`.
+/// `target` center into Cartesian 3D coordinates.
 #[inline(always)]
 pub fn spherical_to_cartesian(
     azimuth: f32,
     elevation: f32,
     distance: f32,
-    target: [f32; 3],
-) -> [f32; 3] {
-    [
-        target[0] + distance * azimuth.cos() * elevation.cos(),
-        target[1] + distance * elevation.sin(),
-        target[2] + distance * azimuth.sin() * elevation.cos(),
-    ]
+    target: Vec3,
+) -> Vec3 {
+    target
+        + Vec3::new(
+            distance * azimuth.cos() * elevation.cos(),
+            distance * elevation.sin(),
+            distance * azimuth.sin() * elevation.cos(),
+        )
 }
 
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
@@ -22,7 +25,7 @@ pub struct CameraState {
     pub azimuth: f32,
     pub elevation: f32,
     pub distance: f32,
-    pub target: [f32; 3],
+    pub target: Vec3,
 }
 
 impl CameraState {
@@ -31,15 +34,12 @@ impl CameraState {
     pub const DEFAULT: Self = Self {
         azimuth: 0.5,
         elevation: 0.5,
-        // Framed relative to the origin-centered model (size ~1). The far
-        // plane is `max_size * 100`, so an eye this far out would clip the
-        // model away; the camera presets use the same 2.5-3.0 range.
         distance: 3.0,
-        target: [0.0, 0.0, 0.0],
+        target: Vec3::ZERO,
     };
 
     /// Computes the 3D eye position in world space for this orbit camera.
-    pub fn eye_position(&self) -> [f32; 3] {
+    pub fn eye_position(&self) -> Vec3 {
         spherical_to_cartesian(self.azimuth, self.elevation, self.distance, self.target)
     }
 
@@ -113,5 +113,41 @@ impl CameraPreset {
             distance: self.distance,
             target: current.target,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    #[wasm_bindgen_test]
+    fn test_camera_default() {
+        let camera = CameraState::default();
+        assert_eq!(camera.target, Vec3::ZERO);
+        assert_eq!(camera.distance, 3.0);
+        assert_eq!(camera.azimuth, 0.5);
+        assert_eq!(camera.elevation, 0.5);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_spherical_to_cartesian() {
+        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, Vec3::ZERO);
+        approx::assert_relative_eq!(pos.x, 5.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos.y, 0.0, epsilon = 1e-6);
+        approx::assert_relative_eq!(pos.z, 0.0, epsilon = 1e-6);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_camera_orbit_and_zoom() {
+        let camera = CameraState::default();
+        let orbited = camera.orbit(10.0, 5.0);
+        assert_eq!(orbited.azimuth, 0.5 - 0.1);
+        assert_eq!(orbited.elevation, 0.5 - 0.05);
+
+        let zoomed = camera.zoom(2.0);
+        assert_eq!(zoomed.distance, 6.0);
     }
 }
