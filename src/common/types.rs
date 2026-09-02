@@ -251,10 +251,10 @@ impl BoundingBox {
         ]
     }
 
-    /// Center point converted to `[f32; 3]` for GPU and camera framing.
-    pub fn center_f32(&self) -> [f32; 3] {
+    /// Center point converted to `Vec3` for GPU and camera framing.
+    pub fn center_f32(&self) -> glam::Vec3 {
         let c = self.center();
-        [c[0] as f32, c[1] as f32, c[2] as f32]
+        glam::Vec3::new(c[0] as f32, c[1] as f32, c[2] as f32)
     }
 
     /// Dimensions (width, height, depth) as f64.
@@ -454,7 +454,7 @@ mod tests {
         let bbox = BoundingBox::new([-10.0, -20.0, -30.0], [10.0, 20.0, 30.0]);
 
         assert_eq!(bbox.center(), [0.0, 0.0, 0.0]);
-        assert_eq!(bbox.center_f32(), [0.0, 0.0, 0.0]);
+        assert_eq!(bbox.center_f32(), glam::Vec3::ZERO);
     }
 
     /// Verifies that size, size_x, size_y, size_z, and max_extent compute accurate bounding dimensions.
@@ -500,7 +500,7 @@ mod tests {
                 })
                 .collect(),
             indices: (0..30).collect(), // 30 indices = 10 triangles
-            model_matrix: crate::common::math::Mat4::IDENTITY,
+            model_matrix: glam::Mat4::IDENTITY,
             color: [1.0, 1.0, 1.0, 1.0],
         };
 
@@ -512,7 +512,7 @@ mod tests {
                 })
                 .collect(),
             indices: (0..12).collect(), // 12 indices = 4 triangles
-            model_matrix: crate::common::math::Mat4::IDENTITY,
+            model_matrix: glam::Mat4::IDENTITY,
             color: [1.0, 1.0, 1.0, 1.0],
         };
 
@@ -570,7 +570,7 @@ mod tests {
                 },
             ],
             indices: vec![0, 1, 2],
-            model_matrix: crate::common::math::Mat4::IDENTITY,
+            model_matrix: glam::Mat4::IDENTITY,
             color: [1.0, 1.0, 1.0, 1.0],
         };
 
@@ -590,7 +590,7 @@ mod tests {
                 },
             ],
             indices: vec![0, 1, 2],
-            model_matrix: crate::common::math::Mat4::IDENTITY,
+            model_matrix: glam::Mat4::IDENTITY,
             color: [1.0, 1.0, 1.0, 1.0],
         };
 

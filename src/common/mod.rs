@@ -4,7 +4,6 @@
 pub mod cache;
 pub mod constants;
 pub mod fps_meter;
-pub mod math;
 pub mod parser;
 pub mod render;
 pub mod storage;
@@ -12,9 +11,7 @@ pub mod time;
 pub mod types;
 
 pub use cache::LruCache;
-pub use math::{
-    create_look_at_matrix, create_perspective_matrix, multiply_matrices, spherical_to_cartesian,
-};
+pub use glam::{Mat4, Vec3};
 #[allow(unused_imports)]
 pub use parser::{
     all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header, parse_units,

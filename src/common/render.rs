@@ -11,9 +11,9 @@ use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
 use crate::common::constants::part_color;
-use crate::common::math::Mat4;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
+use glam::{Mat4, Vec3};
 
 /// Vertex layout shared with the render pipeline: position + normal, both
 /// `Float32x3`.
@@ -58,10 +58,8 @@ impl RenderablePart {
     }
 
     /// Translates the part's model matrix by `offset`.
-    pub fn translate(&mut self, offset: [f32; 3]) {
-        self.model_matrix.0[12] += offset[0];
-        self.model_matrix.0[13] += offset[1];
-        self.model_matrix.0[14] += offset[2];
+    pub fn translate(&mut self, offset: Vec3) {
+        self.model_matrix.w_axis += offset.extend(0.0);
     }
 
     /// Iterate over the triangles referenced by the index buffer.
@@ -190,7 +188,7 @@ pub fn extract_render_parts(
     // translation into each part's model matrix. This keeps the geometry
     // immutable across frames so the renderer no longer needs to mutate it.
     let center = compute_parts_center(&parts_to_render);
-    let offset = [-center[0], -center[1], -center[2]];
+    let offset = -center;
     for part in &mut parts_to_render {
         part.translate(offset);
     }
@@ -225,11 +223,11 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
     }
 }
 
-/// Bounding-box center across all parts; `[0,0,0]` when there is no geometry.
-fn compute_parts_center(parts: &[RenderablePart]) -> [f32; 3] {
+/// Bounding-box center across all parts; `Vec3::ZERO` when there is no geometry.
+fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
     visible_bounds(parts, &[])
         .map(|b| b.center_f32())
-        .unwrap_or([0.0, 0.0, 0.0])
+        .unwrap_or(Vec3::ZERO)
 }
 
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
@@ -272,23 +270,9 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let d1 = [p1.x - p0.x, p1.y - p0.y, p1.z - p0.z];
-        let d2 = [p2.x - p0.x, p2.y - p0.y, p2.z - p0.z];
-        let cross = [
-            d1[1] * d2[2] - d1[2] * d2[1],
-            d1[2] * d2[0] - d1[0] * d2[2],
-            d1[0] * d2[1] - d1[1] * d2[0],
-        ];
-        let len = (cross[0] * cross[0] + cross[1] * cross[1] + cross[2] * cross[2]).sqrt();
-        let fallback_normal = if len > 1e-12 {
-            [
-                (cross[0] / len) as f32,
-                (cross[1] / len) as f32,
-                (cross[2] / len) as f32,
-            ]
-        } else {
-            [0.0, 1.0, 0.0]
-        };
+        let d1 = Vec3::new((p1.x - p0.x) as f32, (p1.y - p0.y) as f32, (p1.z - p0.z) as f32);
+        let d2 = Vec3::new((p2.x - p0.x) as f32, (p2.y - p0.y) as f32, (p2.z - p0.z) as f32);
+        let fallback_normal = d1.cross(d2).normalize_or(Vec3::Y).to_array();
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
         for i in 1..(face.len() - 1) {
@@ -548,29 +532,24 @@ mod tests {
         assert_eq!(part.triangle_count(), 12);
     }
 
-    /// Verifies that translating a part initialized with the identity matrix sets the column 3 translation terms.
-    #[wasm_bindgen_test]
-    fn part_translate_identity() {
-        let mut part = RenderablePart::default();
-        part.translate([5.0, -3.0, 2.0]);
-
-        assert_eq!(part.model_matrix.0[12], 5.0);
-        assert_eq!(part.model_matrix.0[13], -3.0);
-        assert_eq!(part.model_matrix.0[14], 2.0);
-        assert_eq!(part.model_matrix.0[15], 1.0);
-    }
-
-    /// Verifies that successive translate calls accumulate translations additively into the model matrix.
+    /// Verifies that translating a part updates its model matrix translation column.
     #[wasm_bindgen_test]
     fn part_translate_accumulation() {
         let mut part = RenderablePart::default();
-        part.translate([1.0, 0.0, 0.0]);
-        part.translate([2.0, 0.0, 0.0]);
+        part.translate(Vec3::new(1.0, 2.0, 3.0));
+        part.translate(Vec3::new(4.0, 5.0, 6.0));
 
-        assert_eq!(part.model_matrix.0[12], 3.0);
-        assert_eq!(part.model_matrix.0[13], 0.0);
-        assert_eq!(part.model_matrix.0[14], 0.0);
-        assert_eq!(part.model_matrix.0[15], 1.0);
+        assert_eq!(part.model_matrix.w_axis.truncate(), Vec3::new(5.0, 7.0, 9.0));
+    }
+
+    /// Verifies serde serialization and deserialization roundtrip for RenderablePart.
+    #[wasm_bindgen_test]
+    fn renderable_part_serde_roundtrip() {
+        let mut part = RenderablePart::default();
+        part.translate(Vec3::new(10.0, 20.0, 30.0));
+        let json = serde_json::to_string(&part).expect("serialize part");
+        let deserialized: RenderablePart = serde_json::from_str(&json).expect("deserialize part");
+        assert_eq!(part, deserialized);
     }
 
     fn create_box_part(min_x: f32, max_x: f32) -> RenderablePart {

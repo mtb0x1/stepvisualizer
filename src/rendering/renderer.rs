@@ -2,10 +2,7 @@
 use std::rc::Rc;
 
 use crate::{
-    common::{
-        BoundingBox, RenderablePart, ViewportSize, create_look_at_matrix,
-        create_perspective_matrix, fps_meter::FpsMeter, multiply_matrices,
-    },
+    common::{BoundingBox, Mat4, RenderablePart, Vec3, ViewportSize, fps_meter::FpsMeter},
     error::StepVizError,
     rendering::camera::CameraState,
     rendering::wgpu_state::{PartGpu, WgpuState},
@@ -84,18 +81,18 @@ pub async fn render_wgpu_on_canvas(
     // swallow the camera (eye ends up inside the geometry).
     let fit_distance = camera.distance * max_size;
     let camera_target = CameraState {
-        target: view_target,
+        target: [view_target.x, view_target.y, view_target.z],
         distance: fit_distance,
         ..(*camera).clone()
     };
     let eye = camera_target.eye_position();
-    let view_matrix = create_look_at_matrix(eye, view_target, [0.0, 1.0, 0.0]);
+    let view_matrix = Mat4::look_at_rh(Vec3::from(eye), view_target, Vec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
     let fov_y = std::f32::consts::PI / 3.0;
     let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
-    let projection_matrix = create_perspective_matrix(fov_y, aspect, near, far);
+    let projection_matrix = Mat4::perspective_rh_gl(fov_y, aspect, near, far);
 
     // wgpu 30 returns `CurrentSurfaceTexture` instead of a `Result`:
     // - Success / Suboptimal hand us a presentable texture (Suboptimal also
@@ -139,7 +136,7 @@ pub async fn render_wgpu_on_canvas(
         label: Some("Main Command Encoder"),
     });
 
-    let view_proj = multiply_matrices(&projection_matrix, &view_matrix);
+    let view_proj = projection_matrix * view_matrix;
     queue.write_buffer(view_proj_buffer, 0, bytemuck::bytes_of(&view_proj));
 
     {
