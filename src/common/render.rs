@@ -14,7 +14,7 @@ use crate::common::constants::part_color;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
 use crate::common::utils::{
-    compute_parts_center, geometric_normal_vec3, triangle_area_vec3, triangle_signed_volume_vec3,
+    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
 };
 use glam::{Mat4, Vec3, Vec4};
 
@@ -105,7 +105,7 @@ impl RenderablePart {
     pub fn calculate_volume(&self) -> f64 {
         let volume: f64 = self
             .triangles()
-            .map(|(v0, v1, v2)| triangle_signed_volume_vec3(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
             .sum();
         (volume / 6.0).abs()
     }
@@ -113,7 +113,7 @@ impl RenderablePart {
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
         self.triangles()
-            .map(|(v0, v1, v2)| triangle_area_vec3(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
             .sum()
     }
 }
@@ -240,7 +240,7 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let fallback_normal = geometric_normal_vec3(
+        let fallback_normal = geometric_normal(
             Vec3::new(p0.x as f32, p0.y as f32, p0.z as f32),
             Vec3::new(p1.x as f32, p1.y as f32, p1.z as f32),
             Vec3::new(p2.x as f32, p2.y as f32, p2.z as f32),

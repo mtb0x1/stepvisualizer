@@ -60,11 +60,8 @@ pub fn clean_unit_name(name: &str) -> &str {
 
 /// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
 #[inline(always)]
-pub fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let p0 = Vec3::from_array(v0).as_dvec3();
-    let p1 = Vec3::from_array(v1).as_dvec3();
-    let p2 = Vec3::from_array(v2).as_dvec3();
-    triangle_signed_volume_dvec3(p0, p1, p2)
+pub fn triangle_signed_volume(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
+    triangle_signed_volume_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
 }
 
 /// Signed tetrahedron volume for 3D vertices using double-precision glam vectors.
@@ -73,31 +70,16 @@ pub fn triangle_signed_volume_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
     p0.dot(p1.cross(p2))
 }
 
-/// Signed tetrahedron volume for single-precision glam vectors.
-#[inline(always)]
-pub fn triangle_signed_volume_vec3(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
-    triangle_signed_volume_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
-}
-
 /// Area of a single 3D triangle with vertices v0, v1, v2.
 #[inline(always)]
-pub fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let p0 = Vec3::from_array(v0).as_dvec3();
-    let p1 = Vec3::from_array(v1).as_dvec3();
-    let p2 = Vec3::from_array(v2).as_dvec3();
-    triangle_area_dvec3(p0, p1, p2)
+pub fn triangle_area(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
+    triangle_area_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
 }
 
 /// Area of a single 3D triangle using double-precision glam vectors.
 #[inline(always)]
 pub fn triangle_area_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
     0.5 * (p1 - p0).cross(p2 - p0).length()
-}
-
-/// Area of a single 3D triangle using single-precision glam vectors.
-#[inline(always)]
-pub fn triangle_area_vec3(p0: Vec3, p1: Vec3, p2: Vec3) -> f64 {
-    triangle_area_dvec3(p0.as_dvec3(), p1.as_dvec3(), p2.as_dvec3())
 }
 
 /// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into Cartesian 3D coordinates.
@@ -128,14 +110,8 @@ pub fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
 
 /// Computes a normalized geometric face normal from three points, falling back to Vec3::Y if degenerate.
 #[inline(always)]
-pub fn geometric_normal_vec3(p0: Vec3, p1: Vec3, p2: Vec3) -> Vec3 {
+pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> Vec3 {
     (p1 - p0).cross(p2 - p0).normalize_or(Vec3::Y)
-}
-
-/// Computes a normalized geometric face normal from three points as `[f32; 3]`.
-#[inline(always)]
-pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> [f32; 3] {
-    geometric_normal_vec3(p0, p1, p2).to_array()
 }
 
 /// Converts raw bytes to megabytes (MiB: 1024 * 1024).
@@ -397,18 +373,18 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_triangle_signed_volume() {
-        let v0 = [1.0, 0.0, 0.0];
-        let v1 = [0.0, 1.0, 0.0];
-        let v2 = [0.0, 0.0, 1.0];
+        let v0 = Vec3::new(1.0, 0.0, 0.0);
+        let v1 = Vec3::new(0.0, 1.0, 0.0);
+        let v2 = Vec3::new(0.0, 0.0, 1.0);
         let vol = triangle_signed_volume(v0, v1, v2);
         approx::assert_relative_eq!(vol, 1.0, epsilon = 1e-6);
     }
 
     #[wasm_bindgen_test]
     fn test_triangle_area() {
-        let v0 = [0.0, 0.0, 0.0];
-        let v1 = [1.0, 0.0, 0.0];
-        let v2 = [0.0, 1.0, 0.0];
+        let v0 = Vec3::new(0.0, 0.0, 0.0);
+        let v1 = Vec3::new(1.0, 0.0, 0.0);
+        let v2 = Vec3::new(0.0, 1.0, 0.0);
         let area = triangle_area(v0, v1, v2);
         approx::assert_relative_eq!(area, 0.5, epsilon = 1e-6);
     }
@@ -451,10 +427,10 @@ mod tests {
         let p1 = Vec3::new(1.0, 0.0, 0.0);
         let p2 = Vec3::new(0.0, 1.0, 0.0);
         let normal = geometric_normal(p0, p1, p2);
-        assert_eq!(normal, [0.0, 0.0, 1.0]);
+        assert_eq!(normal, Vec3::Z);
 
         let degenerate_normal = geometric_normal(p0, p1, Vec3::new(2.0, 0.0, 0.0));
-        assert_eq!(degenerate_normal, [0.0, 1.0, 0.0]);
+        assert_eq!(degenerate_normal, Vec3::Y);
     }
 
     #[wasm_bindgen_test]
@@ -520,12 +496,6 @@ mod tests {
         let p2 = DVec3::new(0.0, 0.0, 1.0);
         let vol_dvec3 = triangle_signed_volume_dvec3(p0, p1, p2);
         approx::assert_relative_eq!(vol_dvec3, 1.0, epsilon = 1e-6);
-
-        let v0 = Vec3::new(1.0, 0.0, 0.0);
-        let v1 = Vec3::new(0.0, 1.0, 0.0);
-        let v2 = Vec3::new(0.0, 0.0, 1.0);
-        let vol_vec3 = triangle_signed_volume_vec3(v0, v1, v2);
-        approx::assert_relative_eq!(vol_vec3, 1.0, epsilon = 1e-6);
     }
 
     #[wasm_bindgen_test]
