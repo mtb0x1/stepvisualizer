@@ -40,7 +40,8 @@ pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
 }
 
 /// Formats a string value, returning `NA` ("N/A") if empty.
-pub fn format_or_na(val: &str) -> &str {
+#[inline]
+pub const fn format_or_na(val: &str) -> &str {
     if val.is_empty() { NA } else { val }
 }
 
@@ -54,6 +55,7 @@ pub fn format_list_or_na(list: &[String]) -> Cow<'_, str> {
 }
 
 /// Trims surrounding whitespace and single/double quotes from a unit name string.
+#[inline]
 pub fn clean_unit_name(name: &str) -> &str {
     name.trim().trim_matches('\'').trim_matches('"')
 }
@@ -104,7 +106,7 @@ pub fn geometric_normal(p0: DVec3, p1: DVec3, p2: DVec3) -> DVec3 {
 
 /// Converts raw bytes to megabytes (MiB: 1024 * 1024).
 #[inline(always)]
-pub fn bytes_to_mb(bytes: f64) -> f64 {
+pub const fn bytes_to_mb(bytes: f64) -> f64 {
     bytes / (1024.0 * 1024.0)
 }
 
@@ -146,6 +148,7 @@ pub fn format_bbox_coordinates(
 }
 
 /// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height, and max value.
+#[inline(never)]
 pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_val: f32) -> String {
     if samples.is_empty() {
         return String::new();
@@ -190,6 +193,7 @@ pub const fn part_color(index: usize) -> Vec4 {
 }
 
 /// Returns a status color string for FPS visualization (green >= 50, yellow >= 30, red < 30).
+#[inline]
 pub const fn fps_color(fps: f32) -> &'static str {
     if fps >= 50.0 {
         "#4ade80"
@@ -212,6 +216,8 @@ pub fn now_ms() -> f64 {
 /// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).
 /// Keys are matched case-insensitively; the value is returned lowercased.
 /// Returns `None` when the key is absent or the URL cannot be inspected.
+#[cold]
+#[inline(never)]
 pub fn url_query_param(key: &str) -> Option<String> {
     let search = web_sys::window()?.location().search().ok()?;
     let query = search.trim_start_matches('?');
@@ -228,6 +234,8 @@ pub fn url_query_param(key: &str) -> Option<String> {
 }
 
 /// Whether the browser exposes the `navigator.gpu` entry point.
+#[cold]
+#[inline(never)]
 pub fn browser_has_webgpu() -> bool {
     web_sys::window()
         .map(|window| {
@@ -242,6 +250,8 @@ pub fn browser_has_webgpu() -> bool {
 /// - `/stepvisualizer/testing/…`   → `"testing:"`
 /// - `/stepvisualizer/production/…` → `"production:"`
 /// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
+#[cold]
+#[inline(never)]
 pub fn detect_env_prefix() -> &'static str {
     let path = web_sys::window()
         .and_then(|w| w.location().pathname().ok())
@@ -265,6 +275,7 @@ pub fn input_file(event: &web_sys::Event) -> Option<web_sys::File> {
 }
 
 /// Extracts a slice of `Parameter`s if the parameter is a `Parameter::List`.
+#[inline]
 pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
     match param {
         Parameter::List(list) => Some(list.as_slice()),
@@ -273,6 +284,7 @@ pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
 }
 
 /// Extracts the string slice if the parameter is a `Parameter::Enumeration`.
+#[inline]
 pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
@@ -281,6 +293,7 @@ pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
 }
 
 /// Extracts a string slice if the parameter is either `Parameter::Enumeration` or `Parameter::String`.
+#[inline]
 pub const fn param_as_str(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
