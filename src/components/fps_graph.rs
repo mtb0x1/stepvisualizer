@@ -68,12 +68,8 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
         });
     }
 
-    let points = build_svg_polyline_points(
-        &snapshot.samples,
-        GRAPH_W as f32,
-        GRAPH_H as f32,
-        MAX_FPS,
-    );
+    let points =
+        build_svg_polyline_points(&snapshot.samples, GRAPH_W as f32, GRAPH_H as f32, MAX_FPS);
     let stroke = fps_color(snapshot.current_fps);
 
     html! {

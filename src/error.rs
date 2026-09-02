@@ -34,7 +34,10 @@ impl fmt::Display for StepVizError {
             } => {
                 let size_mb = crate::common::utils::format_bytes_mb(*size_bytes);
                 let max_mb = crate::common::utils::format_bytes_mb(*max_bytes);
-                write!(f, "File too large ({size_mb}). Maximum allowed is {max_mb}.")
+                write!(
+                    f,
+                    "File too large ({size_mb}). Maximum allowed is {max_mb}."
+                )
             }
             Self::Parse(msg) => write!(f, "Failed to parse STEP: {msg}"),
             Self::EmptyDataSection => {
