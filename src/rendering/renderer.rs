@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use crate::{
     common::{
-        BoundingBox, RenderablePart, Vec3, ViewportSize, fps_meter::FpsMeter, look_at_mat4,
+        BoundingBox, DVec3, RenderablePart, ViewportSize, fps_meter::FpsMeter, look_at_mat4,
         perspective,
     },
     error::StepVizError,
@@ -76,8 +76,8 @@ pub async fn render_wgpu_on_canvas(
         }
     };
 
-    let max_size = bounds.max_extent_f32().max(0.1);
-    let view_target = bounds.center_f32();
+    let max_size = bounds.max_extent().max(0.1);
+    let view_target = bounds.center();
 
     // The camera distance is expressed for a reference model of size ~1 (see
     // `CameraState::DEFAULT`). Real models span arbitrary coordinate scales, so
@@ -91,10 +91,10 @@ pub async fn render_wgpu_on_canvas(
         ..*camera
     };
     let eye = camera_target.eye_position();
-    let view_matrix = look_at_mat4(eye, view_target, Vec3::Y);
+    let view_matrix = look_at_mat4(eye, view_target, DVec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
-    const FOV_Y: f32 = std::f32::consts::FRAC_PI_3;
+    const FOV_Y: f64 = std::f64::consts::FRAC_PI_3;
     let near = crate::common::constants::NEAR_PLANE;
     let far = max_size * 100.0;
     let projection_matrix = perspective(FOV_Y, aspect, near, far);
@@ -141,7 +141,7 @@ pub async fn render_wgpu_on_canvas(
         label: Some("Main Command Encoder"),
     });
 
-    let view_proj = projection_matrix * view_matrix;
+    let view_proj: glam::Mat4 = (projection_matrix * view_matrix).as_mat4();
     queue.write_buffer(view_proj_buffer, 0, bytemuck::bytes_of(&view_proj));
 
     {

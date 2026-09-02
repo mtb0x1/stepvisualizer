@@ -90,7 +90,7 @@ pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option
         for value in step_table.cartesian_point.values() {
             let coords = &value.coordinates;
             if coords.len() >= 3 {
-                bbox.expand_point_dvec3(glam::DVec3::new(coords[0], coords[1], coords[2]));
+                bbox.expand_point(glam::DVec3::new(coords[0], coords[1], coords[2]));
             }
         }
     }

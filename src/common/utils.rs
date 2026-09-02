@@ -2,7 +2,7 @@
 use std::borrow::Cow;
 use std::fmt::Write;
 
-use glam::{DVec3, Vec2, Vec3, Vec4};
+use glam::{DVec3, Vec2, Vec4};
 
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
@@ -72,10 +72,10 @@ pub fn triangle_area(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
 
 /// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into Cartesian 3D coordinates.
 #[inline(always)]
-pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, target: Vec3) -> Vec3 {
+pub fn spherical_to_cartesian(azimuth: f64, elevation: f64, distance: f64, target: DVec3) -> DVec3 {
     let (sin_az, cos_az) = azimuth.sin_cos();
     let (sin_el, cos_el) = elevation.sin_cos();
-    target + Vec3::new(cos_az * cos_el, sin_el, sin_az * cos_el) * distance
+    target + DVec3::new(cos_az * cos_el, sin_el, sin_az * cos_el) * distance
 }
 
 /// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
@@ -89,17 +89,17 @@ pub fn compute_adaptive_tolerance(bbox: Option<&BoundingBox>) -> f64 {
     DEFAULT_TOLERANCE
 }
 
-/// Bounding-box center across all parts; `Vec3::ZERO` when there is no geometry.
-pub fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
+/// Bounding-box center across all parts; `DVec3::ZERO` when there is no geometry.
+pub fn compute_parts_center(parts: &[RenderablePart]) -> DVec3 {
     visible_bounds(parts, &[])
-        .map(|b| b.center_f32())
-        .unwrap_or(Vec3::ZERO)
+        .map(|b| b.center())
+        .unwrap_or(DVec3::ZERO)
 }
 
-/// Computes a normalized geometric face normal from three points, falling back to Vec3::Y if degenerate.
+/// Computes a normalized geometric face normal from three points, falling back to DVec3::Y if degenerate.
 #[inline(always)]
-pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> Vec3 {
-    (p1 - p0).cross(p2 - p0).normalize_or(Vec3::Y)
+pub fn geometric_normal(p0: DVec3, p1: DVec3, p2: DVec3) -> DVec3 {
+    (p1 - p0).cross(p2 - p0).normalize_or(DVec3::Y)
 }
 
 /// Converts raw bytes to megabytes (MiB: 1024 * 1024).
@@ -355,12 +355,12 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_spherical_to_cartesian() {
-        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, Vec3::ZERO);
+        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, DVec3::ZERO);
         approx::assert_relative_eq!(pos.x, 5.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos.y, 0.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos.z, 0.0, epsilon = 1e-6);
 
-        let target = Vec3::new(1.0, 2.0, 3.0);
+        let target = DVec3::new(1.0, 2.0, 3.0);
         let pos_offset = spherical_to_cartesian(0.0, 0.0, 5.0, target);
         approx::assert_relative_eq!(pos_offset.x, 6.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos_offset.y, 2.0, epsilon = 1e-6);
@@ -420,14 +420,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_geometric_normal() {
-        let p0 = Vec3::new(0.0, 0.0, 0.0);
-        let p1 = Vec3::new(1.0, 0.0, 0.0);
-        let p2 = Vec3::new(0.0, 1.0, 0.0);
+        let p0 = DVec3::new(0.0, 0.0, 0.0);
+        let p1 = DVec3::new(1.0, 0.0, 0.0);
+        let p2 = DVec3::new(0.0, 1.0, 0.0);
         let normal = geometric_normal(p0, p1, p2);
-        assert_eq!(normal, Vec3::Z);
+        assert_eq!(normal, DVec3::Z);
 
-        let degenerate_normal = geometric_normal(p0, p1, Vec3::new(2.0, 0.0, 0.0));
-        assert_eq!(degenerate_normal, Vec3::Y);
+        let degenerate_normal = geometric_normal(p0, p1, DVec3::new(2.0, 0.0, 0.0));
+        assert_eq!(degenerate_normal, DVec3::Y);
     }
 
     #[wasm_bindgen_test]

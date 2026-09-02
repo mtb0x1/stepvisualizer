@@ -16,7 +16,7 @@ use crate::common::types::BoundingBox;
 use crate::common::utils::{
     compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
 };
-use glam::{Mat4, Vec3, Vec4};
+use glam::{DVec3, Mat4, Vec3, Vec4};
 
 /// Vertex layout shared with the render pipeline: position + normal, both
 /// `Float32x3`.
@@ -69,18 +69,18 @@ impl RenderablePart {
     }
 
     /// Translates the part's model matrix by `offset`.
-    pub fn translate(&mut self, offset: Vec3) {
-        self.model_matrix.w_axis += offset.extend(0.0);
+    pub fn translate(&mut self, offset: DVec3) {
+        self.model_matrix.w_axis += offset.as_vec3().extend(0.0);
     }
 
-    /// Iterate over the triangles referenced by the index buffer.
+    /// Iterate over the triangles referenced by the index buffer as double-precision coordinates.
     ///
     /// Malformed entries are skipped: an incomplete trailing triple (the index
     /// count is not a multiple of 3) and triples pointing outside the vertex
     /// buffer. Tessellated parts are always well-formed, so this only guards
     /// against corrupted deserialized models.
     #[allow(clippy::chunks_exact_to_as_chunks)]
-    fn triangles(&self) -> impl Iterator<Item = (Vec3, Vec3, Vec3)> + '_ {
+    fn triangles(&self) -> impl Iterator<Item = (DVec3, DVec3, DVec3)> + '_ {
         self.indices.chunks_exact(3).filter_map(|tri| {
             let idx0 = tri[0] as usize;
             let idx1 = tri[1] as usize;
@@ -92,9 +92,9 @@ impl RenderablePart {
                 return None;
             }
             Some((
-                self.vertices[idx0].position,
-                self.vertices[idx1].position,
-                self.vertices[idx2].position,
+                self.vertices[idx0].position.as_dvec3(),
+                self.vertices[idx1].position.as_dvec3(),
+                self.vertices[idx2].position.as_dvec3(),
             ))
         })
     }
@@ -105,7 +105,7 @@ impl RenderablePart {
     pub fn calculate_volume(&self) -> f64 {
         let volume: f64 = self
             .triangles()
-            .map(|(v0, v1, v2)| triangle_signed_volume(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3()))
+            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
             .sum();
         (volume / 6.0).abs()
     }
@@ -113,7 +113,7 @@ impl RenderablePart {
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
         self.triangles()
-            .map(|(v0, v1, v2)| triangle_area(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3()))
+            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
             .sum()
     }
 }
@@ -188,7 +188,7 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
         }
         visible_count += 1;
         for vertex in &part.vertices {
-            bbox.expand_point_vec3(vertex.position);
+            bbox.expand_point(vertex.position.as_dvec3());
         }
     }
 
@@ -226,25 +226,21 @@ fn append_face_geometry(
             continue;
         }
 
-        // Geometric normal fallback from the first three distinct points of the face
+        // Geometric normal fallback from the first three distinct points of the face (computed in f64)
         let p0 = match positions.get(face[0].pos) {
-            Some(p) => p,
+            Some(p) => DVec3::new(p.x, p.y, p.z),
             None => continue,
         };
         let p1 = match positions.get(face[1].pos) {
-            Some(p) => p,
+            Some(p) => DVec3::new(p.x, p.y, p.z),
             None => continue,
         };
         let p2 = match positions.get(face[2].pos) {
-            Some(p) => p,
+            Some(p) => DVec3::new(p.x, p.y, p.z),
             None => continue,
         };
 
-        let fallback_normal = geometric_normal(
-            Vec3::new(p0.x as f32, p0.y as f32, p0.z as f32),
-            Vec3::new(p1.x as f32, p1.y as f32, p1.z as f32),
-            Vec3::new(p2.x as f32, p2.y as f32, p2.z as f32),
-        );
+        let fallback_normal = geometric_normal(p0, p1, p2);
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
         for i in 1..(face.len() - 1) {
@@ -258,7 +254,7 @@ fn append_face_geometry(
                 let idx = *vertex_map.entry(key).or_insert_with(|| {
                     let normal = match v.nor.and_then(|idx| normals.get(idx)) {
                         Some(n) => Vec3::new(n.x as f32, n.y as f32, n.z as f32),
-                        None => fallback_normal,
+                        None => fallback_normal.as_vec3(),
                     };
                     let new_idx = vertices.len() as u32;
                     vertices.push(GpuVertex {
@@ -471,8 +467,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn part_translate_accumulation() {
         let mut part = RenderablePart::default();
-        part.translate(Vec3::new(1.0, 2.0, 3.0));
-        part.translate(Vec3::new(4.0, 5.0, 6.0));
+        part.translate(DVec3::new(1.0, 2.0, 3.0));
+        part.translate(DVec3::new(4.0, 5.0, 6.0));
 
         assert_eq!(
             part.model_matrix.w_axis.truncate(),
@@ -484,7 +480,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn renderable_part_serde_roundtrip() {
         let mut part = RenderablePart::default();
-        part.translate(Vec3::new(10.0, 20.0, 30.0));
+        part.translate(DVec3::new(10.0, 20.0, 30.0));
         let json = serde_json::to_string(&part).expect("serialize part");
         let deserialized: RenderablePart = serde_json::from_str(&json).expect("deserialize part");
         assert_eq!(part, deserialized);

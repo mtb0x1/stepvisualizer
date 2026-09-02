@@ -123,7 +123,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 "#;
 
 /// Projection near plane (far plane is derived per frame from model size).
-pub const NEAR_PLANE: f32 = 0.1;
+pub const NEAR_PLANE: f64 = 0.1;
 /// Default tessellation tolerance: smaller = finer mesh, slower tessellation.
 pub const DEFAULT_TOLERANCE: f64 = 0.005;
 /// Minimum tessellation tolerance (limits excessive subdivision on very large models).

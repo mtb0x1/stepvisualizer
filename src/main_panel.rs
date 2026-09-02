@@ -270,8 +270,8 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
         let camera_state = camera_state.clone();
         Callback::from(move |e: MouseEvent| {
             if let Some(drag) = *drag_state {
-                let dx = (e.client_x() - drag.last_x) as f32;
-                let dy = (e.client_y() - drag.last_y) as f32;
+                let dx = (e.client_x() - drag.last_x) as f64;
+                let dy = (e.client_y() - drag.last_y) as f64;
                 drag_state.set(Some(DragState {
                     last_x: e.client_x(),
                     last_y: e.client_y(),

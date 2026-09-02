@@ -98,11 +98,11 @@ impl ViewportSize {
     }
 
     /// Aspect ratio (width / height), or 1.0 when height is zero.
-    pub fn aspect_ratio(&self) -> f32 {
+    pub fn aspect_ratio(&self) -> f64 {
         if self.height == 0 {
             1.0
         } else {
-            self.width as f32 / self.height as f32
+            self.width as f64 / self.height as f64
         }
     }
 }
@@ -243,75 +243,40 @@ impl BoundingBox {
         self.min.is_finite() && self.max.is_finite() && self.min.cmple(self.max).all()
     }
 
-    /// Center point of the bounding box as f64.
-    pub fn center(&self) -> [f64; 3] {
-        self.center_dvec3().to_array()
-    }
-
     /// Center point as double-precision `DVec3`.
-    pub fn center_dvec3(&self) -> glam::DVec3 {
+    pub fn center(&self) -> glam::DVec3 {
         (self.min + self.max) * 0.5
     }
 
-    /// Center point converted to `Vec3` for GPU and camera framing.
-    pub fn center_f32(&self) -> glam::Vec3 {
-        self.center_dvec3().as_vec3()
-    }
-
-    /// Minimum bound as `DVec3`.
-    pub const fn min_dvec3(&self) -> glam::DVec3 {
-        self.min
-    }
-
-    /// Maximum bound as `DVec3`.
-    pub const fn max_dvec3(&self) -> glam::DVec3 {
-        self.max
-    }
-
     /// Dimensions (width, height, depth) as `DVec3`.
-    pub fn size_dvec3(&self) -> glam::DVec3 {
+    pub fn size(&self) -> glam::DVec3 {
         (self.max - self.min).max(glam::DVec3::ZERO)
     }
 
     /// Size along the X axis.
     pub fn size_x(&self) -> f64 {
-        self.size_dvec3().x
+        self.size().x
     }
 
     /// Size along the Y axis.
     pub fn size_y(&self) -> f64 {
-        self.size_dvec3().y
+        self.size().y
     }
 
     /// Size along the Z axis.
     pub fn size_z(&self) -> f64 {
-        self.size_dvec3().z
+        self.size().z
     }
 
     /// Maximum dimension across X, Y, Z as f64.
     pub fn max_extent(&self) -> f64 {
-        self.size_dvec3().max_element()
-    }
-
-    /// Maximum dimension converted to f32.
-    pub fn max_extent_f32(&self) -> f32 {
-        self.max_extent() as f32
-    }
-
-    /// Expands this bounding box to include the given 3D point.
-    pub fn expand_point(&mut self, p: [f64; 3]) {
-        self.expand_point_dvec3(glam::DVec3::from_array(p));
+        self.size().max_element()
     }
 
     /// Expands this bounding box to include the given `DVec3` point.
-    pub fn expand_point_dvec3(&mut self, p: glam::DVec3) {
+    pub fn expand_point(&mut self, p: glam::DVec3) {
         self.min = self.min.min(p);
         self.max = self.max.max(p);
-    }
-
-    /// Expands this bounding box to include the given `Vec3` point.
-    pub fn expand_point_vec3(&mut self, p: glam::Vec3) {
-        self.expand_point_dvec3(p.as_dvec3());
     }
 
     /// Expands this bounding box to include another bounding box.
@@ -449,7 +414,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn bbox_single_point_expansion() {
         let mut bbox = BoundingBox::EMPTY;
-        bbox.expand_point([1.0, 2.0, 3.0]);
+        bbox.expand_point(DVec3::new(1.0, 2.0, 3.0));
 
         assert!(bbox.is_valid());
         assert_eq!(bbox.min, DVec3::new(1.0, 2.0, 3.0));
@@ -461,8 +426,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn bbox_multiple_points_expansion() {
         let mut bbox = BoundingBox::EMPTY;
-        bbox.expand_point([0.0, 10.0, -5.0]);
-        bbox.expand_point([5.0, 2.0, 8.0]);
+        bbox.expand_point(DVec3::new(0.0, 10.0, -5.0));
+        bbox.expand_point(DVec3::new(5.0, 2.0, 8.0));
 
         assert_eq!(bbox.min, DVec3::new(0.0, 2.0, -5.0));
         assert_eq!(bbox.max, DVec3::new(5.0, 10.0, 8.0));
@@ -479,16 +444,15 @@ mod tests {
         assert_eq!(bbox1.max, DVec3::new(5.0, 8.0, 10.0));
     }
 
-    /// Verifies that center and center_f32 compute the exact midpoints of the bounding box coordinates.
+    /// Verifies that center computes the exact midpoints of the bounding box coordinates.
     #[wasm_bindgen_test]
-    fn bbox_center_f64_and_f32() {
+    fn bbox_center() {
         let bbox = BoundingBox::new(
             DVec3::new(-10.0, -20.0, -30.0),
             DVec3::new(10.0, 20.0, 30.0),
         );
 
-        assert_eq!(bbox.center(), [0.0, 0.0, 0.0]);
-        assert_eq!(bbox.center_f32(), glam::Vec3::ZERO);
+        assert_eq!(bbox.center(), DVec3::ZERO);
     }
 
     /// Verifies that size, size_x, size_y, size_z, and max_extent compute accurate bounding dimensions.
@@ -500,7 +464,6 @@ mod tests {
         assert_eq!(bbox.size_y(), 8.0);
         assert_eq!(bbox.size_z(), 4.0);
         assert_eq!(bbox.max_extent(), 8.0);
-        assert_eq!(bbox.max_extent_f32(), 8.0);
     }
 
     /// Verifies that bounding boxes containing NaN or infinite values fail validity checks.

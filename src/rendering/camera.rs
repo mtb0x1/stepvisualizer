@@ -1,4 +1,4 @@
-use glam::Vec3;
+use glam::DVec3;
 
 pub use crate::common::utils::spherical_to_cartesian;
 
@@ -7,10 +7,10 @@ pub use crate::common::utils::spherical_to_cartesian;
 /// normally the model center and never moves.
 #[derive(Clone, Copy, PartialEq, Debug)]
 pub struct CameraState {
-    pub azimuth: f32,
-    pub elevation: f32,
-    pub distance: f32,
-    pub target: Vec3,
+    pub azimuth: f64,
+    pub elevation: f64,
+    pub distance: f64,
+    pub target: DVec3,
 }
 
 impl CameraState {
@@ -20,18 +20,18 @@ impl CameraState {
         azimuth: 0.5,
         elevation: 0.5,
         distance: 3.0,
-        target: Vec3::ZERO,
+        target: DVec3::ZERO,
     };
 
     /// Computes the 3D eye position in world space for this orbit camera.
-    pub fn eye_position(&self) -> Vec3 {
+    pub fn eye_position(&self) -> DVec3 {
         spherical_to_cartesian(self.azimuth, self.elevation, self.distance, self.target)
     }
 
     /// Rotate the camera around the target using mouse delta coordinates in pixels.
-    pub fn orbit(&self, delta_x: f32, delta_y: f32) -> Self {
-        const MAX_ELEVATION: f32 = std::f32::consts::FRAC_PI_2 - 0.001;
-        const CAMERA_SENSITIVITY: f32 = 0.01;
+    pub fn orbit(&self, delta_x: f64, delta_y: f64) -> Self {
+        const MAX_ELEVATION: f64 = std::f64::consts::FRAC_PI_2 - 0.001;
+        const CAMERA_SENSITIVITY: f64 = 0.01;
         Self {
             azimuth: self.azimuth - delta_x * CAMERA_SENSITIVITY,
             elevation: (self.elevation - delta_y * CAMERA_SENSITIVITY)
@@ -42,7 +42,7 @@ impl CameraState {
     }
 
     /// Zoom camera distance by a multiplicative factor (clamped to positive distances).
-    pub fn zoom(&self, factor: f32) -> Self {
+    pub fn zoom(&self, factor: f64) -> Self {
         Self {
             azimuth: self.azimuth,
             elevation: self.elevation,
@@ -62,9 +62,9 @@ impl Default for CameraState {
 #[derive(Clone, Copy)]
 pub struct CameraPreset {
     pub label: &'static str,
-    pub azimuth: f32,
-    pub elevation: f32,
-    pub distance: f32,
+    pub azimuth: f64,
+    pub elevation: f64,
+    pub distance: f64,
 }
 
 /// Toolbar presets, in display order.
@@ -118,7 +118,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn test_camera_default() {
         let camera = CameraState::default();
-        assert_eq!(camera.target, Vec3::ZERO);
+        assert_eq!(camera.target, DVec3::ZERO);
         assert_eq!(camera.distance, 3.0);
         assert_eq!(camera.azimuth, 0.5);
         assert_eq!(camera.elevation, 0.5);
@@ -126,7 +126,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_spherical_to_cartesian() {
-        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, Vec3::ZERO);
+        let pos = spherical_to_cartesian(0.0, 0.0, 5.0, DVec3::ZERO);
         approx::assert_relative_eq!(pos.x, 5.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos.y, 0.0, epsilon = 1e-6);
         approx::assert_relative_eq!(pos.z, 0.0, epsilon = 1e-6);
