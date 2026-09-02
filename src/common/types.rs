@@ -255,10 +255,29 @@ impl BoundingBox {
         ]
     }
 
+    /// Center point as double-precision `DVec3`.
+    pub fn center_dvec3(&self) -> glam::DVec3 {
+        (self.min_dvec3() + self.max_dvec3()) * 0.5
+    }
+
     /// Center point converted to `Vec3` for GPU and camera framing.
     pub fn center_f32(&self) -> glam::Vec3 {
-        let c = self.center();
-        glam::Vec3::new(c[0] as f32, c[1] as f32, c[2] as f32)
+        self.center_dvec3().as_vec3()
+    }
+
+    /// Minimum bound as `DVec3`.
+    pub fn min_dvec3(&self) -> glam::DVec3 {
+        glam::DVec3::from_array(self.min)
+    }
+
+    /// Maximum bound as `DVec3`.
+    pub fn max_dvec3(&self) -> glam::DVec3 {
+        glam::DVec3::from_array(self.max)
+    }
+
+    /// Dimensions (width, height, depth) as `DVec3`.
+    pub fn size_dvec3(&self) -> glam::DVec3 {
+        (self.max_dvec3() - self.min_dvec3()).max(glam::DVec3::ZERO)
     }
 
     /// Dimensions (width, height, depth) as f64.
@@ -297,10 +316,20 @@ impl BoundingBox {
 
     /// Expands this bounding box to include the given 3D point.
     pub fn expand_point(&mut self, p: [f64; 3]) {
-        for i in 0..3 {
-            self.min[i] = self.min[i].min(p[i]);
-            self.max[i] = self.max[i].max(p[i]);
-        }
+        self.expand_point_dvec3(glam::DVec3::from_array(p));
+    }
+
+    /// Expands this bounding box to include the given `DVec3` point.
+    pub fn expand_point_dvec3(&mut self, p: glam::DVec3) {
+        let min = self.min_dvec3().min(p);
+        let max = self.max_dvec3().max(p);
+        self.min = min.to_array();
+        self.max = max.to_array();
+    }
+
+    /// Expands this bounding box to include the given `Vec3` point.
+    pub fn expand_point_vec3(&mut self, p: glam::Vec3) {
+        self.expand_point_dvec3(p.as_dvec3());
     }
 }
 
@@ -494,29 +523,24 @@ mod tests {
     #[wasm_bindgen_test]
     fn step_model_vertex_triangle_sums() {
         use crate::common::render::GpuVertex;
+        use glam::{Vec3, Vec4};
 
         let part1 = RenderablePart {
             vertices: (0..30)
-                .map(|_| GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 1.0, 0.0],
-                })
+                .map(|_| GpuVertex::new(Vec3::ZERO, Vec3::Y))
                 .collect(),
             indices: (0..30).collect(), // 30 indices = 10 triangles
             model_matrix: glam::Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         let part2 = RenderablePart {
             vertices: (0..12)
-                .map(|_| GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 1.0, 0.0],
-                })
+                .map(|_| GpuVertex::new(Vec3::ZERO, Vec3::Y))
                 .collect(),
             indices: (0..12).collect(), // 12 indices = 4 triangles
             model_matrix: glam::Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         let model = StepModel {
@@ -556,45 +580,28 @@ mod tests {
     #[wasm_bindgen_test]
     fn step_model_volume_area_sums() {
         use crate::common::render::GpuVertex;
+        use glam::{Vec3, Vec4};
 
         let part1 = RenderablePart {
             vertices: vec![
-                GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [1.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [0.0, 1.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
+                GpuVertex::new(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(1.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(0.0, 1.0, 0.0), Vec3::Z),
             ],
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         let part2 = RenderablePart {
             vertices: vec![
-                GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [2.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [0.0, 2.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
+                GpuVertex::new(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(2.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(0.0, 2.0, 0.0), Vec3::Z),
             ],
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         let part1_vol = part1.calculate_volume();

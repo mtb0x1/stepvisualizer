@@ -2,7 +2,7 @@
 use std::borrow::Cow;
 use std::fmt::Write;
 
-use glam::Vec3;
+use glam::{DVec3, Vec2, Vec3, Vec4};
 
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
@@ -61,43 +61,51 @@ pub fn clean_unit_name(name: &str) -> &str {
 /// Signed tetrahedron volume for a single triangle v0, v1, v2 relative to the origin.
 #[inline(always)]
 pub fn triangle_signed_volume(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let p0 = [v0[0] as f64, v0[1] as f64, v0[2] as f64];
-    let p1 = [v1[0] as f64, v1[1] as f64, v1[2] as f64];
-    let p2 = [v2[0] as f64, v2[1] as f64, v2[2] as f64];
-    let cross_x = p1[1] * p2[2] - p1[2] * p2[1];
-    let cross_y = p1[2] * p2[0] - p1[0] * p2[2];
-    let cross_z = p1[0] * p2[1] - p1[1] * p2[0];
-    p0[0] * cross_x + p0[1] * cross_y + p0[2] * cross_z
+    let p0 = Vec3::from_array(v0).as_dvec3();
+    let p1 = Vec3::from_array(v1).as_dvec3();
+    let p2 = Vec3::from_array(v2).as_dvec3();
+    triangle_signed_volume_dvec3(p0, p1, p2)
+}
+
+/// Signed tetrahedron volume for 3D vertices using double-precision glam vectors.
+#[inline(always)]
+pub fn triangle_signed_volume_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
+    p0.dot(p1.cross(p2))
+}
+
+/// Signed tetrahedron volume for single-precision glam vectors.
+#[inline(always)]
+pub fn triangle_signed_volume_vec3(v0: Vec3, v1: Vec3, v2: Vec3) -> f64 {
+    triangle_signed_volume_dvec3(v0.as_dvec3(), v1.as_dvec3(), v2.as_dvec3())
 }
 
 /// Area of a single 3D triangle with vertices v0, v1, v2.
 #[inline(always)]
 pub fn triangle_area(v0: [f32; 3], v1: [f32; 3], v2: [f32; 3]) -> f64 {
-    let edge1 = [
-        (v1[0] - v0[0]) as f64,
-        (v1[1] - v0[1]) as f64,
-        (v1[2] - v0[2]) as f64,
-    ];
-    let edge2 = [
-        (v2[0] - v0[0]) as f64,
-        (v2[1] - v0[1]) as f64,
-        (v2[2] - v0[2]) as f64,
-    ];
-    let cross_x = edge1[1] * edge2[2] - edge1[2] * edge2[1];
-    let cross_y = edge1[2] * edge2[0] - edge1[0] * edge2[2];
-    let cross_z = edge1[0] * edge2[1] - edge1[1] * edge2[0];
-    0.5 * (cross_x * cross_x + cross_y * cross_y + cross_z * cross_z).sqrt()
+    let p0 = Vec3::from_array(v0).as_dvec3();
+    let p1 = Vec3::from_array(v1).as_dvec3();
+    let p2 = Vec3::from_array(v2).as_dvec3();
+    triangle_area_dvec3(p0, p1, p2)
+}
+
+/// Area of a single 3D triangle using double-precision glam vectors.
+#[inline(always)]
+pub fn triangle_area_dvec3(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
+    0.5 * (p1 - p0).cross(p2 - p0).length()
+}
+
+/// Area of a single 3D triangle using single-precision glam vectors.
+#[inline(always)]
+pub fn triangle_area_vec3(p0: Vec3, p1: Vec3, p2: Vec3) -> f64 {
+    triangle_area_dvec3(p0.as_dvec3(), p1.as_dvec3(), p2.as_dvec3())
 }
 
 /// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into Cartesian 3D coordinates.
 #[inline(always)]
 pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, target: Vec3) -> Vec3 {
-    target
-        + Vec3::new(
-            distance * azimuth.cos() * elevation.cos(),
-            distance * elevation.sin(),
-            distance * azimuth.sin() * elevation.cos(),
-        )
+    let (sin_az, cos_az) = azimuth.sin_cos();
+    let (sin_el, cos_el) = elevation.sin_cos();
+    target + Vec3::new(cos_az * cos_el, sin_el, sin_az * cos_el) * distance
 }
 
 /// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
@@ -120,10 +128,14 @@ pub fn compute_parts_center(parts: &[RenderablePart]) -> Vec3 {
 
 /// Computes a normalized geometric face normal from three points, falling back to Vec3::Y if degenerate.
 #[inline(always)]
+pub fn geometric_normal_vec3(p0: Vec3, p1: Vec3, p2: Vec3) -> Vec3 {
+    (p1 - p0).cross(p2 - p0).normalize_or(Vec3::Y)
+}
+
+/// Computes a normalized geometric face normal from three points as `[f32; 3]`.
+#[inline(always)]
 pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> [f32; 3] {
-    let d1 = p1 - p0;
-    let d2 = p2 - p0;
-    d1.cross(d2).normalize_or(Vec3::Y).to_array()
+    geometric_normal_vec3(p0, p1, p2).to_array()
 }
 
 /// Converts raw bytes to megabytes (MiB: 1024 * 1024).
@@ -160,18 +172,21 @@ pub fn format_bbox_coordinates(
     max: [f64; 3],
     unit_symbol: Option<&str>,
 ) -> (String, String) {
+    format_dvec3_bbox_coordinates(DVec3::from_array(min), DVec3::from_array(max), unit_symbol)
+}
+
+/// Formats 3D bounding box coordinates from `DVec3` into formatted min/max display strings.
+pub fn format_dvec3_bbox_coordinates(
+    min: DVec3,
+    max: DVec3,
+    unit_symbol: Option<&str>,
+) -> (String, String) {
     let unit_suffix = match unit_symbol {
         Some(u) if !u.is_empty() => format!(" {u}"),
         _ => String::new(),
     };
-    let min_str = format!(
-        "min: {:.3}, {:.3}, {:.3}{unit_suffix}",
-        min[0], min[1], min[2]
-    );
-    let max_str = format!(
-        "max: {:.3}, {:.3}, {:.3}{unit_suffix}",
-        max[0], max[1], max[2]
-    );
+    let min_str = format!("min: {:.3}, {:.3}, {:.3}{unit_suffix}", min.x, min.y, min.z);
+    let max_str = format!("max: {:.3}, {:.3}, {:.3}{unit_suffix}", max.x, max.y, max.z);
     (min_str, max_str)
 }
 
@@ -192,28 +207,45 @@ pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_v
             (i as f32 / (n - 1) as f32) * width
         };
         let y = height - (v.min(max_val) / max_val) * height;
-        let _ = write!(out, "{x:.1},{y:.1}");
+        let pt = Vec2::new(x, y);
+        let _ = write!(out, "{:.1},{:.1}", pt.x, pt.y);
+    }
+    out
+}
+
+/// Maps a slice of `Vec2` points directly to an SVG polyline points string `"x,y x,y ..."`.
+pub fn build_svg_polyline_points_from_vec2(points: &[Vec2]) -> String {
+    if points.is_empty() {
+        return String::new();
+    }
+    let mut out = String::with_capacity(points.len() * 12);
+    for (i, pt) in points.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        let _ = write!(out, "{:.1},{:.1}", pt.x, pt.y);
     }
     out
 }
 
 /// Per-part palette, cycled by part index.
 pub const PART_COLORS_COUNT: usize = 10;
-pub const PART_COLORS: [[f32; 4]; PART_COLORS_COUNT] = [
-    [0.8, 0.2, 0.2, 1.0],
-    [0.2, 0.8, 0.2, 1.0],
-    [0.2, 0.2, 0.8, 1.0],
-    [0.8, 0.8, 0.2, 1.0],
-    [0.8, 0.2, 0.8, 1.0],
-    [0.2, 0.8, 0.8, 1.0],
-    [0.6, 0.4, 0.2, 1.0],
-    [0.4, 0.6, 0.8, 1.0],
-    [0.8, 0.6, 0.4, 1.0],
-    [0.6, 0.8, 0.4, 1.0],
+pub const PART_COLORS: [Vec4; PART_COLORS_COUNT] = [
+    Vec4::new(0.8, 0.2, 0.2, 1.0),
+    Vec4::new(0.2, 0.8, 0.2, 1.0),
+    Vec4::new(0.2, 0.2, 0.8, 1.0),
+    Vec4::new(0.8, 0.8, 0.2, 1.0),
+    Vec4::new(0.8, 0.2, 0.8, 1.0),
+    Vec4::new(0.2, 0.8, 0.8, 1.0),
+    Vec4::new(0.6, 0.4, 0.2, 1.0),
+    Vec4::new(0.4, 0.6, 0.8, 1.0),
+    Vec4::new(0.8, 0.6, 0.4, 1.0),
+    Vec4::new(0.6, 0.8, 0.4, 1.0),
 ];
 
-/// Returns the RGBA color for part at `index`, cycling through the palette.
-pub const fn part_color(index: usize) -> [f32; 4] {
+/// Returns the RGBA color as `Vec4` for part at `index`, cycling through the palette.
+#[inline(always)]
+pub const fn part_color(index: usize) -> Vec4 {
     PART_COLORS[index % PART_COLORS_COUNT]
 }
 
@@ -479,5 +511,29 @@ mod tests {
         assert_eq!(param_as_str(&enum_param), Some("INCH"));
         assert_eq!(param_as_str(&str_param), Some("foot"));
         assert_eq!(param_as_str(&int_param), None);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_triangle_signed_volume_glam_variants() {
+        let p0 = DVec3::new(1.0, 0.0, 0.0);
+        let p1 = DVec3::new(0.0, 1.0, 0.0);
+        let p2 = DVec3::new(0.0, 0.0, 1.0);
+        let vol_dvec3 = triangle_signed_volume_dvec3(p0, p1, p2);
+        approx::assert_relative_eq!(vol_dvec3, 1.0, epsilon = 1e-6);
+
+        let v0 = Vec3::new(1.0, 0.0, 0.0);
+        let v1 = Vec3::new(0.0, 1.0, 0.0);
+        let v2 = Vec3::new(0.0, 0.0, 1.0);
+        let vol_vec3 = triangle_signed_volume_vec3(v0, v1, v2);
+        approx::assert_relative_eq!(vol_vec3, 1.0, epsilon = 1e-6);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_format_dvec3_bbox_coordinates() {
+        let min = DVec3::new(1.1234, 2.5678, 3.9);
+        let max = DVec3::new(10.0, 20.0, 30.0);
+        let (min_s, max_s) = format_dvec3_bbox_coordinates(min, max, Some("mm"));
+        assert_eq!(min_s, "min: 1.123, 2.568, 3.900 mm");
+        assert_eq!(max_s, "max: 10.000, 20.000, 30.000 mm");
     }
 }

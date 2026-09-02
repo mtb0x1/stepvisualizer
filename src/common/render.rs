@@ -14,17 +14,25 @@ use crate::common::constants::part_color;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
 use crate::common::utils::{
-    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
+    compute_parts_center, geometric_normal_vec3, triangle_area_vec3, triangle_signed_volume_vec3,
 };
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec3, Vec4};
 
 /// Vertex layout shared with the render pipeline: position + normal, both
 /// `Float32x3`.
 #[repr(C)]
 #[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
 pub struct GpuVertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
+    pub position: Vec3,
+    pub normal: Vec3,
+}
+
+impl GpuVertex {
+    /// Construct a new GPU vertex with 3D position and normal.
+    #[inline(always)]
+    pub const fn new(position: Vec3, normal: Vec3) -> Self {
+        Self { position, normal }
+    }
 }
 
 /// One tessellated part (typically one shell): vertex/index buffers plus the
@@ -35,7 +43,7 @@ pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
     pub indices: Vec<u32>,
     pub model_matrix: Mat4,
-    pub color: [f32; 4],
+    pub color: Vec4,
 }
 
 impl Default for RenderablePart {
@@ -44,7 +52,7 @@ impl Default for RenderablePart {
             vertices: Vec::new(),
             indices: Vec::new(),
             model_matrix: Mat4::IDENTITY,
-            color: [0.8, 0.8, 0.8, 1.0],
+            color: Vec4::new(0.8, 0.8, 0.8, 1.0),
         }
     }
 }
@@ -72,7 +80,7 @@ impl RenderablePart {
     /// buffer. Tessellated parts are always well-formed, so this only guards
     /// against corrupted deserialized models.
     #[allow(clippy::chunks_exact_to_as_chunks)]
-    fn triangles(&self) -> impl Iterator<Item = ([f32; 3], [f32; 3], [f32; 3])> + '_ {
+    fn triangles(&self) -> impl Iterator<Item = (Vec3, Vec3, Vec3)> + '_ {
         self.indices.chunks_exact(3).filter_map(|tri| {
             let idx0 = tri[0] as usize;
             let idx1 = tri[1] as usize;
@@ -97,7 +105,7 @@ impl RenderablePart {
     pub fn calculate_volume(&self) -> f64 {
         let volume: f64 = self
             .triangles()
-            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_signed_volume_vec3(v0, v1, v2))
             .sum();
         (volume / 6.0).abs()
     }
@@ -105,7 +113,7 @@ impl RenderablePart {
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
         self.triangles()
-            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
+            .map(|(v0, v1, v2)| triangle_area_vec3(v0, v1, v2))
             .sum()
     }
 }
@@ -180,11 +188,7 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
         }
         visible_count += 1;
         for vertex in &part.vertices {
-            bbox.expand_point([
-                vertex.position[0] as f64,
-                vertex.position[1] as f64,
-                vertex.position[2] as f64,
-            ]);
+            bbox.expand_point_vec3(vertex.position);
         }
     }
 
@@ -236,7 +240,7 @@ fn append_face_geometry(
             None => continue,
         };
 
-        let fallback_normal = geometric_normal(
+        let fallback_normal = geometric_normal_vec3(
             Vec3::new(p0.x as f32, p0.y as f32, p0.z as f32),
             Vec3::new(p1.x as f32, p1.y as f32, p1.z as f32),
             Vec3::new(p2.x as f32, p2.y as f32, p2.z as f32),
@@ -253,12 +257,12 @@ fn append_face_geometry(
                 let key = (v.pos, v.nor);
                 let idx = *vertex_map.entry(key).or_insert_with(|| {
                     let normal = match v.nor.and_then(|idx| normals.get(idx)) {
-                        Some(n) => [n.x as f32, n.y as f32, n.z as f32],
+                        Some(n) => Vec3::new(n.x as f32, n.y as f32, n.z as f32),
                         None => fallback_normal,
                     };
                     let new_idx = vertices.len() as u32;
                     vertices.push(GpuVertex {
-                        position: [pos.x as f32, pos.y as f32, pos.z as f32],
+                        position: Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32),
                         normal,
                     });
                     new_idx
@@ -353,38 +357,14 @@ mod tests {
 
     fn create_cube_part(size: f32) -> RenderablePart {
         let vertices = vec![
-            GpuVertex {
-                position: [0.0, 0.0, 0.0],
-                normal: [-1.0, -1.0, -1.0],
-            },
-            GpuVertex {
-                position: [size, 0.0, 0.0],
-                normal: [1.0, -1.0, -1.0],
-            },
-            GpuVertex {
-                position: [size, size, 0.0],
-                normal: [1.0, 1.0, -1.0],
-            },
-            GpuVertex {
-                position: [0.0, size, 0.0],
-                normal: [-1.0, 1.0, -1.0],
-            },
-            GpuVertex {
-                position: [0.0, 0.0, size],
-                normal: [-1.0, -1.0, 1.0],
-            },
-            GpuVertex {
-                position: [size, 0.0, size],
-                normal: [1.0, -1.0, 1.0],
-            },
-            GpuVertex {
-                position: [size, size, size],
-                normal: [1.0, 1.0, 1.0],
-            },
-            GpuVertex {
-                position: [0.0, size, size],
-                normal: [-1.0, 1.0, 1.0],
-            },
+            GpuVertex::new(Vec3::new(0.0, 0.0, 0.0), Vec3::new(-1.0, -1.0, -1.0)),
+            GpuVertex::new(Vec3::new(size, 0.0, 0.0), Vec3::new(1.0, -1.0, -1.0)),
+            GpuVertex::new(Vec3::new(size, size, 0.0), Vec3::new(1.0, 1.0, -1.0)),
+            GpuVertex::new(Vec3::new(0.0, size, 0.0), Vec3::new(-1.0, 1.0, -1.0)),
+            GpuVertex::new(Vec3::new(0.0, 0.0, size), Vec3::new(-1.0, -1.0, 1.0)),
+            GpuVertex::new(Vec3::new(size, 0.0, size), Vec3::new(1.0, -1.0, 1.0)),
+            GpuVertex::new(Vec3::new(size, size, size), Vec3::new(1.0, 1.0, 1.0)),
+            GpuVertex::new(Vec3::new(0.0, size, size), Vec3::new(-1.0, 1.0, 1.0)),
         ];
 
         let indices = vec![
@@ -401,7 +381,7 @@ mod tests {
             vertices,
             indices,
             model_matrix: Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         }
     }
 
@@ -410,22 +390,13 @@ mod tests {
     fn metric_unit_triangle_area() {
         let part = RenderablePart {
             vertices: vec![
-                GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [1.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [0.0, 1.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
+                GpuVertex::new(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(1.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(0.0, 1.0, 0.0), Vec3::Z),
             ],
             indices: vec![0, 1, 2],
             model_matrix: Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -467,23 +438,14 @@ mod tests {
     fn metric_corrupted_index_skipping() {
         let part = RenderablePart {
             vertices: vec![
-                GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [1.0, 0.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
-                GpuVertex {
-                    position: [0.0, 1.0, 0.0],
-                    normal: [0.0, 0.0, 1.0],
-                },
+                GpuVertex::new(Vec3::new(0.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(1.0, 0.0, 0.0), Vec3::Z),
+                GpuVertex::new(Vec3::new(0.0, 1.0, 0.0), Vec3::Z),
             ],
             // First triangle valid (area 0.5), second out of bounds (index 999), trailing incomplete triple (0, 1)
             indices: vec![0, 1, 2, 0, 1, 999, 0, 1],
             model_matrix: Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -494,14 +456,11 @@ mod tests {
     fn metric_counts() {
         let part = RenderablePart {
             vertices: (0..24)
-                .map(|_| GpuVertex {
-                    position: [0.0, 0.0, 0.0],
-                    normal: [0.0, 1.0, 0.0],
-                })
+                .map(|_| GpuVertex::new(Vec3::ZERO, Vec3::Y))
                 .collect(),
             indices: (0..36).collect(),
             model_matrix: Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         };
 
         assert_eq!(part.vertex_count(), 24);
@@ -534,18 +493,12 @@ mod tests {
     fn create_box_part(min_x: f32, max_x: f32) -> RenderablePart {
         RenderablePart {
             vertices: vec![
-                GpuVertex {
-                    position: [min_x, 0.0, 0.0],
-                    normal: [0.0, 1.0, 0.0],
-                },
-                GpuVertex {
-                    position: [max_x, 1.0, 1.0],
-                    normal: [0.0, 1.0, 0.0],
-                },
+                GpuVertex::new(Vec3::new(min_x, 0.0, 0.0), Vec3::Y),
+                GpuVertex::new(Vec3::new(max_x, 1.0, 1.0), Vec3::Y),
             ],
             indices: vec![0, 1, 0],
             model_matrix: Mat4::IDENTITY,
-            color: [1.0, 1.0, 1.0, 1.0],
+            color: Vec4::ONE,
         }
     }
 

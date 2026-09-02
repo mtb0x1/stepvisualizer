@@ -5,6 +5,7 @@ use crate::{
     trace_span,
 };
 use bytemuck::cast_slice;
+use glam::{Mat4, Vec4};
 use std::cell::RefCell;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
@@ -32,8 +33,8 @@ pub struct PartGpu {
     pub uniforms_dirty: bool,
 }
 
-const ZERO_MAT4: [f32; 16] = [0.0; 16];
-const ZERO_COLOR: [f32; 4] = [0.0; 4];
+const ZERO_MAT4: Mat4 = Mat4::ZERO;
+const ZERO_COLOR: Vec4 = Vec4::ZERO;
 
 impl PartGpu {
     /// Allocate vertex, index, and uniform buffers on `device` for `part`, and

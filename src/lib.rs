@@ -17,7 +17,7 @@
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 mod apptracing;
-mod common;
+pub mod common;
 mod components;
 mod error;
 mod left_panel;
