@@ -2140,7 +2140,6 @@ dependencies = [
  "glam",
  "gloo 0.11.0",
  "gloo-storage 0.3.0",
- "gloo-worker 0.5.0",
  "js-sys",
  "rexie",
  "ruststep",
