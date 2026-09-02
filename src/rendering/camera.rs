@@ -15,7 +15,7 @@ pub fn spherical_to_cartesian(azimuth: f32, elevation: f32, distance: f32, targe
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
 /// point. Dragging mutates the angles, zooming the distance; the target is
 /// normally the model center and never moves.
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug)]
 pub struct CameraState {
     pub azimuth: f32,
     pub elevation: f32,
@@ -40,18 +40,25 @@ impl CameraState {
 
     /// Rotate the camera around the target using mouse delta coordinates in pixels.
     pub fn orbit(&self, delta_x: f32, delta_y: f32) -> Self {
-        let max_elev = std::f32::consts::FRAC_PI_2 - 0.001;
-        let mut next = self.clone();
-        next.azimuth -= delta_x * 0.01;
-        next.elevation = (next.elevation - delta_y * 0.01).clamp(-max_elev, max_elev);
-        next
+        const MAX_ELEVATION: f32 = std::f32::consts::FRAC_PI_2 - 0.001;
+        const CAMERA_SENSITIVITY: f32 = 0.01;
+        Self {
+            azimuth: self.azimuth - delta_x * CAMERA_SENSITIVITY,
+            elevation: (self.elevation - delta_y * CAMERA_SENSITIVITY)
+                .clamp(-MAX_ELEVATION, MAX_ELEVATION),
+            distance: self.distance,
+            target: self.target,
+        }
     }
 
     /// Zoom camera distance by a multiplicative factor (clamped to positive distances).
     pub fn zoom(&self, factor: f32) -> Self {
-        let mut next = self.clone();
-        next.distance = (next.distance * factor).max(0.01);
-        next
+        Self {
+            azimuth: self.azimuth,
+            elevation: self.elevation,
+            distance: (self.distance * factor).max(0.01),
+            target: self.target,
+        }
     }
 }
 

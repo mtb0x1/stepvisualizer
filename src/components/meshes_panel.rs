@@ -6,7 +6,6 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct MeshItemProps {
     pub index: usize,
-    pub name: String,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
@@ -34,7 +33,7 @@ fn mesh_item(props: &MeshItemProps) -> Html {
                     onchange={on_visibility_change}
                     class="mesh-visibility"
                 />
-                <span class="mesh-name">{&props.name}</span>
+                <span class="mesh-name">{ "Mesh " }{ props.index + 1 }</span>
             </div>
             <div class="mesh-details">
                 <span class="mesh-stats">
@@ -53,10 +52,9 @@ pub struct MeshesPanelProps {
     pub on_hide_all: Callback<()>,
 }
 
-#[derive(Clone, Debug, PartialEq, Properties)]
+#[derive(Clone, Copy, Debug, PartialEq, Properties)]
 pub struct MeshData {
     pub index: usize,
-    pub name: String,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
@@ -77,7 +75,6 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
                 <MeshItem
                     key={mesh.index}
                     index={mesh.index}
-                    name={mesh.name.clone()}
                     triangle_count={mesh.triangle_count}
                     vertex_count={mesh.vertex_count}
                     visible={mesh.visible}

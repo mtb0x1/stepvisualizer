@@ -157,7 +157,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                         let pending_render = pending_render.clone();
                         let model = model.clone();
                         let vis_vec = vis.clone();
-                        let camera_value = (**camera).clone();
+                        let camera_value = **camera;
                         let state = wgpu_state.clone();
                         let error_cb = render_error_cb.clone();
                         let meter = fps_meter.clone();

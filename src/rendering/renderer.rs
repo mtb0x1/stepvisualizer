@@ -86,7 +86,7 @@ pub async fn render_wgpu_on_canvas(
     let camera_target = CameraState {
         target: view_target,
         distance: fit_distance,
-        ..(*camera).clone()
+        ..*camera
     };
     let eye = camera_target.eye_position();
     let view_matrix = look_at_mat4(eye, view_target, Vec3::Y);

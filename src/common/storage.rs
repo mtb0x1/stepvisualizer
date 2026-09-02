@@ -51,22 +51,28 @@ fn model_key(id: &str) -> String {
     format!("{}{}", ls_model_key_prefix(), id)
 }
 
-/// Persist a whole model asynchronously to IndexedDB.
-pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
+/// Persist a serialized model JSON asynchronously to IndexedDB under its id.
+pub async fn save_model_json_indexeddb(id: &str, json: &str) -> Result<(), String> {
     let db = open_db().await.map_err(|e| e.to_string())?;
     let transaction = db
         .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
         .map_err(|e| e.to_string())?;
     let store = transaction.store(STORE_MODELS).map_err(|e| e.to_string())?;
-    let json = serde_json::to_string(model).map_err(|e| e.to_string())?;
-    let key = wasm_bindgen::JsValue::from_str(&model.id);
-    let val = wasm_bindgen::JsValue::from_str(&json);
+    let key = wasm_bindgen::JsValue::from_str(id);
+    let val = wasm_bindgen::JsValue::from_str(json);
     store
         .put(&val, Some(&key))
         .await
         .map_err(|e| e.to_string())?;
     transaction.commit().await.map_err(|e| e.to_string())?;
     Ok(())
+}
+
+/// Persist a whole model asynchronously to IndexedDB.
+#[allow(dead_code)]
+pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
+    let json = serde_json::to_string(model).map_err(|e| e.to_string())?;
+    save_model_json_indexeddb(&model.id, &json).await
 }
 
 /// Load a model asynchronously from IndexedDB.
@@ -110,15 +116,22 @@ pub async fn clear_indexeddb() -> Result<(), String> {
 /// Persist a whole model under its id. Spawns async IndexedDB write and writes to localStorage if small.
 pub fn save_model(model: &StepModel) {
     trace_span!("save_model");
-    let model_clone = model.clone();
+    let key = model_key(&model.id);
+    let _ = LocalStorage::set(&key, model);
+
+    let id = model.id.clone();
+    let json = match serde_json::to_string(model) {
+        Ok(j) => j,
+        Err(e) => {
+            AppTracer::warn(&format!("Failed to serialize model: {e}"));
+            return;
+        }
+    };
     spawn_local(async move {
-        if let Err(e) = save_model_indexeddb(&model_clone).await {
+        if let Err(e) = save_model_json_indexeddb(&id, &json).await {
             AppTracer::warn(&format!("Failed to save model to IndexedDB: {e}"));
         }
     });
-
-    let key = model_key(&model.id);
-    let _ = LocalStorage::set(key, model);
 }
 
 /// Load a previously saved model from localStorage (sync fallback).

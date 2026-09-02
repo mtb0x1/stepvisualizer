@@ -198,21 +198,23 @@ fn spawn_tessellation(
             model.metadata.bounding_box = Some(bbox);
         }
 
+        save_model(&model);
+
+        let total_triangles = model.total_triangles();
+        let model_rc = Rc::new(model);
         {
             let mut cache_ref = cache.borrow_mut();
-            cache_ref.insert(file_id.clone(), model.clone());
+            cache_ref.insert_rc(file_id.clone(), model_rc.clone());
         }
-        save_model(&model);
 
         if *states.load_generation > generation {
             return;
         }
 
-        states.metadata.set(Some(model.metadata.clone()));
-        states.step_model.set(Some(Rc::new(model.clone())));
+        states.metadata.set(Some(model_rc.metadata.clone()));
+        states.step_model.set(Some(model_rc));
         states.part_visibility.set(vec![true; part_count]);
 
-        let total_triangles = model.total_triangles();
         let status_msg = if total_triangles == 0 {
             "File loaded but no renderable geometry was found.".to_string()
         } else if skipped_shells > 0 {
@@ -534,11 +536,11 @@ fn recompute_and_store_metric(
         let model_mut = Rc::make_mut(&mut model_rc);
         model_mut.metadata = new_meta;
 
+        save_model(model_mut);
         {
             let mut c = cache.borrow_mut();
-            c.insert(model_mut.id.clone(), model_mut.clone());
+            c.insert_rc(model_rc.id.clone(), model_rc.clone());
         }
-        save_model(model_mut);
 
         states.step_model.set(Some(model_rc));
     }

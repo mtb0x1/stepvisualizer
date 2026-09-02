@@ -240,6 +240,7 @@ fn append_face_geometry(
     orientation: bool,
     vertices: &mut Vec<GpuVertex>,
     indices: &mut Vec<u32>,
+    vertex_map: &mut std::collections::HashMap<(usize, Option<usize>), u32>,
 ) {
     if !orientation {
         mesh.invert();
@@ -249,7 +250,7 @@ fn append_face_geometry(
     let positions = mesh.positions();
     let normals = mesh.normals();
 
-    let mut vertex_map = std::collections::HashMap::<(usize, Option<usize>), u32>::new();
+    vertex_map.clear();
 
     for face in mesh.face_iter() {
         if face.len() < 3 {
@@ -317,9 +318,11 @@ fn tessellate_table(
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
 ) -> usize {
-    let mut shells: Vec<_> = table.shell.iter().collect();
+    let mut shells = Vec::with_capacity(table.shell.len());
+    shells.extend(table.shell.iter());
     shells.sort_by_key(|(k, _)| *k);
     let mut skipped: usize = 0;
+    let mut vertex_map = std::collections::HashMap::<(usize, Option<usize>), u32>::new();
     for (shell_index, (_, shell)) in shells.into_iter().enumerate() {
         let model_matrix = Mat4::IDENTITY;
 
@@ -349,7 +352,13 @@ fn tessellate_table(
 
         for face in poly_shell.faces {
             if let Some(mesh) = face.surface {
-                append_face_geometry(mesh, face.orientation, &mut vertices, &mut indices);
+                append_face_geometry(
+                    mesh,
+                    face.orientation,
+                    &mut vertices,
+                    &mut indices,
+                    &mut vertex_map,
+                );
             }
         }
 
