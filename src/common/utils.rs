@@ -163,18 +163,19 @@ pub fn format_bbox_coordinates(
         Some(u) if !u.is_empty() => format!(" {u}"),
         _ => String::new(),
     };
-    let min_str = format!("min: {:.3}, {:.3}, {:.3}{unit_suffix}", min[0], min[1], min[2]);
-    let max_str = format!("max: {:.3}, {:.3}, {:.3}{unit_suffix}", max[0], max[1], max[2]);
+    let min_str = format!(
+        "min: {:.3}, {:.3}, {:.3}{unit_suffix}",
+        min[0], min[1], min[2]
+    );
+    let max_str = format!(
+        "max: {:.3}, {:.3}, {:.3}{unit_suffix}",
+        max[0], max[1], max[2]
+    );
     (min_str, max_str)
 }
 
 /// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height, and max value.
-pub fn build_svg_polyline_points(
-    samples: &[f32],
-    width: f32,
-    height: f32,
-    max_val: f32,
-) -> String {
+pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_val: f32) -> String {
     if samples.is_empty() {
         return String::new();
     }
@@ -193,6 +194,37 @@ pub fn build_svg_polyline_points(
         let _ = write!(out, "{x:.1},{y:.1}");
     }
     out
+}
+
+/// Per-part palette, cycled by part index.
+pub const PART_COLORS_COUNT: usize = 10;
+pub const PART_COLORS: [[f32; 4]; PART_COLORS_COUNT] = [
+    [0.8, 0.2, 0.2, 1.0],
+    [0.2, 0.8, 0.2, 1.0],
+    [0.2, 0.2, 0.8, 1.0],
+    [0.8, 0.8, 0.2, 1.0],
+    [0.8, 0.2, 0.8, 1.0],
+    [0.2, 0.8, 0.8, 1.0],
+    [0.6, 0.4, 0.2, 1.0],
+    [0.4, 0.6, 0.8, 1.0],
+    [0.8, 0.6, 0.4, 1.0],
+    [0.6, 0.8, 0.4, 1.0],
+];
+
+/// Returns the RGBA color for part at `index`, cycling through the palette.
+pub const fn part_color(index: usize) -> [f32; 4] {
+    PART_COLORS[index % PART_COLORS_COUNT]
+}
+
+/// Returns a status color string for FPS visualization (green >= 50, yellow >= 30, red < 30).
+pub const fn fps_color(fps: f32) -> &'static str {
+    if fps >= 50.0 {
+        "#4ade80"
+    } else if fps >= 30.0 {
+        "#facc15"
+    } else {
+        "#f87171"
+    }
 }
 
 #[cfg(test)]
@@ -313,8 +345,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_format_metric_with_unit() {
-        assert_eq!(format_metric_with_unit(12.34567, Some("mm"), 3), "12.3457 mm³");
-        assert_eq!(format_metric_with_unit(45.67891, Some("mm"), 2), "45.6789 mm²");
+        assert_eq!(
+            format_metric_with_unit(12.34567, Some("mm"), 3),
+            "12.3457 mm³"
+        );
+        assert_eq!(
+            format_metric_with_unit(45.67891, Some("mm"), 2),
+            "45.6789 mm²"
+        );
         assert_eq!(format_metric_with_unit(10.5, Some("mm"), 1), "10.50 mm");
         assert_eq!(format_metric_with_unit(10.5, None, 1), "10.50");
     }
@@ -339,5 +377,28 @@ mod tests {
         assert_eq!(build_svg_polyline_points(&single, 100.0, 50.0, 100.0), "0.0,25.0");
         let samples = [0.0, 100.0];
         assert_eq!(build_svg_polyline_points(&samples, 100.0, 50.0, 100.0), "0.0,50.0 100.0,0.0");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_part_color_cycling() {
+        let c0 = part_color(0);
+        let c10 = part_color(10);
+        let c20 = part_color(20);
+        assert_eq!(c0, c10);
+        assert_eq!(c0, c20);
+        assert_eq!(c0, [0.8, 0.2, 0.2, 1.0]);
+
+        let c1 = part_color(1);
+        assert_eq!(c1, [0.2, 0.8, 0.2, 1.0]);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_fps_color_thresholds() {
+        assert_eq!(fps_color(60.0), "#4ade80");
+        assert_eq!(fps_color(50.0), "#4ade80");
+        assert_eq!(fps_color(49.9), "#facc15");
+        assert_eq!(fps_color(30.0), "#facc15");
+        assert_eq!(fps_color(29.9), "#f87171");
+        assert_eq!(fps_color(0.0), "#f87171");
     }
 }

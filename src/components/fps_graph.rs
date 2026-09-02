@@ -7,7 +7,7 @@ use wasm_bindgen::closure::Closure;
 use yew::prelude::*;
 
 use crate::common::fps_meter::{FpsMeter, FpsSnapshot};
-use crate::common::utils::build_svg_polyline_points;
+use crate::common::utils::{build_svg_polyline_points, fps_color};
 
 #[derive(Properties, Clone)]
 pub struct FpsGraphProps {
@@ -88,16 +88,5 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
                 <polyline points={points} fill="none" stroke={stroke} stroke-width="1.5" />
             </svg>
         </div>
-    }
-}
-
-/// Green when smooth, yellow when sluggish, red when effectively stalled.
-const fn fps_color(fps: f32) -> &'static str {
-    if fps >= 50.0 {
-        "#4ade80"
-    } else if fps >= 30.0 {
-        "#facc15"
-    } else {
-        "#f87171"
     }
 }
