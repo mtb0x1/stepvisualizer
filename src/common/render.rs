@@ -1,9 +1,7 @@
 //! Tessellation of STEP geometry into GPU-ready triangle meshes, plus the
 //! per-part mesh type the renderer and metric calculations operate on.
-use crate::{
-    apptracing::{AppTracer, AppTracerTrait},
-    trace_span,
-};
+use super::logger;
+use crate::trace_span;
 use bytemuck::{Pod, Zeroable};
 
 use serde::{Deserialize, Serialize};
@@ -146,7 +144,7 @@ pub fn extract_render_parts(
             table.shell.len(),
             skipped
         );
-        AppTracer::debug(&msg);
+        logger::debug(&msg);
     }
 
     let total_ms = now_ms() - total_start;
@@ -162,7 +160,7 @@ pub fn extract_render_parts(
         triangles,
         total_skipped
     );
-    AppTracer::debug(&summary);
+    logger::debug(&summary);
 
     // Center the whole model at the origin once, by baking the centering
     // translation into each part's model matrix. This keeps the geometry
@@ -293,7 +291,7 @@ fn tessellate_table(
                     "extract_render_parts => failed to compress shell {}: {}",
                     shell_index, err
                 );
-                AppTracer::warn(&msg);
+                logger::warn(&msg);
                 skipped += 1;
                 continue;
             }
@@ -339,7 +337,7 @@ fn tessellate_table(
             triangulation_ms,
             parts_to_render.len()
         );
-        AppTracer::debug(&shell_msg);
+        logger::debug(&shell_msg);
     }
     skipped
 }

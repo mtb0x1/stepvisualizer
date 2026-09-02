@@ -1,6 +1,5 @@
 use crate::{
-    apptracing::{AppTracer, AppTracerTrait},
-    common::{BoundingBox, RenderablePart, ViewportSize},
+    common::{BoundingBox, RenderablePart, ViewportSize, logger},
     error::StepVizError,
     trace_span,
 };
@@ -230,7 +229,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Ok(surface) => surface,
         Err(err) => {
             let msg = format!("Failed to create WebGPU surface: {err}");
-            AppTracer::error(&msg);
+            logger::error(&msg);
             return Err(StepVizError::GpuInitFailed(msg));
         }
     };
@@ -251,7 +250,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Ok(adapter) => adapter,
         Err(err) => {
             let msg = format!("Failed to request WebGPU adapter: {err}");
-            AppTracer::error(&msg);
+            logger::error(&msg);
             return Err(StepVizError::GpuInitFailed(msg));
         }
     };
@@ -262,7 +261,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Ok((device, queue)) => (device, queue),
         Err(err) => {
             let msg = format!("Failed to request adapter device: {err}");
-            AppTracer::error(&msg);
+            logger::error(&msg);
             return Err(StepVizError::GpuInitFailed(msg));
         }
     };

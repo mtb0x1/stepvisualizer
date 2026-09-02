@@ -1,9 +1,7 @@
 //! Hybrid persistence: recent-files index in localStorage, full models in IndexedDB.
 //! Persistence is best-effort — failures are logged as warnings and the app keeps running.
-use crate::{
-    apptracing::{AppTracer, AppTracerTrait},
-    trace_span,
-};
+use super::logger;
+use crate::trace_span;
 use gloo_storage::{LocalStorage, Storage, errors::StorageError};
 use rexie::{ObjectStore, Rexie, TransactionMode};
 use wasm_bindgen_futures::spawn_local;
@@ -27,7 +25,7 @@ pub async fn open_db() -> Result<Rexie, rexie::Error> {
 pub fn save_index(index: &[FileIndexItem]) {
     trace_span!("save_index");
     if let Err(err) = LocalStorage::set(ls_index_key(), index) {
-        AppTracer::warn(&format!("Failed to save file index to localStorage: {err}"));
+        logger::warn(&format!("Failed to save file index to localStorage: {err}"));
     }
 }
 
@@ -39,7 +37,7 @@ pub fn load_index() -> Vec<FileIndexItem> {
         // A missing index is the normal first-visit case, not a failure.
         Err(StorageError::KeyNotFound(_)) => vec![],
         Err(err) => {
-            AppTracer::warn(&format!(
+            logger::warn(&format!(
                 "Failed to load file index from localStorage, starting with an empty history: {err}"
             ));
             vec![]
@@ -123,13 +121,13 @@ pub fn save_model(model: &StepModel) {
     let json = match serde_json::to_string(model) {
         Ok(j) => j,
         Err(e) => {
-            AppTracer::warn(&format!("Failed to serialize model: {e}"));
+            logger::warn(&format!("Failed to serialize model: {e}"));
             return;
         }
     };
     spawn_local(async move {
         if let Err(e) = save_model_json_indexeddb(&id, &json).await {
-            AppTracer::warn(&format!("Failed to save model to IndexedDB: {e}"));
+            logger::warn(&format!("Failed to save model to IndexedDB: {e}"));
         }
     });
 }

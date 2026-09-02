@@ -1,7 +1,7 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
 use super::components::fps_graph::FpsGraph;
-use crate::apptracing::{AppTracer, AppTracerTrait};
+use crate::common::logger;
 use crate::{
     common::fps_meter::FpsMeter,
     common::{FileId, Metadata, StepModel, ViewportSize, constants::WEBGPU_INIT_FAILED_MSG},
@@ -107,7 +107,7 @@ pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
                     let _ = &on_resize;
                 }) as Box<dyn Fn()>
             } else {
-                AppTracer::error("Failed to create ResizeObserver");
+                logger::error("Failed to create ResizeObserver");
                 Box::new(move || {
                     let _ = &on_resize;
                 }) as Box<dyn Fn()>

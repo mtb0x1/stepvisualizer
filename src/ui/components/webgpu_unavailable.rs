@@ -5,7 +5,7 @@
 //! camera controls over a dead canvas), the whole UI is replaced by this
 //! explanatory page.
 
-use crate::apptracing::{AppTracer, AppTracerTrait};
+use crate::common::logger;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -21,7 +21,7 @@ pub fn webgpu_unavailable(props: &WebGpuUnavailableProps) -> Html {
     {
         let reason = props.reason.clone();
         use_effect_with((), move |_| {
-            AppTracer::error(&format!("WebGPU unavailable: {reason}"));
+            logger::error(&format!("WebGPU unavailable: {reason}"));
             || ()
         });
     }

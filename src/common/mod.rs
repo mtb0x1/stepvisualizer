@@ -4,6 +4,7 @@
 pub mod cache;
 pub mod constants;
 pub mod fps_meter;
+pub mod logger;
 pub mod parser;
 pub mod render;
 pub mod storage;

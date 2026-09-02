@@ -1,5 +1,5 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
-use crate::apptracing::{AppTracer, AppTracerTrait};
+use super::logger;
 use crate::common::storage::hash_text_to_id;
 use crate::common::utils::{
     contains_ignore_ascii_case, param_as_enum, param_as_list, param_as_str,
@@ -128,7 +128,7 @@ pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepV
         Err(StepVizError::EmptyDataSection)
     } else {
         if parsed.data.len() > 1 {
-            AppTracer::warn(&format!(
+            logger::warn(&format!(
                 "STEP file contains {} DATA sections; processing all {} usable sections",
                 parsed.data.len(),
                 usable.len()

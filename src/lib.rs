@@ -10,19 +10,17 @@
 //! - `workspace`: the app-wide state hook wiring parsing → storage → UI
 //! - `ui`: UI panels, viewport, dialogs, and reusable components
 //! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
-//! - `common`: domain types + pure logic (parsing, tessellation, caches, math)
-//! - `apptracing`: URL-query-driven tracing setup
+//! - `common`: domain types + pure logic (parsing, tessellation, caches, math, logging)
 //! - `error`: the crate-wide error type
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-mod apptracing;
 pub mod common;
 mod error;
 mod rendering;
 mod ui;
 mod workspace;
-use apptracing::{AppTracer, AppTracerTrait};
 use common::constants::NO_WEBGPU_MSG;
+use common::logger;
 use rendering::wgpu_state::browser_has_webgpu;
 use ui::{
     AppStepviz, ConfirmModal, LeftPanel, RightPanel as MetadataPanel, UploadBar, WebGpuUnavailable,
@@ -165,7 +163,7 @@ fn main_app(props: &MainAppProps) -> Html {
 
 #[wasm_bindgen(start)]
 pub fn run_app() {
-    AppTracer::init();
+    logger::init();
     trace_span!("run_app");
     yew::Renderer::<App>::new().render();
 }
