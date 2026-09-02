@@ -1,5 +1,7 @@
 use crate::common::constants::NA;
-use crate::common::utils::{format_list_or_na, format_or_na};
+use crate::common::utils::{
+    format_bbox_coordinates, format_list_or_na, format_metric_with_unit, format_or_na,
+};
 use crate::common::{BoundingBox, Metadata};
 use crate::trace_span;
 use yew::prelude::*;
@@ -24,19 +26,12 @@ fn detail_row(label: &'static str, value: impl Into<Html>) -> Html {
 /// Helper to format bounding box minimum and maximum coordinates.
 fn format_bbox(bounding_box: Option<&BoundingBox>, unit: Option<&str>) -> Html {
     if let Some(bb) = bounding_box {
-        let unit_suffix = match unit {
-            Some(u) if !u.is_empty() => format!(" {}", u),
-            _ => String::new(),
-        };
+        let (min_str, max_str) = format_bbox_coordinates(bb.min, bb.max, unit);
         html! {
             <>
-                <span class="bbox-value">
-                    { format!("min: {:.3}, {:.3}, {:.3}{}", bb.min[0], bb.min[1], bb.min[2], unit_suffix) }
-                </span>
+                <span class="bbox-value">{ min_str }</span>
                 <br/>
-                <span class="bbox-value">
-                    { format!("max: {:.3}, {:.3}, {:.3}{}", bb.max[0], bb.max[1], bb.max[2], unit_suffix) }
-                </span>
+                <span class="bbox-value">{ max_str }</span>
             </>
         }
     } else {
@@ -47,11 +42,7 @@ fn format_bbox(bounding_box: Option<&BoundingBox>, unit: Option<&str>) -> Html {
 /// Helper to format volume with units or render the calculate trigger.
 fn format_volume(volume: Option<f64>, unit: Option<&str>, on_calc: Callback<()>) -> Html {
     if let Some(vol) = volume {
-        let unit_display = match unit {
-            Some(u) if !u.is_empty() => format!(" {}³", u),
-            _ => String::new(),
-        };
-        html! { format!("{:.4}{}", vol, unit_display) }
+        html! { format_metric_with_unit(vol, unit, 3) }
     } else {
         html! {
             <span
@@ -67,11 +58,7 @@ fn format_volume(volume: Option<f64>, unit: Option<&str>, on_calc: Callback<()>)
 /// Helper to format surface area with units or render the calculate trigger.
 fn format_surface(surface: Option<f64>, unit: Option<&str>, on_calc: Callback<()>) -> Html {
     if let Some(area) = surface {
-        let unit_display = match unit {
-            Some(u) if !u.is_empty() => format!(" {}²", u),
-            _ => String::new(),
-        };
-        html! { format!("{:.4}{}", area, unit_display) }
+        html! { format_metric_with_unit(area, unit, 2) }
     } else {
         html! {
             <span

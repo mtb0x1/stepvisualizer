@@ -1,6 +1,5 @@
 //! Minimal Chrome-style FPS overlay: a current-FPS readout plus a small
 //! sparkline of recent samples, pinned to the bottom-left of the canvas.
-use std::fmt::Write;
 use std::rc::Rc;
 
 use wasm_bindgen::JsCast;
@@ -8,6 +7,7 @@ use wasm_bindgen::closure::Closure;
 use yew::prelude::*;
 
 use crate::common::fps_meter::{FpsMeter, FpsSnapshot};
+use crate::common::utils::build_svg_polyline_points;
 
 #[derive(Properties, Clone)]
 pub struct FpsGraphProps {
@@ -68,7 +68,12 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
         });
     }
 
-    let points = build_points(&snapshot.samples);
+    let points = build_svg_polyline_points(
+        &snapshot.samples,
+        GRAPH_W as f32,
+        GRAPH_H as f32,
+        MAX_FPS,
+    );
     let stroke = fps_color(snapshot.current_fps);
 
     html! {
@@ -84,31 +89,6 @@ pub fn fps_graph(props: &FpsGraphProps) -> Html {
             </svg>
         </div>
     }
-}
-
-/// Map samples (oldest first) to SVG `x,y x,y ...` polyline points. The newest
-/// sample sits at the right edge; values are clamped to [`MAX_FPS`].
-fn build_points(samples: &[f32]) -> String {
-    if samples.is_empty() {
-        return String::new();
-    }
-    let n = samples.len();
-    let w = GRAPH_W as f32;
-    let h = GRAPH_H as f32;
-    let mut out = String::with_capacity(n * 12);
-    for (i, &v) in samples.iter().enumerate() {
-        if i > 0 {
-            out.push(' ');
-        }
-        let x = if n == 1 {
-            0.0
-        } else {
-            (i as f32 / (n - 1) as f32) * w
-        };
-        let y = h - (v.min(MAX_FPS) / MAX_FPS) * h;
-        let _ = write!(out, "{x:.1},{y:.1}");
-    }
-    out
 }
 
 /// Green when smooth, yellow when sluggish, red when effectively stalled.

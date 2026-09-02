@@ -1,5 +1,6 @@
 //! General utilities: pure text processing, math, formatting, color mapping, and Web/DOM helpers.
 use std::borrow::Cow;
+use std::fmt::Write;
 
 use glam::Vec3;
 
@@ -124,6 +125,76 @@ pub fn geometric_normal(p0: Vec3, p1: Vec3, p2: Vec3) -> [f32; 3] {
     d1.cross(d2).normalize_or(Vec3::Y).to_array()
 }
 
+/// Converts raw bytes to megabytes (MiB: 1024 * 1024).
+#[inline(always)]
+pub fn bytes_to_mb(bytes: f64) -> f64 {
+    bytes / (1024.0 * 1024.0)
+}
+
+/// Formats a byte size into a human-readable megabyte string with one decimal place.
+pub fn format_bytes_mb(bytes: f64) -> String {
+    format!("{:.1} MB", bytes_to_mb(bytes))
+}
+
+/// Formats a metric value with an optional unit symbol and power exponent (e.g. `12.3456 mm³`, `45.6789 mm²`, `10.50 mm`).
+pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32) -> String {
+    let suffix = match unit_symbol {
+        Some(u) if !u.is_empty() => match power {
+            3 => format!(" {u}³"),
+            2 => format!(" {u}²"),
+            1 => format!(" {u}"),
+            _ => format!(" {u}"),
+        },
+        _ => String::new(),
+    };
+    match power {
+        3 | 2 => format!("{value:.4}{suffix}"),
+        _ => format!("{value:.2}{suffix}"),
+    }
+}
+
+/// Formats 3D bounding box coordinates into formatted min/max display strings.
+pub fn format_bbox_coordinates(
+    min: [f64; 3],
+    max: [f64; 3],
+    unit_symbol: Option<&str>,
+) -> (String, String) {
+    let unit_suffix = match unit_symbol {
+        Some(u) if !u.is_empty() => format!(" {u}"),
+        _ => String::new(),
+    };
+    let min_str = format!("min: {:.3}, {:.3}, {:.3}{unit_suffix}", min[0], min[1], min[2]);
+    let max_str = format!("max: {:.3}, {:.3}, {:.3}{unit_suffix}", max[0], max[1], max[2]);
+    (min_str, max_str)
+}
+
+/// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height, and max value.
+pub fn build_svg_polyline_points(
+    samples: &[f32],
+    width: f32,
+    height: f32,
+    max_val: f32,
+) -> String {
+    if samples.is_empty() {
+        return String::new();
+    }
+    let n = samples.len();
+    let mut out = String::with_capacity(n * 12);
+    for (i, &v) in samples.iter().enumerate() {
+        if i > 0 {
+            out.push(' ');
+        }
+        let x = if n == 1 {
+            0.0
+        } else {
+            (i as f32 / (n - 1) as f32) * width
+        };
+        let y = height - (v.min(max_val) / max_val) * height;
+        let _ = write!(out, "{x:.1},{y:.1}");
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -172,8 +243,6 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_triangle_signed_volume() {
-        // Tetrahedron with vertices (0,0,0), (1,0,0), (0,1,0), (0,0,1)
-        // Expected signed volume = 1.0 (before dividing by 6.0 in calculate_volume)
         let v0 = [1.0, 0.0, 0.0];
         let v1 = [0.0, 1.0, 0.0];
         let v2 = [0.0, 0.0, 1.0];
@@ -183,7 +252,6 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_triangle_area() {
-        // Right-angle triangle with legs 1.0 along X and Y
         let v0 = [0.0, 0.0, 0.0];
         let v1 = [1.0, 0.0, 0.0];
         let v2 = [0.0, 1.0, 0.0];
@@ -231,8 +299,45 @@ mod tests {
         let normal = geometric_normal(p0, p1, p2);
         assert_eq!(normal, [0.0, 0.0, 1.0]);
 
-        // Degenerate colinear triangle falls back to Vec3::Y
         let degenerate_normal = geometric_normal(p0, p1, Vec3::new(2.0, 0.0, 0.0));
         assert_eq!(degenerate_normal, [0.0, 1.0, 0.0]);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_bytes_and_mb_formatting() {
+        let bytes = 50.0 * 1024.0 * 1024.0;
+        assert_eq!(bytes_to_mb(bytes), 50.0);
+        assert_eq!(format_bytes_mb(bytes), "50.0 MB");
+        assert_eq!(format_bytes_mb(1024.0 * 512.0), "0.5 MB");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_format_metric_with_unit() {
+        assert_eq!(format_metric_with_unit(12.34567, Some("mm"), 3), "12.3457 mm³");
+        assert_eq!(format_metric_with_unit(45.67891, Some("mm"), 2), "45.6789 mm²");
+        assert_eq!(format_metric_with_unit(10.5, Some("mm"), 1), "10.50 mm");
+        assert_eq!(format_metric_with_unit(10.5, None, 1), "10.50");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_format_bbox_coordinates() {
+        let min = [1.1234, 2.5678, 3.9];
+        let max = [10.0, 20.0, 30.0];
+        let (min_s, max_s) = format_bbox_coordinates(min, max, Some("mm"));
+        assert_eq!(min_s, "min: 1.123, 2.568, 3.900 mm");
+        assert_eq!(max_s, "max: 10.000, 20.000, 30.000 mm");
+
+        let (min_no_unit, max_no_unit) = format_bbox_coordinates(min, max, None);
+        assert_eq!(min_no_unit, "min: 1.123, 2.568, 3.900");
+        assert_eq!(max_no_unit, "max: 10.000, 20.000, 30.000");
+    }
+
+    #[wasm_bindgen_test]
+    fn test_build_svg_polyline_points() {
+        assert_eq!(build_svg_polyline_points(&[], 100.0, 50.0, 100.0), "");
+        let single = [50.0];
+        assert_eq!(build_svg_polyline_points(&single, 100.0, 50.0, 100.0), "0.0,25.0");
+        let samples = [0.0, 100.0];
+        assert_eq!(build_svg_polyline_points(&samples, 100.0, 50.0, 100.0), "0.0,50.0 100.0,0.0");
     }
 }
