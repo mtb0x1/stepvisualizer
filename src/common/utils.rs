@@ -7,7 +7,7 @@ use glam::{DVec3, Vec2, Vec4};
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
 use crate::common::types::BoundingBox;
-use ruststep::ast::Parameter;
+use crate::ruststep::ast::Parameter;
 
 /// Case-insensitive ASCII substring search without heap allocations.
 pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {

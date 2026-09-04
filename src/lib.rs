@@ -14,6 +14,7 @@
 //! - `error`: the crate-wide error type
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
+pub use truck_stepio::r#in::ruststep;
 pub mod common;
 use common::error;
 mod rendering;

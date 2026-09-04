@@ -16,8 +16,6 @@ approx = "0.5"
 [dependencies]
 gloo = "0.11.0"
 js-sys = "0.3.81"
-# Generic STEP AST is parsed by ruststep (supports AP201/AP203 only; AP214/AP209 unsupported)
-ruststep = { version = "0.4.0", features = ["ap201", "ap203"] }
 wasm-bindgen = "0.2.127"
 wasm-bindgen-futures = "0.4.77"
 web-sys = { version = "0.3.81", features = [
@@ -43,6 +41,10 @@ tracing-subscriber = { version = "0.3.20", features = [
     "time",
 ] }
 truck-stepio = "0.3.0"
+#note this is need so we can do `truck_stepio::r#in::ruststep::ap20*` later.
+#Do nbot remove the dep. below
+ruststep = { version = "0.4.0", features = ["ap201", "ap203"] }
+#
 truck-polymesh = "0.6.0"
 truck-modeling = "0.6.0"
 truck-meshalgo = "0.4.0"

@@ -23,7 +23,8 @@ pub(crate) fn parse_step_file_content(
     name: &str,
     text: &str,
 ) -> Result<(Metadata, FileId, Vec<truck_stepio::r#in::Table>), StepVizError> {
-    let parsed = ruststep::parser::parse(text).map_err(|e| StepVizError::Parse(e.to_string()))?;
+    let parsed =
+        crate::ruststep::parser::parse(text).map_err(|e| StepVizError::Parse(e.to_string()))?;
     let sections = all_usable_sections(&parsed)?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()

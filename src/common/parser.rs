@@ -4,9 +4,10 @@ use crate::common::storage::hash_text_to_id;
 use crate::common::utils::{
     contains_ignore_ascii_case, param_as_enum, param_as_list, param_as_str,
 };
-use crate::{error::StepVizError, trace_span};
-use ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
-use ruststep::header::Header;
+use crate::error::StepVizError;
+use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
+use crate::ruststep::header::Header;
+use crate::trace_span;
 
 const SUPPORTED_SCHEMAS: &[&str] = &[
     "AP201",
@@ -183,6 +184,7 @@ pub fn build_initial_metadata(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ruststep;
     use wasm_bindgen_test::*;
 
     wasm_bindgen_test_configure!(run_in_browser);
