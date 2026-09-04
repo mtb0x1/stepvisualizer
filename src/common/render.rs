@@ -8,25 +8,24 @@ use serde::{Deserialize, Serialize};
 use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
-use crate::common::constants::part_color;
+use crate::common::color::{Color, StepColorMap, part_color};
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
 use crate::common::utils::{
     compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
 };
-use glam::{DVec3, Mat4, Vec3, Vec4};
+use glam::{DVec3, Mat4, Vec3};
 
-/// Vertex layout shared with the render pipeline: position + normal, both
-/// `Float32x3`.
+/// Interleaved GPU vertex: 3D position and surface normal.
+/// 24 bytes, 4-byte aligned. Matches WebGPU vertex buffer layout.
 #[repr(C)]
-#[derive(Debug, Clone, Copy, Pod, Zeroable, PartialEq, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Serialize, Deserialize)]
 pub struct GpuVertex {
     pub position: Vec3,
     pub normal: Vec3,
 }
 
 impl GpuVertex {
-    /// Construct a new GPU vertex with 3D position and normal.
     #[inline(always)]
     pub const fn new(position: Vec3, normal: Vec3) -> Self {
         Self { position, normal }
@@ -41,7 +40,7 @@ pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
     pub indices: Vec<u32>,
     pub model_matrix: Mat4,
-    pub color: Vec4,
+    pub color: Color,
 }
 
 impl Default for RenderablePart {
@@ -50,7 +49,7 @@ impl Default for RenderablePart {
             vertices: Vec::new(),
             indices: Vec::new(),
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::new(0.8, 0.8, 0.8, 1.0),
+            color: Color::DEFAULT_PART,
         }
     }
 }
@@ -134,6 +133,7 @@ pub struct TessellationOutput {
 /// matrix so geometry stays immutable across frames.
 pub fn extract_render_parts(
     step_tables: &[truck_stepio::r#in::Table],
+    colors: Option<&StepColorMap>,
     tolerance: f64,
 ) -> TessellationOutput {
     trace_span!("extract_render_parts");
@@ -145,7 +145,13 @@ pub fn extract_render_parts(
 
     for (i, table) in step_tables.iter().enumerate() {
         let section_start = now_ms();
-        let skipped = tessellate_table(table, tolerance, &mut parts_to_render, &mut warnings);
+        let skipped = tessellate_table(
+            table,
+            colors,
+            tolerance,
+            &mut parts_to_render,
+            &mut warnings,
+        );
         total_skipped += skipped;
         let tessellate_ms = now_ms() - section_start;
         let msg = format!(
@@ -287,6 +293,7 @@ fn append_face_geometry(
 /// to compress or has missing edges is skipped with a warning instead of failing the whole file.
 fn tessellate_table(
     table: &truck_stepio::r#in::Table,
+    colors: Option<&StepColorMap>,
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
     warnings: &mut Vec<String>,
@@ -296,7 +303,7 @@ fn tessellate_table(
     shells.sort_by_key(|(k, _)| *k);
     let mut skipped: usize = 0;
     let mut vertex_map = std::collections::HashMap::<(usize, Option<usize>), u32>::new();
-    for (shell_index, (_, shell)) in shells.into_iter().enumerate() {
+    for (shell_index, (shell_key, shell)) in shells.into_iter().enumerate() {
         let model_matrix = Mat4::IDENTITY;
 
         let compress_start = now_ms();
@@ -347,7 +354,9 @@ fn tessellate_table(
         }
 
         if !vertices.is_empty() && !indices.is_empty() {
-            let color = part_color(parts_to_render.len());
+            let color = colors
+                .and_then(|c| c.get(*shell_key))
+                .unwrap_or_else(|| part_color(parts_to_render.len()));
 
             parts_to_render.push(RenderablePart {
                 vertices,
@@ -402,7 +411,7 @@ mod tests {
             vertices,
             indices,
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         }
     }
 
@@ -417,7 +426,7 @@ mod tests {
             ],
             indices: vec![0, 1, 2],
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -466,7 +475,7 @@ mod tests {
             // First triangle valid (area 0.5), second out of bounds (index 999), trailing incomplete triple (0, 1)
             indices: vec![0, 1, 2, 0, 1, 999, 0, 1],
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -481,7 +490,7 @@ mod tests {
                 .collect(),
             indices: (0..36).collect(),
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         assert_eq!(part.vertex_count(), 24);
@@ -519,7 +528,7 @@ mod tests {
             ],
             indices: vec![0, 1, 0],
             model_matrix: Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         }
     }
 

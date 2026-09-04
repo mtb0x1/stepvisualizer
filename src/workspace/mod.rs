@@ -136,11 +136,12 @@ mod tests {
     #[wasm_bindgen_test]
     fn parse_valid_step_succeeds() {
         let step = include_str!("../../examples/io1-ca-214.stp");
-        let (meta, id, tables) =
+        let (meta, id, tables, color_map) =
             parse_step_file_content("io1-ca-214.stp", step).expect("valid parse");
         assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
         assert_eq!(id.as_str().len(), 16);
         assert_eq!(tables.len(), 1);
+        assert!(!color_map.is_empty());
     }
 
     #[wasm_bindgen_test]
@@ -152,7 +153,7 @@ mod tests {
     #[wasm_bindgen_test]
     fn build_step_model_initializes_counts_and_visibility() {
         let step = include_str!("../../examples/io1-ca-214.stp");
-        let (meta, _, _) = parse_step_file_content("io1-ca-214.stp", step).expect("valid parse");
+        let (meta, _, _, _) = parse_step_file_content("io1-ca-214.stp", step).expect("valid parse");
         let id = FileId::from_content("test_model");
         let model = build_step_model(id.clone(), meta, Vec::new());
         assert_eq!(model.id, id);

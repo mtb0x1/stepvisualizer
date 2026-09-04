@@ -33,6 +33,7 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                         triangle_count: part.triangle_count(),
                         vertex_count: part.vertex_count(),
                         visible: part_visibility.get(i).copied().unwrap_or(true),
+                        color: part.color,
                     })
                     .collect()
             })

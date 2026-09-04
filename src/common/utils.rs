@@ -2,7 +2,7 @@
 use std::borrow::Cow;
 use std::fmt::Write;
 
-use glam::{DVec3, Vec2, Vec4};
+use glam::{DVec3, Vec2};
 
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
@@ -109,10 +109,13 @@ pub fn geometric_normal(p0: DVec3, p1: DVec3, p2: DVec3) -> DVec3 {
     (p1 - p0).cross(p2 - p0).normalize_or(DVec3::Y)
 }
 
+/// Bytes in one mebibyte (1024 * 1024).
+pub const BYTES_PER_MIB: f64 = 1024.0 * 1024.0;
+
 /// Converts raw bytes to megabytes (MiB: 1024 * 1024).
 #[inline(always)]
 pub const fn bytes_to_mb(bytes: f64) -> f64 {
-    bytes / (1024.0 * 1024.0)
+    bytes / BYTES_PER_MIB
 }
 
 /// Formats a byte size into a human-readable megabyte string with one decimal place.
@@ -176,26 +179,7 @@ pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_v
     out
 }
 
-/// Per-part palette, cycled by part index.
-pub const PART_COLORS_COUNT: usize = 10;
-pub const PART_COLORS: [Vec4; PART_COLORS_COUNT] = [
-    Vec4::new(0.8, 0.2, 0.2, 1.0),
-    Vec4::new(0.2, 0.8, 0.2, 1.0),
-    Vec4::new(0.2, 0.2, 0.8, 1.0),
-    Vec4::new(0.8, 0.8, 0.2, 1.0),
-    Vec4::new(0.8, 0.2, 0.8, 1.0),
-    Vec4::new(0.2, 0.8, 0.8, 1.0),
-    Vec4::new(0.6, 0.4, 0.2, 1.0),
-    Vec4::new(0.4, 0.6, 0.8, 1.0),
-    Vec4::new(0.8, 0.6, 0.4, 1.0),
-    Vec4::new(0.6, 0.8, 0.4, 1.0),
-];
-
-/// Returns the RGBA color as `Vec4` for part at `index`, cycling through the palette.
-#[inline(always)]
-pub const fn part_color(index: usize) -> Vec4 {
-    PART_COLORS[index % PART_COLORS_COUNT]
-}
+pub use crate::common::color::{PART_COLORS, PART_COLORS_COUNT, part_color};
 
 /// Returns a status color string for FPS visualization (green >= 50, yellow >= 30, red < 30).
 #[inline]
@@ -307,6 +291,45 @@ pub const fn param_as_str(param: &Parameter) -> Option<&str> {
     }
 }
 
+/// Extracts the numeric entity ID if the parameter is a `Parameter::Ref(Name::Entity(id))`.
+#[inline]
+pub const fn param_as_ref(param: &Parameter) -> Option<u64> {
+    match param {
+        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => Some(*id),
+        _ => None,
+    }
+}
+
+/// Extracts a float value if the parameter is `Parameter::Real` or `Parameter::Integer`.
+#[inline]
+pub const fn param_as_real(param: &Parameter) -> Option<f64> {
+    match param {
+        Parameter::Real(v) => Some(*v),
+        Parameter::Integer(v) => Some(*v as f64),
+        _ => None,
+    }
+}
+
+/// Recursively extracts all numeric entity IDs referenced within a `Parameter` (handling nested lists).
+pub fn extract_entity_refs(param: &Parameter) -> Vec<u64> {
+    let mut refs = Vec::new();
+    collect_refs_recursive(param, &mut refs);
+    refs
+}
+
+/// Helper for recursive collection of entity references within a `Parameter`.
+pub fn collect_refs_recursive(param: &Parameter, out: &mut Vec<u64>) {
+    match param {
+        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => out.push(*id),
+        Parameter::List(list) => {
+            for item in list {
+                collect_refs_recursive(item, out);
+            }
+        }
+        _ => {}
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -332,8 +355,14 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_find_ignore_ascii_case() {
-        assert_eq!(find_ignore_ascii_case("AUTOMOTIVE_DESIGN", "automotive"), Some(0));
-        assert_eq!(find_ignore_ascii_case("HEADER;\nFILE_SCHEMA(('AP203'));", "file_schema"), Some(8));
+        assert_eq!(
+            find_ignore_ascii_case("AUTOMOTIVE_DESIGN", "automotive"),
+            Some(0)
+        );
+        assert_eq!(
+            find_ignore_ascii_case("HEADER;\nFILE_SCHEMA(('AP203'));", "file_schema"),
+            Some(8)
+        );
         assert_eq!(find_ignore_ascii_case("anything", ""), Some(0));
         assert_eq!(find_ignore_ascii_case("short", "longer_needle"), None);
         assert_eq!(find_ignore_ascii_case("hello world", "xyz"), None);
@@ -511,5 +540,26 @@ mod tests {
         assert_eq!(param_as_str(&enum_param), Some("INCH"));
         assert_eq!(param_as_str(&str_param), Some("foot"));
         assert_eq!(param_as_str(&int_param), None);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_extract_entity_refs() {
+        use crate::ruststep::ast::Name;
+        let nested = Parameter::List(vec![
+            Parameter::Ref(Name::Entity(10)),
+            Parameter::List(vec![
+                Parameter::Ref(Name::Entity(20)),
+                Parameter::Integer(42),
+                Parameter::Ref(Name::Entity(30)),
+            ]),
+            Parameter::String("ignored".to_string()),
+        ]);
+        assert_eq!(extract_entity_refs(&nested), vec![10, 20, 30]);
+
+        let single = Parameter::Ref(Name::Entity(99));
+        assert_eq!(extract_entity_refs(&single), vec![99]);
+
+        let none = Parameter::Integer(123);
+        assert!(extract_entity_refs(&none).is_empty());
     }
 }

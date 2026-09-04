@@ -540,6 +540,16 @@ body {
     margin-right: 4px;
 }
 
+.mesh-color-swatch {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    border: 1px solid rgba(0, 0, 0, 0.25);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
 .meshes-list {
     overflow-y: auto;
     flex: 1;

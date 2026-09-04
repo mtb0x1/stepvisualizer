@@ -716,8 +716,9 @@ mod tests {
         assert_eq!(file_id.as_str().len(), 16);
 
         // 5. Tessellation & Part Extraction
+        let color_map = crate::common::StepColorMap::from_exchange(&parsed);
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
-        let output = extract_render_parts(&step_tables, tolerance);
+        let output = extract_render_parts(&step_tables, Some(&color_map), tolerance);
         assert!(!output.parts.is_empty());
         let render_parts = output.parts;
 
@@ -817,7 +818,7 @@ mod tests {
         assert!(meta.bounding_box.is_some());
 
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
-        let output = extract_render_parts(&step_tables, tolerance);
+        let output = extract_render_parts(&step_tables, None, tolerance);
         assert!(
             !output.parts.is_empty(),
             "Expected render parts for nasty_cheese.stp"

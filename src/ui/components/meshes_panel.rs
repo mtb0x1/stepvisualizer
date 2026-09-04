@@ -1,4 +1,5 @@
 //! Part list of the loaded model with per-part visibility toggles.
+use crate::common::Color;
 use crate::trace_span;
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -9,6 +10,7 @@ pub struct MeshItemProps {
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
+    pub color: Color,
     pub on_toggle_visibility: Callback<(usize, bool)>,
 }
 
@@ -32,6 +34,11 @@ fn mesh_item(props: &MeshItemProps) -> Html {
                     checked={props.visible}
                     onchange={on_visibility_change}
                     class="mesh-visibility"
+                />
+                <span
+                    class="mesh-color-swatch"
+                    style={format!("background-color: {};", props.color.to_css_rgba())}
+                    title={props.color.to_hex()}
                 />
                 <span class="mesh-name">{ "Mesh " }{ props.index + 1 }</span>
             </div>
@@ -58,6 +65,7 @@ pub struct MeshData {
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
+    pub color: Color,
 }
 
 // Scene centering on the visible subset is handled in the renderer
@@ -78,6 +86,7 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
                     triangle_count={mesh.triangle_count}
                     vertex_count={mesh.vertex_count}
                     visible={mesh.visible}
+                    color={mesh.color}
                     on_toggle_visibility={props.on_visibility_change.clone()}
                 />
             }

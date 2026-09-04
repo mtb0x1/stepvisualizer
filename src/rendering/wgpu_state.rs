@@ -1,10 +1,10 @@
 use crate::{
-    common::{BoundingBox, RenderablePart, ViewportSize, logger},
+    common::{BoundingBox, Color, RenderablePart, ViewportSize, logger},
     error::StepVizError,
     trace_span,
 };
 use bytemuck::cast_slice;
-use glam::{Mat4, Vec4};
+use glam::Mat4;
 use std::cell::RefCell;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
@@ -19,8 +19,7 @@ pub use crate::common::utils::browser_has_webgpu;
 /// Geometry buffers (`vertex_buffer`, `index_buffer`) are immutable for the
 /// lifetime of a given part, so they are allocated once and reused across
 /// frames. The uniform buffers (`mvp_buffer`, `model_buffer`, `color_buffer`)
-/// are rewritten every frame; the `bind_group` references them and is only
-/// rebuilt when the geometry buffers are (re)allocated.
+/// are mutable per-frame and rewritten when dirty.
 pub struct PartGpu {
     pub vertex_buffer: wgpu::Buffer,
     pub index_buffer: wgpu::Buffer,
@@ -33,7 +32,7 @@ pub struct PartGpu {
 }
 
 const ZERO_MAT4: Mat4 = Mat4::ZERO;
-const ZERO_COLOR: Vec4 = Vec4::ZERO;
+const ZERO_COLOR: Color = Color::TRANSPARENT;
 
 impl PartGpu {
     /// Allocate vertex, index, and uniform buffers on `device` for `part`, and

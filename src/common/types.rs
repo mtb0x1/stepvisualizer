@@ -489,8 +489,9 @@ mod tests {
     /// Verifies that total_vertices and total_triangles compute the accurate aggregate sum across all parts.
     #[wasm_bindgen_test]
     fn step_model_vertex_triangle_sums() {
+        use crate::common::color::Color;
         use crate::common::render::GpuVertex;
-        use glam::{Vec3, Vec4};
+        use glam::Vec3;
 
         let part1 = RenderablePart {
             vertices: (0..30)
@@ -498,7 +499,7 @@ mod tests {
                 .collect(),
             indices: (0..30).collect(), // 30 indices = 10 triangles
             model_matrix: glam::Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         let part2 = RenderablePart {
@@ -507,7 +508,7 @@ mod tests {
                 .collect(),
             indices: (0..12).collect(), // 12 indices = 4 triangles
             model_matrix: glam::Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         let model = StepModel {
@@ -546,8 +547,9 @@ mod tests {
     /// Verifies that calculate_total_volume and calculate_total_surface_area aggregate correctly across render parts.
     #[wasm_bindgen_test]
     fn step_model_volume_area_sums() {
+        use crate::common::color::Color;
         use crate::common::render::GpuVertex;
-        use glam::{Vec3, Vec4};
+        use glam::Vec3;
 
         let part1 = RenderablePart {
             vertices: vec![
@@ -557,7 +559,7 @@ mod tests {
             ],
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         let part2 = RenderablePart {
@@ -568,7 +570,7 @@ mod tests {
             ],
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
-            color: Vec4::ONE,
+            color: Color::WHITE,
         };
 
         let part1_vol = part1.calculate_volume();

@@ -34,21 +34,23 @@ Support level depends on the `FILE_SCHEMA` declared in the file header.
 
 | Schema / Standard | Common Name | ISO Code | Supported | Geometry rendered | Part hierarchy | Color from file | PMI / GD&T | Multi-body assemblies |
 |---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `CONFIG_CONTROL_DESIGN` | AP203 (ed.1) | ISO 10303-203 | Yes | Yes | No | No | No | ~ |
-| `AUTOMOTIVE_DESIGN` | AP214 (ed.1–3) | ISO 10303-214 | Yes | Yes | No | No | No | ~ |
-| `AP203_E2` / `CONFIGURATION_CONTROL_3D_DESIGN_ED2` | AP203 ed.2 | ISO 10303-203 | ~ | ~ | No | No | No | ~ |
-| `AP242_MANAGED_MODEL_BASED_3D_ENGINEERING` | AP242 | ISO 10303-242 | ~ | ~ | No | No | No | ~ |
+| `CONFIG_CONTROL_DESIGN` | AP203 (ed.1) | ISO 10303-203 | Yes | Yes | No | No* | No | ~ |
+| `AUTOMOTIVE_DESIGN` | AP214 (ed.1–3) | ISO 10303-214 | Yes | Yes | No | Yes | No | ~ |
+| `AP203_E2` / `CONFIGURATION_CONTROL_3D_DESIGN_ED2` | AP203 ed.2 | ISO 10303-203 | ~ | ~ | No | Yes | No | ~ |
+| `AP242_MANAGED_MODEL_BASED_3D_ENGINEERING` | AP242 | ISO 10303-242 | ~ | ~ | No | Yes | No | ~ |
 | `FEATURE_BASED_PROCESS_PLANNING` | AP224 | ISO 10303-224 | No | No | No | No | No | No |
 | `STRUCTURAL_ANALYSIS_DESIGN` / AP209 | AP209 | ISO 10303-209 | No | No | No | No | No | No |
 | `PLANT_SPATIAL_CONFIGURATION` | AP221 | ISO 10303-221 | No | No | No | No | No | No |
 | `SHIP_STRUCTURES_SCHEMA` | AP218 | ISO 10303-218 | No | No | No | No | No | No |
 
-> **Yes** Supported, **~** Partial, **No** Not supported
+> **Yes** Supported, **~** Partial, **No** Not supported  
+> \* *AP203 ed.1 (`CONFIG_CONTROL_DESIGN`) does not define presentation/color entities in its schema standard; fallback palette is used.*
 
 ### Feature Notes
 
 **What works (AP203 / AP214):**
 - B-Rep solid geometry (BSpline surfaces, planes, cylinders, cones, tori, …) is tessellated via `truck`'s triangulation pipeline.
+- Surface and part colors: extracted from presentation styles (`STYLED_ITEM`, `OVER_RIDING_STYLED_ITEM`, `COLOUR_RGB`, `DRAUGHTING_PRE_DEFINED_COLOUR`, `SURFACE_STYLE_USAGE` / `SURFACE_STYLE_RENDERING_WITH_PROPERTIES`) and rendered per-part in WebGPU and the hierarchy/meshes panel; fallback deterministic cycling palette is applied when colors are absent.
 - Basic header metadata is displayed (filename, timestamp, author, schema, entity count, bounding box, units).
 - Volume and surface area can be computed on demand from the tessellated mesh.
 - Files with multiple `DATA` sections are processed (all usable sections are merged).
@@ -56,7 +58,7 @@ Support level depends on the `FILE_SCHEMA` declared in the file header.
 
 **Known gaps even for supported schemas:**
 - **Part/assembly hierarchy**: the product tree (`PRODUCT`, `NEXT_ASSEMBLY_USAGE_OCCURENCE`, …) is not parsed - each shell is treated as a flat, independent part.
-- **Colors and materials**: `STYLED_ITEM`, `COLOUR_RGB`, `SURFACE_STYLE_*` are not read; parts are assigned a cycling palette instead.
+- **Complex appearance & textures**: Face-level texture coordinates, PBR textures, and advanced optical material properties (e.g. subsurface scattering, refraction index) are not parsed; diffuse surface color and alpha transparency are supported.
 - **PMI / GD&T annotations**: datum targets, geometric tolerances, and annotation planes are ignored.
 - **2D geometry**: `GEOMETRIC_CURVE_SET` and wire-body entities produce no triangles and are silently skipped.
 - **Complex shells**: shells that fail `truck`'s compression step are skipped with a warning; the rest of the file is still rendered.
