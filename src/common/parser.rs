@@ -1,22 +1,94 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use super::logger;
 use crate::common::storage::hash_text_to_id;
-use crate::common::utils::{
-    contains_ignore_ascii_case, param_as_enum, param_as_list, param_as_str,
-};
+use crate::common::utils::{param_as_enum, param_as_list, param_as_str};
 use crate::error::StepVizError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
-use crate::ruststep::header::Header;
+use crate::ruststep::header::{FileSchema, Header};
 use crate::trace_span;
-
-const SUPPORTED_SCHEMAS: &[&str] = &[
-    "AP201",
-    "AP203",
-    "AUTOMOTIVE_DESIGN",
-    "CONFIG_CONTROL_DESIGN",
-];
+use serde::{Deserialize, Serialize};
 
 use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
+
+/// Supported STEP schemas recognized by the visualizer and geometry pipeline.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum StepSchema {
+    /// ISO 10303-201: Explicit Draughting (corresponding to `ruststep::ap201::explicit_draughting`).
+    Ap201,
+    /// ISO 10303-203: Configuration Controlled 3D Design (corresponding to `ruststep::ap203::config_control_design`).
+    Ap203,
+    /// ISO 10303-214: Core Data for Automotive Mechanical Design Processes.
+    Ap214,
+}
+
+impl StepSchema {
+    /// Matches exact STEP schema identifiers and standard ASN.1 object identifier prefixes.
+    pub fn parse(identifier: &str) -> Option<Self> {
+        let clean = identifier.trim().trim_matches('\'').trim_matches('"');
+        let upper = clean.to_ascii_uppercase();
+
+        if upper == "CONFIG_CONTROL_DESIGN"
+            || upper.starts_with("CONFIG_CONTROL_DESIGN ")
+            || upper == "AP203"
+            || upper == "AP203_E2"
+            || upper.starts_with("CONFIGURATION_CONTROL_3D_DESIGN")
+        {
+            Some(Self::Ap203)
+        } else if upper == "AUTOMOTIVE_DESIGN"
+            || upper.starts_with("AUTOMOTIVE_DESIGN ")
+            || upper == "AP214"
+        {
+            Some(Self::Ap214)
+        } else if upper == "EXPLICIT_DRAUGHTING"
+            || upper.starts_with("EXPLICIT_DRAUGHTING ")
+            || upper == "AP201"
+        {
+            Some(Self::Ap201)
+        } else {
+            None
+        }
+    }
+
+    /// Primary standard schema name string for display or comparison.
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Self::Ap201 => "AP201",
+            Self::Ap203 => "AP203",
+            Self::Ap214 => "AP214",
+        }
+    }
+}
+
+/// Validates that at least one schema listed in the STEP header [`FileSchema`] is supported.
+pub fn validate_schema(file_schema: &FileSchema) -> Result<StepSchema, StepVizError> {
+    for id in &file_schema.schema {
+        if let Some(schema) = StepSchema::parse(id) {
+            return Ok(schema);
+        }
+    }
+    let raw = if file_schema.schema.is_empty() {
+        "UNKNOWN".to_string()
+    } else {
+        file_schema.schema.join(", ")
+    };
+    Err(StepVizError::UnsupportedSchema { schema: raw })
+}
+
+/// Helper to convert a typed [`Header`] into a display-oriented [`StepHeader`].
+pub fn convert_header_from_ast(header: &Header) -> StepHeader {
+    StepHeader {
+        file_description: header.file_description.description.join("; "),
+        implementation_level: header.file_description.implementation_level.clone(),
+        file_name: header.file_name.name.clone(),
+        time_stamp: header.file_name.time_stamp.clone(),
+        author: header.file_name.author.clone(),
+        organization: header.file_name.organization.clone(),
+        preprocessor_version: header.file_name.preprocessor_version.clone(),
+        originating_system: header.file_name.originating_system.clone(),
+        authorization: header.file_name.authorization.clone(),
+        file_schema: header.file_schema.schema.join(", "),
+    }
+}
 
 /// Convert the STEP header section into the display-oriented [`StepHeader`].
 /// Fails when the records do not form a valid header.
@@ -27,21 +99,9 @@ pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> 
             "Header section must contain at least 3 records".to_string(),
         ));
     }
-    let header_in: Header =
+    let header_obj =
         Header::from_records(header_in).map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
-    let file_description = header_in.file_description.description;
-    Ok(StepHeader {
-        file_description: file_description.join("; "),
-        implementation_level: header_in.file_description.implementation_level,
-        file_name: header_in.file_name.name,
-        time_stamp: header_in.file_name.time_stamp,
-        author: header_in.file_name.author,
-        organization: header_in.file_name.organization,
-        preprocessor_version: header_in.file_name.preprocessor_version,
-        originating_system: header_in.file_name.originating_system,
-        authorization: header_in.file_name.authorization,
-        file_schema: header_in.file_schema.schema.join(", "),
-    })
+    Ok(convert_header_from_ast(&header_obj))
 }
 
 /// Parse unit system (e.g. `LengthUnit::Millimetre`) from the exchange structure.
@@ -149,23 +209,24 @@ pub fn build_initial_metadata(
     step_tables: &[truck_stepio::r#in::Table],
     text: &str,
 ) -> Result<(Metadata, FileId), StepVizError> {
+    trace_span!("build_initial_metadata");
+    if parsed.header.len() < 3 {
+        return Err(StepVizError::InvalidHeader(
+            "Header section must contain at least 3 records".to_string(),
+        ));
+    }
+    let header_obj = Header::from_records(&parsed.header)
+        .map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
+    validate_schema(&header_obj.file_schema)?;
+
     let entity_count: usize = parsed
         .data
         .iter()
         .map(|section| section.entities.len())
         .sum();
-    let mut step_header = convert_header(&parsed.header)?;
+    let mut step_header = convert_header_from_ast(&header_obj);
     if step_header.file_name.is_empty() {
         step_header.file_name = fallback_name.to_string();
-    }
-
-    let is_supported = SUPPORTED_SCHEMAS
-        .iter()
-        .any(|&s| contains_ignore_ascii_case(&step_header.file_schema, s));
-    if !is_supported {
-        return Err(StepVizError::UnsupportedSchema {
-            schema: step_header.file_schema.clone(),
-        });
     }
 
     let meta = Metadata {
@@ -305,6 +366,48 @@ mod tests {
         let text = step_with_schema("config_control_design");
         let parsed = ruststep::parser::parse(&text).expect("parse");
         assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+    }
+
+    /// Verifies that EXPLICIT_DRAUGHTING (the standard ISO 10303-201 schema name) is accepted.
+    #[wasm_bindgen_test]
+    fn schema_supported_ap201_explicit_draughting() {
+        let text = step_with_schema("EXPLICIT_DRAUGHTING");
+        let parsed = ruststep::parser::parse(&text).expect("parse");
+        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+    }
+
+    /// Verifies that schemas with ASN.1 object identifiers are properly matched.
+    #[wasm_bindgen_test]
+    fn schema_supported_with_asn1_parameters() {
+        let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
+        let parsed_214 = ruststep::parser::parse(&text_214).expect("parse");
+        assert!(build_initial_metadata("test", &parsed_214, &[], &text_214).is_ok());
+
+        let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN { 1 0 10303 203 1 }");
+        let parsed_203 = ruststep::parser::parse(&text_203).expect("parse");
+        assert!(build_initial_metadata("test", &parsed_203, &[], &text_203).is_ok());
+    }
+
+    /// Direct unit tests for the StepSchema enum parser and validate_schema function.
+    #[wasm_bindgen_test]
+    fn test_step_schema_enum() {
+        assert_eq!(StepSchema::parse("CONFIG_CONTROL_DESIGN"), Some(StepSchema::Ap203));
+        assert_eq!(StepSchema::parse("ap203"), Some(StepSchema::Ap203));
+        assert_eq!(StepSchema::parse("AUTOMOTIVE_DESIGN"), Some(StepSchema::Ap214));
+        assert_eq!(StepSchema::parse("AP214"), Some(StepSchema::Ap214));
+        assert_eq!(StepSchema::parse("EXPLICIT_DRAUGHTING"), Some(StepSchema::Ap201));
+        assert_eq!(StepSchema::parse("AP201"), Some(StepSchema::Ap201));
+        assert_eq!(StepSchema::parse("UNKNOWN_SCHEMA"), None);
+
+        let valid_file_schema = FileSchema {
+            schema: vec!["CONFIG_CONTROL_DESIGN".to_string()],
+        };
+        assert_eq!(validate_schema(&valid_file_schema), Ok(StepSchema::Ap203));
+
+        let invalid_file_schema = FileSchema {
+            schema: vec!["UNKNOWN_SCHEMA".to_string()],
+        };
+        assert!(validate_schema(&invalid_file_schema).is_err());
     }
 
     /// Verifies that an exchange structure containing only empty data sections returns an EmptyDataSection error.
