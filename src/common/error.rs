@@ -52,7 +52,7 @@ impl fmt::Display for StepVizError {
             Self::Generic(msg) => write!(f, "{msg}"),
             Self::UnsupportedSchema { schema } => write!(
                 f,
-                "Unsupported STEP schema: '{schema}'. Re-export the file as AP203 from your CAD application."
+                "Unsupported STEP schema: '{schema}'. Supported schemas: AP203, AP214, AP201. Check documentation for details."
             ),
         }
     }

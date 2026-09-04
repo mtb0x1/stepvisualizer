@@ -126,6 +126,7 @@ pub fn use_step_workspace() -> StepWorkspace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::error::StepVizError;
     use processor::parse_step_file_content;
     use state::build_step_model;
     use wasm_bindgen_test::*;
@@ -158,5 +159,29 @@ mod tests {
         assert_eq!(model.part_visibility.len(), 0);
         assert_eq!(model.metadata.vertex_count, 0);
         assert_eq!(model.metadata.triangle_count, 0);
+    }
+
+    #[wasm_bindgen_test]
+    fn parse_unsupported_fullroom_aim_fails_early() {
+        let step = include_str!("../../examples/fullroom_aim.stp");
+        let res = parse_step_file_content("fullroom_aim.stp", step);
+        match res {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "PLANT_SPATIAL_CONFIGURATION");
+            }
+            res => panic!("Expected UnsupportedSchema error, got {:?}", res),
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn parse_unsupported_ap224_fails_early() {
+        let step = include_str!("../../examples/ap224_997423743.stp");
+        let res = parse_step_file_content("ap224_997423743.stp", step);
+        match res {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
+            }
+            res => panic!("Expected UnsupportedSchema error, got {:?}", res),
+        }
     }
 }

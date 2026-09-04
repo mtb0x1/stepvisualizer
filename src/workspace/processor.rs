@@ -5,7 +5,7 @@ use crate::common::constants::{
 use crate::common::utils::input_file;
 use crate::common::{
     FileId, FileIndexItem, LruCache, Metadata, all_usable_sections, build_initial_metadata,
-    extract_render_parts, load_model, normalize_exchange, save_model,
+    extract_render_parts, load_model, normalize_exchange, probe_validate_step_buffer, save_model,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -23,6 +23,11 @@ pub(crate) fn parse_step_file_content(
     name: &str,
     text: &str,
 ) -> Result<(Metadata, FileId, Vec<truck_stepio::r#in::Table>), StepVizError> {
+    // Fast pre-check on the in-memory buffer: validates the ISO exchange structure header
+    // and FILE_SCHEMA before running full AST parsing, avoiding downstream tokenizer crashes
+    // on unsupported schemas.
+    probe_validate_step_buffer(text)?;
+
     let mut parsed =
         crate::ruststep::parser::parse(text).map_err(|e| StepVizError::Parse(e.to_string()))?;
     normalize_exchange(&mut parsed);

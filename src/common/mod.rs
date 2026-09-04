@@ -20,7 +20,7 @@ pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};
 #[allow(unused_imports)]
 pub use parser::{
     StepSchema, all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header,
-    normalize_exchange, parse_units, validate_schema,
+    normalize_exchange, parse_units, probe_validate_step_buffer, validate_schema,
 };
 pub use render::{
     GpuVertex, RenderablePart, TessellationOutput, extract_render_parts, visible_bounds,
@@ -37,6 +37,7 @@ pub use types::{
 #[allow(unused_imports)]
 pub use utils::{
     PART_COLORS, PART_COLORS_COUNT, build_svg_polyline_points, clean_unit_name,
-    contains_ignore_ascii_case, format_bbox_coordinates, format_list_or_na, format_or_na,
-    geometric_normal, part_color, spherical_to_cartesian, triangle_area, triangle_signed_volume,
+    contains_ignore_ascii_case, find_ignore_ascii_case, format_bbox_coordinates, format_list_or_na,
+    format_or_na, geometric_normal, part_color, spherical_to_cartesian, triangle_area,
+    triangle_signed_volume,
 };

@@ -1,7 +1,7 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use super::logger;
 use crate::common::storage::hash_text_to_id;
-use crate::common::utils::{param_as_enum, param_as_list, param_as_str};
+use crate::common::utils::{find_ignore_ascii_case, param_as_enum, param_as_list, param_as_str};
 use crate::error::StepVizError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
 use crate::ruststep::header::{FileSchema, Header};
@@ -72,6 +72,80 @@ pub fn validate_schema(file_schema: &FileSchema) -> Result<StepSchema, StepVizEr
         file_schema.schema.join(", ")
     };
     Err(StepVizError::UnsupportedSchema { schema: raw })
+}
+
+/// Pre-checks an in-memory STEP buffer for the `ISO-10303-21` header marker and validates
+/// that `FILE_SCHEMA` specifies a supported application protocol (AP201, AP203, or AP214)
+/// before executing the full AST tokenizer and parser.
+pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError> {
+    trace_span!("probe_validate_step_buffer");
+
+    // 1. Verify ISO-10303-21 exchange structure prefix (handling optional BOM and comments)
+    let clean = text.trim_start_matches('\u{feff}').trim_start();
+    let mut cursor = clean;
+    while cursor.starts_with("/*") {
+        if let Some(end) = cursor.find("*/") {
+            cursor = cursor[end + 2..].trim_start();
+        } else {
+            break;
+        }
+    }
+
+    if !cursor.starts_with("ISO-10303-21") {
+        return Err(StepVizError::Parse(
+            "Missing ISO-10303-21 exchange structure header".to_string(),
+        ));
+    }
+
+    // 2. Locate FILE_SCHEMA in the header chunk (before DATA; if present, or up to 64KB)
+    let search_limit = text.find("DATA;").unwrap_or(text.len().min(65536));
+    let header_chunk = &text[..search_limit];
+
+    let schema_kw_pos = find_ignore_ascii_case(header_chunk, "FILE_SCHEMA").ok_or_else(|| {
+        StepVizError::InvalidHeader("Missing FILE_SCHEMA declaration in header".to_string())
+    })?;
+
+    let remainder = &header_chunk[schema_kw_pos + "FILE_SCHEMA".len()..];
+    let semi_pos = remainder.find(';').ok_or_else(|| {
+        StepVizError::InvalidHeader("Unterminated FILE_SCHEMA declaration".to_string())
+    })?;
+    let stmt = &remainder[..semi_pos];
+
+    // Extract all strings enclosed in quotes within the FILE_SCHEMA statement:
+    // e.g. FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));
+    //      FILE_SCHEMA (('AUTOMOTIVE_DESIGN {1 0 10303 214 3 1 1}'));
+    //      FILE_SCHEMA (( 'CONFIG_CONTROL_DESIGN' ));
+
+    // below we check even for p21 (multi steps file format)
+    // but for now we don't support the multi step logic ... yet
+    let mut raw_schemas = Vec::new();
+    let mut curr = stmt;
+    while let Some(start) = curr.find('\'') {
+        let after_start = &curr[start + 1..];
+        if let Some(end) = after_start.find('\'') {
+            let schema_token = &after_start[..end];
+            raw_schemas.push(schema_token);
+            curr = &after_start[end + 1..];
+        } else {
+            break;
+        }
+    }
+
+    if raw_schemas.is_empty() {
+        return Err(StepVizError::InvalidHeader(
+            "FILE_SCHEMA contains no schema identifiers".to_string(),
+        ));
+    }
+
+    for raw in &raw_schemas {
+        if let Some(schema) = StepSchema::parse(raw) {
+            return Ok(schema);
+        }
+    }
+
+    Err(StepVizError::UnsupportedSchema {
+        schema: raw_schemas.join(", "),
+    })
 }
 
 /// Helper to convert a typed [`Header`] into a display-oriented [`StepHeader`].
@@ -448,6 +522,64 @@ mod tests {
             schema: vec!["UNKNOWN_SCHEMA".to_string()],
         };
         assert!(validate_schema(&invalid_file_schema).is_err());
+    }
+
+    #[wasm_bindgen_test]
+    fn test_probe_validate_step_buffer_supported() {
+        let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN");
+        assert_eq!(probe_validate_step_buffer(&text_203), Ok(StepSchema::Ap203));
+
+        let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
+        assert_eq!(probe_validate_step_buffer(&text_214), Ok(StepSchema::Ap214));
+
+        let text_201 = step_with_schema("EXPLICIT_DRAUGHTING");
+        assert_eq!(probe_validate_step_buffer(&text_201), Ok(StepSchema::Ap201));
+
+        let with_spaces = "ISO-10303-21;\nHEADER;\nFILE_SCHEMA (( 'CONFIG_CONTROL_DESIGN' ));\nENDSEC;\nDATA;\nENDSEC;\n";
+        assert_eq!(
+            probe_validate_step_buffer(with_spaces),
+            Ok(StepSchema::Ap203)
+        );
+
+        let with_comments = "/* Tool generator comment */\nISO-10303-21;\nHEADER;\nFILE_SCHEMA(('AP203'));\nENDSEC;\nDATA;\nENDSEC;\n";
+        assert_eq!(
+            probe_validate_step_buffer(with_comments),
+            Ok(StepSchema::Ap203)
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_probe_validate_step_buffer_unsupported() {
+        let text_aim = step_with_schema("PLANT_SPATIAL_CONFIGURATION");
+        match probe_validate_step_buffer(&text_aim) {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "PLANT_SPATIAL_CONFIGURATION");
+            }
+            res => panic!("Expected UnsupportedSchema, got {:?}", res),
+        }
+
+        let text_224 = step_with_schema("FEATURE_BASED_PROCESS_PLANNING");
+        match probe_validate_step_buffer(&text_224) {
+            Err(StepVizError::UnsupportedSchema { schema }) => {
+                assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
+            }
+            res => panic!("Expected UnsupportedSchema, got {:?}", res),
+        }
+    }
+
+    #[wasm_bindgen_test]
+    fn test_probe_validate_step_buffer_invalid() {
+        let invalid = "NOT A VALID STEP FILE";
+        assert!(matches!(
+            probe_validate_step_buffer(invalid),
+            Err(StepVizError::Parse(_))
+        ));
+
+        let missing_schema = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\n";
+        assert!(matches!(
+            probe_validate_step_buffer(missing_schema),
+            Err(StepVizError::InvalidHeader(_))
+        ));
     }
 
     /// Verifies that an exchange structure containing only empty data sections returns an EmptyDataSection error.

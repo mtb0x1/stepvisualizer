@@ -9,15 +9,15 @@ use crate::common::render::{RenderablePart, visible_bounds};
 use crate::common::types::BoundingBox;
 use crate::ruststep::ast::Parameter;
 
-/// Case-insensitive ASCII substring search without heap allocations.
-pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+/// Case-insensitive ASCII substring offset search without heap allocations.
+pub const fn find_ignore_ascii_case(haystack: &str, needle: &str) -> Option<usize> {
     let h = haystack.as_bytes();
     let n = needle.as_bytes();
     if n.is_empty() {
-        return true;
+        return Some(0);
     }
     if n.len() > h.len() {
-        return false;
+        return None;
     }
     let max_start = h.len() - n.len();
     let mut i = 0;
@@ -32,11 +32,16 @@ pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
             j += 1;
         }
         if matches {
-            return true;
+            return Some(i);
         }
         i += 1;
     }
-    false
+    None
+}
+
+/// Case-insensitive ASCII substring search without heap allocations.
+pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
+    find_ignore_ascii_case(haystack, needle).is_some()
 }
 
 /// Formats a string value, returning `NA` ("N/A") if empty.
@@ -323,6 +328,15 @@ mod tests {
         assert!(contains_ignore_ascii_case("anything", ""));
         assert!(!contains_ignore_ascii_case("short", "longer_needle"));
         assert!(!contains_ignore_ascii_case("hello world", "xyz"));
+    }
+
+    #[wasm_bindgen_test]
+    fn test_find_ignore_ascii_case() {
+        assert_eq!(find_ignore_ascii_case("AUTOMOTIVE_DESIGN", "automotive"), Some(0));
+        assert_eq!(find_ignore_ascii_case("HEADER;\nFILE_SCHEMA(('AP203'));", "file_schema"), Some(8));
+        assert_eq!(find_ignore_ascii_case("anything", ""), Some(0));
+        assert_eq!(find_ignore_ascii_case("short", "longer_needle"), None);
+        assert_eq!(find_ignore_ascii_case("hello world", "xyz"), None);
     }
 
     #[wasm_bindgen_test]
