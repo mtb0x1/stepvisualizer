@@ -32,16 +32,16 @@ Support level depends on the `FILE_SCHEMA` declared in the file header.
 > They are provided so users can load them, observe the current behaviour, and help track what still needs work.
 > Do not assume a file renders correctly just because it ships with the project.
 
-| Schema / Standard | Common Name | Supported | Geometry rendered | Part hierarchy | Color from file | PMI / GD&T | Multi-body assemblies |
-|---|---|:---:|:---:|:---:|:---:|:---:|:---:|
-| `CONFIG_CONTROL_DESIGN` | AP203 (ed.1) | Yes | Yes | No | No | No | ~ |
-| `AUTOMOTIVE_DESIGN` | AP214 (ed.1–3) | Yes | Yes | No | No | No | ~ |
-| `AP203_E2` / `CONFIGURATION_CONTROL_3D_DESIGN_ED2` | AP203 ed.2 | ~ | ~ | No | No | No | ~ |
-| `AP242_MANAGED_MODEL_BASED_3D_ENGINEERING` | AP242 | ~ | ~ | No | No | No | ~ |
-| `FEATURE_BASED_PROCESS_PLANNING` | AP224 | No | No | No | No | No | No |
-| `STRUCTURAL_ANALYSIS_DESIGN` / AP209 | AP209 | No | No | No | No | No | No |
-| `PLANT_SPATIAL_CONFIGURATION` | AP221 | No | No | No | No | No | No |
-| `SHIP_STRUCTURES_SCHEMA` | AP218 | No | No | No | No | No | No |
+| Schema / Standard | Common Name | ISO Code | Supported | Geometry rendered | Part hierarchy | Color from file | PMI / GD&T | Multi-body assemblies |
+|---|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `CONFIG_CONTROL_DESIGN` | AP203 (ed.1) | ISO 10303-203 | Yes | Yes | No | No | No | ~ |
+| `AUTOMOTIVE_DESIGN` | AP214 (ed.1–3) | ISO 10303-214 | Yes | Yes | No | No | No | ~ |
+| `AP203_E2` / `CONFIGURATION_CONTROL_3D_DESIGN_ED2` | AP203 ed.2 | ISO 10303-203 | ~ | ~ | No | No | No | ~ |
+| `AP242_MANAGED_MODEL_BASED_3D_ENGINEERING` | AP242 | ISO 10303-242 | ~ | ~ | No | No | No | ~ |
+| `FEATURE_BASED_PROCESS_PLANNING` | AP224 | ISO 10303-224 | No | No | No | No | No | No |
+| `STRUCTURAL_ANALYSIS_DESIGN` / AP209 | AP209 | ISO 10303-209 | No | No | No | No | No | No |
+| `PLANT_SPATIAL_CONFIGURATION` | AP221 | ISO 10303-221 | No | No | No | No | No | No |
+| `SHIP_STRUCTURES_SCHEMA` | AP218 | ISO 10303-218 | No | No | No | No | No | No |
 
 > **Yes** Supported, **~** Partial, **No** Not supported
 
