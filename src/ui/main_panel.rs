@@ -41,9 +41,9 @@ struct DragState {
 
 use std::rc::Rc;
 
-#[function_component(AppStepviz)]
-pub fn stepviz_viewer(props: &MainPanelProps) -> Html {
-    trace_span!("stepviz_viewer");
+#[function_component(AppStepVisualizer)]
+pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
+    trace_span!("StepVisualizer_viewer");
     let canvas_ref = use_node_ref();
     let wgpu_state = use_state(|| None::<Rc<WgpuState>>);
     let camera_state = use_state(CameraState::default);

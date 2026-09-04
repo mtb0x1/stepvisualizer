@@ -6,7 +6,7 @@ use crate::{
         BoundingBox, DVec3, RenderablePart, ViewportSize, fps_meter::FpsMeter, look_at_mat4,
         perspective,
     },
-    error::StepVizError,
+    error::StepError,
     rendering::camera::CameraState,
     rendering::wgpu_state::{PartGpu, WgpuState},
     trace_span,
@@ -25,7 +25,7 @@ pub async fn render_wgpu_on_canvas(
     visibility: &[bool],
     camera: &CameraState,
     fps_meter: Rc<FpsMeter>,
-) -> Result<(), StepVizError> {
+) -> Result<(), StepError> {
     trace_span!("render_wgpu_on_canvas");
     let WgpuState {
         device,
@@ -120,7 +120,7 @@ pub async fn render_wgpu_on_canvas(
             return Ok(());
         }
         wgpu::CurrentSurfaceTexture::Validation => {
-            return Err(StepVizError::RenderError(
+            return Err(StepError::RenderError(
                 "Surface texture validation failed".to_string(),
             ));
         }

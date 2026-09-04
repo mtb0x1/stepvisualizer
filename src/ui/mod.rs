@@ -9,5 +9,5 @@ pub use components::confirm_modal::ConfirmModal;
 pub use components::upload_bar::UploadBar;
 pub use components::webgpu_unavailable::WebGpuUnavailable;
 pub use left_panel::LeftPanel;
-pub use main_panel::AppStepviz;
+pub use main_panel::AppStepVisualizer;
 pub use right_panel::RightPanel;

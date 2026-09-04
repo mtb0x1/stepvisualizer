@@ -1,4 +1,4 @@
-//! StepViz — a WebAssembly STEP file viewer.
+//! StepVisualizer : a WebAssembly STEP file viewer.
 //!
 //! Parses STEP files in the browser (ruststep), tessellates the geometry
 //! (truck), and renders it with WebGPU. The UI is Yew (CSR); all app state
@@ -24,7 +24,8 @@ use common::constants::NO_WEBGPU_MSG;
 use common::logger;
 use rendering::wgpu_state::browser_has_webgpu;
 use ui::{
-    AppStepviz, ConfirmModal, LeftPanel, RightPanel as MetadataPanel, UploadBar, WebGpuUnavailable,
+    AppStepVisualizer, ConfirmModal, LeftPanel, RightPanel as MetadataPanel, UploadBar,
+    WebGpuUnavailable,
 };
 use workspace::{ConfirmAction, use_step_workspace};
 
@@ -135,7 +136,7 @@ fn main_app(props: &MainAppProps) -> Html {
                     on_quality_change={on_quality_change}
                 />
 
-                <AppStepviz
+                <AppStepVisualizer
                     step_model={(*workspace.step_model).clone()}
                     is_processing={*workspace.is_processing}
                     metadata={(*workspace.metadata).clone()}

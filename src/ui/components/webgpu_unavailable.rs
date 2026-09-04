@@ -33,7 +33,7 @@ pub fn webgpu_unavailable(props: &WebGpuUnavailableProps) -> Html {
                 <h1>{ "WebGPU is not available" }</h1>
                 <p class="webgpu-unavailable-reason">{ props.reason.clone() }</p>
                 <p>
-                    { "StepViz renders 3D models entirely in your browser through WebGPU, \
+                    { "StepVisualizer renders 3D models entirely in your browser through WebGPU, \
                         so there is nothing it can do without it." }
                 </p>
                 <p>

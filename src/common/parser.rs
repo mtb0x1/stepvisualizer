@@ -2,7 +2,7 @@
 use super::logger;
 use crate::common::storage::hash_text_to_id;
 use crate::common::utils::{find_ignore_ascii_case, param_as_enum, param_as_list, param_as_str};
-use crate::error::StepVizError;
+use crate::error::StepError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
 use crate::ruststep::header::{FileSchema, Header};
 use crate::trace_span;
@@ -60,7 +60,7 @@ impl StepSchema {
 }
 
 /// Validates that at least one schema listed in the STEP header [`FileSchema`] is supported.
-pub fn validate_schema(file_schema: &FileSchema) -> Result<StepSchema, StepVizError> {
+pub fn validate_schema(file_schema: &FileSchema) -> Result<StepSchema, StepError> {
     for id in &file_schema.schema {
         if let Some(schema) = StepSchema::parse(id) {
             return Ok(schema);
@@ -71,13 +71,13 @@ pub fn validate_schema(file_schema: &FileSchema) -> Result<StepSchema, StepVizEr
     } else {
         file_schema.schema.join(", ")
     };
-    Err(StepVizError::UnsupportedSchema { schema: raw })
+    Err(StepError::UnsupportedSchema { schema: raw })
 }
 
 /// Pre-checks an in-memory STEP buffer for the `ISO-10303-21` header marker and validates
 /// that `FILE_SCHEMA` specifies a supported application protocol (AP201, AP203, or AP214)
 /// before executing the full AST tokenizer and parser.
-pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError> {
+pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepError> {
     trace_span!("probe_validate_step_buffer");
 
     // 1. Verify ISO-10303-21 exchange structure prefix (handling optional BOM and comments)
@@ -92,7 +92,7 @@ pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError
     }
 
     if !cursor.starts_with("ISO-10303-21") {
-        return Err(StepVizError::Parse(
+        return Err(StepError::Parse(
             "Missing ISO-10303-21 exchange structure header".to_string(),
         ));
     }
@@ -102,12 +102,12 @@ pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError
     let header_chunk = &text[..search_limit];
 
     let schema_kw_pos = find_ignore_ascii_case(header_chunk, "FILE_SCHEMA").ok_or_else(|| {
-        StepVizError::InvalidHeader("Missing FILE_SCHEMA declaration in header".to_string())
+        StepError::InvalidHeader("Missing FILE_SCHEMA declaration in header".to_string())
     })?;
 
     let remainder = &header_chunk[schema_kw_pos + "FILE_SCHEMA".len()..];
     let semi_pos = remainder.find(';').ok_or_else(|| {
-        StepVizError::InvalidHeader("Unterminated FILE_SCHEMA declaration".to_string())
+        StepError::InvalidHeader("Unterminated FILE_SCHEMA declaration".to_string())
     })?;
     let stmt = &remainder[..semi_pos];
 
@@ -132,7 +132,7 @@ pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError
     }
 
     if raw_schemas.is_empty() {
-        return Err(StepVizError::InvalidHeader(
+        return Err(StepError::InvalidHeader(
             "FILE_SCHEMA contains no schema identifiers".to_string(),
         ));
     }
@@ -143,7 +143,7 @@ pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepVizError
         }
     }
 
-    Err(StepVizError::UnsupportedSchema {
+    Err(StepError::UnsupportedSchema {
         schema: raw_schemas.join(", "),
     })
 }
@@ -166,15 +166,15 @@ pub fn convert_header_from_ast(header: &Header) -> StepHeader {
 
 /// Convert the STEP header section into the display-oriented [`StepHeader`].
 /// Fails when the records do not form a valid header.
-pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepVizError> {
+pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepError> {
     trace_span!("convert_header");
     if header_in.len() < 3 {
-        return Err(StepVizError::InvalidHeader(
+        return Err(StepError::InvalidHeader(
             "Header section must contain at least 3 records".to_string(),
         ));
     }
     let header_obj =
-        Header::from_records(header_in).map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
+        Header::from_records(header_in).map_err(|e| StepError::InvalidHeader(e.to_string()))?;
     Ok(convert_header_from_ast(&header_obj))
 }
 
@@ -284,14 +284,14 @@ pub fn normalize_exchange(exchange: &mut Exchange) {
 
 /// Returns all data sections carrying usable STEP content, or a
 /// domain error explaining why the file has none.
-pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
+pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepError> {
     let usable: Vec<&DataSection> = parsed
         .data
         .iter()
         .filter(|s| !s.entities.is_empty() || !s.meta.is_empty())
         .collect();
     if usable.is_empty() {
-        Err(StepVizError::EmptyDataSection)
+        Err(StepError::EmptyDataSection)
     } else {
         if parsed.data.len() > 1 {
             logger::warn(&format!(
@@ -313,15 +313,15 @@ pub fn build_initial_metadata(
     parsed: &Exchange,
     step_tables: &[truck_stepio::r#in::Table],
     text: &str,
-) -> Result<(Metadata, FileId), StepVizError> {
+) -> Result<(Metadata, FileId), StepError> {
     trace_span!("build_initial_metadata");
     if parsed.header.len() < 3 {
-        return Err(StepVizError::InvalidHeader(
+        return Err(StepError::InvalidHeader(
             "Header section must contain at least 3 records".to_string(),
         ));
     }
     let header_obj = Header::from_records(&parsed.header)
-        .map_err(|e| StepVizError::InvalidHeader(e.to_string()))?;
+        .map_err(|e| StepError::InvalidHeader(e.to_string()))?;
     validate_schema(&header_obj.file_schema)?;
 
     let entity_count: usize = parsed
@@ -390,7 +390,7 @@ mod tests {
         let empty_records: Vec<Record> = Vec::new();
         let res = convert_header(&empty_records);
 
-        assert!(matches!(res, Err(StepVizError::InvalidHeader(_))));
+        assert!(matches!(res, Err(StepError::InvalidHeader(_))));
     }
 
     fn step_with_schema(schema: &str) -> String {
@@ -443,7 +443,7 @@ mod tests {
         let res = build_initial_metadata("test", &parsed, &[], &text);
 
         match res {
-            Err(StepVizError::UnsupportedSchema { schema }) => {
+            Err(StepError::UnsupportedSchema { schema }) => {
                 assert_eq!(schema, "STRUCTURAL_ANALYSIS_DESIGN");
             }
             _ => panic!("Expected UnsupportedSchema error, got {:?}", res),
@@ -458,7 +458,7 @@ mod tests {
         let res = build_initial_metadata("test", &parsed, &[], &text);
 
         match res {
-            Err(StepVizError::UnsupportedSchema { schema }) => {
+            Err(StepError::UnsupportedSchema { schema }) => {
                 assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
             }
             _ => panic!("Expected UnsupportedSchema error, got {:?}", res),
@@ -552,7 +552,7 @@ mod tests {
     fn test_probe_validate_step_buffer_unsupported() {
         let text_aim = step_with_schema("PLANT_SPATIAL_CONFIGURATION");
         match probe_validate_step_buffer(&text_aim) {
-            Err(StepVizError::UnsupportedSchema { schema }) => {
+            Err(StepError::UnsupportedSchema { schema }) => {
                 assert_eq!(schema, "PLANT_SPATIAL_CONFIGURATION");
             }
             res => panic!("Expected UnsupportedSchema, got {:?}", res),
@@ -560,7 +560,7 @@ mod tests {
 
         let text_224 = step_with_schema("FEATURE_BASED_PROCESS_PLANNING");
         match probe_validate_step_buffer(&text_224) {
-            Err(StepVizError::UnsupportedSchema { schema }) => {
+            Err(StepError::UnsupportedSchema { schema }) => {
                 assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
             }
             res => panic!("Expected UnsupportedSchema, got {:?}", res),
@@ -572,13 +572,13 @@ mod tests {
         let invalid = "NOT A VALID STEP FILE";
         assert!(matches!(
             probe_validate_step_buffer(invalid),
-            Err(StepVizError::Parse(_))
+            Err(StepError::Parse(_))
         ));
 
         let missing_schema = "ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\nENDSEC;\n";
         assert!(matches!(
             probe_validate_step_buffer(missing_schema),
-            Err(StepVizError::InvalidHeader(_))
+            Err(StepError::InvalidHeader(_))
         ));
     }
 
@@ -597,7 +597,7 @@ mod tests {
 
         let parsed = ruststep::parser::parse(step_no_data).expect("parse");
         let res = all_usable_sections(&parsed);
-        assert!(matches!(res, Err(StepVizError::EmptyDataSection)));
+        assert!(matches!(res, Err(StepError::EmptyDataSection)));
     }
 
     /// Verifies that all_usable_sections filters out empty sections and retains sections containing entities.

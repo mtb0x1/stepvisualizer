@@ -29,39 +29,42 @@ pub fn env_prefix() -> &'static str {
 /// localStorage key for the recent-files index (`Vec<FileIndexItem>`),
 /// namespaced by deployment environment.
 ///
-/// Examples: `"stepviz:index"` (dev), `"testing:stepviz:index"`, `"production:stepviz:index"`.
+/// Examples: `"stepvisualizer:index"` (dev), `"testing:stepvisualizer:index"`, `"production:stepvisualizer:index"`.
 pub fn ls_index_key() -> std::borrow::Cow<'static, str> {
     let prefix = env_prefix();
     if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepviz:index")
+        std::borrow::Cow::Borrowed("stepvisualizer:index")
     } else {
-        std::borrow::Cow::Owned(format!("{prefix}stepviz:index"))
+        std::borrow::Cow::Owned(format!("{prefix}stepvisualizer:index"))
     }
 }
 
 /// Prefix for per-model localStorage keys, namespaced by deployment environment.
 ///
-/// Full key format: `<env_prefix>stepviz:model:<id>`.
-/// Examples: `"stepviz:model:"` (dev), `"testing:stepviz:model:"`, `"production:stepviz:model:"`.
+/// Full key format: `<env_prefix>stepvisualizer:model:<id>`.
+/// Examples: `"stepvisualizer:model:"` (dev), `"testing:stepvisualizer:model:"`, `"production:stepvisualizer:model:"`.
 pub fn ls_model_key_prefix() -> std::borrow::Cow<'static, str> {
     let prefix = env_prefix();
     if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepviz:model:")
+        std::borrow::Cow::Borrowed("stepvisualizer:model:")
     } else {
-        std::borrow::Cow::Owned(format!("{prefix}stepviz:model:"))
+        std::borrow::Cow::Owned(format!("{prefix}stepvisualizer:model:"))
     }
 }
 
 /// IndexedDB database name, namespaced by deployment environment.
 ///
-/// Examples: `"stepviz_db"` (dev), `"stepviz_db_testing"`, `"stepviz_db_production"`.
+/// Examples: `"stepvisualizer_db"` (dev), `"stepvisualizer_db_testing"`, `"stepvisualizer_db_production"`.
 pub fn db_name() -> std::borrow::Cow<'static, str> {
     let prefix = env_prefix();
     if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepviz_db")
+        std::borrow::Cow::Borrowed("stepvisualizer_db")
     } else {
-        // Strip trailing ":" from prefix ("testing:" → "stepviz_db_testing")
-        std::borrow::Cow::Owned(format!("stepviz_db_{}", prefix.trim_end_matches(':')))
+        // Strip trailing ":" from prefix ("testing:" → "stepvisualizer_db_testing")
+        std::borrow::Cow::Owned(format!(
+            "stepvisualizer_db_{}",
+            prefix.trim_end_matches(':')
+        ))
     }
 }
 /// Placeholder shown for missing metadata fields in the UI.

@@ -8,7 +8,7 @@ use crate::common::{
     build_initial_metadata, extract_render_parts, load_model, normalize_exchange,
     probe_validate_step_buffer, save_model,
 };
-use crate::error::StepVizError;
+use crate::error::StepError;
 use crate::trace_span;
 use crate::workspace::history::{add_to_index, promote_in_index};
 use crate::workspace::state::{StateHandles, build_step_model};
@@ -30,7 +30,7 @@ pub(crate) fn parse_step_file_content(
         Vec<truck_stepio::r#in::Table>,
         StepColorMap,
     ),
-    StepVizError,
+    StepError,
 > {
     // Fast pre-check on the in-memory buffer: validates the ISO exchange structure header
     // and FILE_SCHEMA before running full AST parsing, avoiding downstream tokenizer crashes
@@ -38,7 +38,7 @@ pub(crate) fn parse_step_file_content(
     probe_validate_step_buffer(text)?;
 
     let mut parsed =
-        crate::ruststep::parser::parse(text).map_err(|e| StepVizError::Parse(e.to_string()))?;
+        crate::ruststep::parser::parse(text).map_err(|e| StepError::Parse(e.to_string()))?;
     normalize_exchange(&mut parsed);
     let color_map = StepColorMap::from_exchange(&parsed);
     let sections = all_usable_sections(&parsed)?;
@@ -188,7 +188,7 @@ pub(crate) fn use_file_processor(
         let next_gen = states.bump_generation();
         states.is_processing.set(true);
         if web_file.size() > MAX_FILE_BYTES {
-            states.fail_load(StepVizError::FileTooLarge {
+            states.fail_load(StepError::FileTooLarge {
                 size_bytes: web_file.size(),
                 max_bytes: MAX_FILE_BYTES,
             });
@@ -206,7 +206,7 @@ pub(crate) fn use_file_processor(
             if states_for_reader.is_superseded(next_gen) {
                 return;
             }
-            let fail = |err: StepVizError| {
+            let fail = |err: StepError| {
                 if states_for_reader.is_current(next_gen) {
                     states_for_reader.fail_load(err);
                 }
@@ -214,7 +214,7 @@ pub(crate) fn use_file_processor(
 
             let text = match res {
                 Ok(text) => text,
-                Err(e) => return fail(StepVizError::FileRead(e.to_string())),
+                Err(e) => return fail(StepError::FileRead(e.to_string())),
             };
 
             let (meta, id, step_tables, color_map) = match parse_step_file_content(&name, &text) {

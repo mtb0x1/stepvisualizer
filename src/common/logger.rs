@@ -36,7 +36,7 @@ pub fn init() {
             console::error_1(&format!("Failed to set global default subscriber: {err}").into());
         }
         tracing::info!(
-            "{} StepViz tracing initialized with level: {}",
+            "{} StepVisualizer tracing initialized with level: {}",
             STEP_TRACER,
             level.as_str()
         );

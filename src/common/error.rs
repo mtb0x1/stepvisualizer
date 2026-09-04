@@ -3,7 +3,7 @@ use std::fmt;
 
 /// Crate-wide domain error type for all fallible operations (parsing, geometry, GPU init, rendering, storage).
 #[derive(Debug, Clone, PartialEq)]
-pub enum StepVizError {
+pub enum StepError {
     /// Failure while reading file contents from browser FileReader.
     FileRead(String),
     /// File size exceeds the maximum allowed upload limit.
@@ -24,7 +24,7 @@ pub enum StepVizError {
     Generic(String),
 }
 
-impl fmt::Display for StepVizError {
+impl fmt::Display for StepError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FileRead(msg) => write!(f, "Failed to read file: {msg}"),
@@ -58,16 +58,16 @@ impl fmt::Display for StepVizError {
     }
 }
 
-impl std::error::Error for StepVizError {}
+impl std::error::Error for StepError {}
 
-impl From<String> for StepVizError {
+impl From<String> for StepError {
     fn from(msg: String) -> Self {
-        StepVizError::Generic(msg)
+        StepError::Generic(msg)
     }
 }
 
-impl From<&str> for StepVizError {
+impl From<&str> for StepError {
     fn from(msg: &str) -> Self {
-        StepVizError::Generic(msg.to_string())
+        StepError::Generic(msg.to_string())
     }
 }

@@ -1,6 +1,6 @@
 use crate::{
     common::{BoundingBox, Color, RenderablePart, ViewportSize, logger},
-    error::StepVizError,
+    error::StepError,
     trace_span,
 };
 use bytemuck::cast_slice;
@@ -209,9 +209,9 @@ fn create_depth_texture_view(device: &wgpu::Device, width: u32, height: u32) -> 
 
 /// Create the full WebGPU context for `canvas`: surface, adapter
 /// (high-performance preference), device, depth texture, and the shader +
-/// render pipeline. Fails with a descriptive [`StepVizError`] on any GPU
+/// render pipeline. Fails with a descriptive [`StepError`] on any GPU
 /// init step (no WebGPU support, adapter/device request failure, ...).
-pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizError> {
+pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepError> {
     trace_span!("init_wgpu");
 
     // wgpu 30 dropped `Default` for `InstanceDescriptor` (the new `display`
@@ -229,7 +229,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Err(err) => {
             let msg = format!("Failed to create WebGPU surface: {err}");
             logger::error(&msg);
-            return Err(StepVizError::GpuInitFailed(msg));
+            return Err(StepError::GpuInitFailed(msg));
         }
     };
 
@@ -250,7 +250,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Err(err) => {
             let msg = format!("Failed to request WebGPU adapter: {err}");
             logger::error(&msg);
-            return Err(StepVizError::GpuInitFailed(msg));
+            return Err(StepError::GpuInitFailed(msg));
         }
     };
     let (device, queue) = match adapter
@@ -261,7 +261,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepVizEr
         Err(err) => {
             let msg = format!("Failed to request adapter device: {err}");
             logger::error(&msg);
-            return Err(StepVizError::GpuInitFailed(msg));
+            return Err(StepError::GpuInitFailed(msg));
         }
     };
 
