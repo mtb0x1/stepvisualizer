@@ -9,6 +9,7 @@ pub mod fps_meter;
 pub mod logger;
 pub mod parser;
 pub mod render;
+pub mod step_names;
 pub mod storage;
 pub mod time;
 pub mod types;
@@ -16,6 +17,7 @@ pub mod utils;
 
 pub use cache::LruCache;
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
+pub use step_names::StepNameMap;
 pub use glam::dcamera::rh::proj::opengl::perspective;
 pub use glam::dcamera::rh::view::look_at_mat4;
 pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};

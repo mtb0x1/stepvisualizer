@@ -7,6 +7,8 @@ use yew::prelude::*;
 #[derive(Properties, PartialEq)]
 pub struct MeshItemProps {
     pub index: usize,
+    #[prop_or_default]
+    pub name: Option<String>,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
@@ -26,6 +28,13 @@ fn mesh_item(props: &MeshItemProps) -> Html {
         })
     };
 
+    let display_name = props
+        .name
+        .as_deref()
+        .filter(|s| !s.trim().is_empty())
+        .map(String::from)
+        .unwrap_or_else(|| format!("Mesh {}", props.index + 1));
+
     html! {
         <div class="mesh-item">
             <div class="mesh-header">
@@ -40,7 +49,7 @@ fn mesh_item(props: &MeshItemProps) -> Html {
                     style={format!("background-color: {};", props.color.to_css_rgba())}
                     title={props.color.to_hex()}
                 />
-                <span class="mesh-name">{ "Mesh " }{ props.index + 1 }</span>
+                <span class="mesh-name">{ display_name }</span>
             </div>
             <div class="mesh-details">
                 <span class="mesh-stats">
@@ -59,9 +68,10 @@ pub struct MeshesPanelProps {
     pub on_hide_all: Callback<()>,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Properties)]
+#[derive(Clone, Debug, PartialEq, Properties)]
 pub struct MeshData {
     pub index: usize,
+    pub name: Option<String>,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
@@ -83,6 +93,7 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
                 <MeshItem
                     key={mesh.index}
                     index={mesh.index}
+                    name={mesh.name.clone()}
                     triangle_count={mesh.triangle_count}
                     vertex_count={mesh.vertex_count}
                     visible={mesh.visible}
@@ -113,5 +124,39 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
                 {meshes_list}
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use wasm_bindgen_test::*;
+
+    wasm_bindgen_test_configure!(run_in_browser);
+
+    fn resolve_mesh_display_name(name: Option<&str>, index: usize) -> String {
+        name.filter(|s| !s.trim().is_empty())
+            .map(String::from)
+            .unwrap_or_else(|| format!("Mesh {}", index + 1))
+    }
+
+    #[wasm_bindgen_test]
+    fn test_mesh_display_name_with_custom_name() {
+        assert_eq!(
+            resolve_mesh_display_name(Some("Housing"), 0),
+            "Housing"
+        );
+        assert_eq!(
+            resolve_mesh_display_name(Some("l-bracket_1"), 2),
+            "l-bracket_1"
+        );
+    }
+
+    #[wasm_bindgen_test]
+    fn test_mesh_display_name_fallback_empty_or_none() {
+        assert_eq!(resolve_mesh_display_name(None, 0), "Mesh 1");
+        assert_eq!(resolve_mesh_display_name(None, 5), "Mesh 6");
+        assert_eq!(resolve_mesh_display_name(Some(""), 0), "Mesh 1");
+        assert_eq!(resolve_mesh_display_name(Some("   "), 3), "Mesh 4");
     }
 }

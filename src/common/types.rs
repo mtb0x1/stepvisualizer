@@ -500,6 +500,7 @@ mod tests {
             indices: (0..30).collect(), // 30 indices = 10 triangles
             model_matrix: glam::Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         let part2 = RenderablePart {
@@ -509,6 +510,7 @@ mod tests {
             indices: (0..12).collect(), // 12 indices = 4 triangles
             model_matrix: glam::Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         let model = StepModel {
@@ -560,6 +562,7 @@ mod tests {
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         let part2 = RenderablePart {
@@ -571,6 +574,7 @@ mod tests {
             indices: vec![0, 1, 2],
             model_matrix: glam::Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         let part1_vol = part1.calculate_volume();

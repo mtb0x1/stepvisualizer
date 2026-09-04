@@ -30,6 +30,7 @@ pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
                     .filter(|(_, part)| !part.vertices.is_empty() && !part.indices.is_empty())
                     .map(|(i, part)| MeshData {
                         index: i,
+                        name: part.name.clone(),
                         triangle_count: part.triangle_count(),
                         vertex_count: part.vertex_count(),
                         visible: part_visibility.get(i).copied().unwrap_or(true),

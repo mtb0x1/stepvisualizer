@@ -4,7 +4,7 @@ use crate::common::constants::{
 };
 use crate::common::utils::input_file;
 use crate::common::{
-    FileId, FileIndexItem, LruCache, Metadata, StepColorMap, all_usable_sections,
+    FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap, all_usable_sections,
     build_initial_metadata, extract_render_parts, load_model, normalize_exchange,
     probe_validate_step_buffer, save_model,
 };
@@ -29,6 +29,7 @@ pub(crate) fn parse_step_file_content(
         FileId,
         Vec<truck_stepio::r#in::Table>,
         StepColorMap,
+        StepNameMap,
     ),
     StepError,
 > {
@@ -41,13 +42,14 @@ pub(crate) fn parse_step_file_content(
         crate::ruststep::parser::parse(text).map_err(|e| StepError::Parse(e.to_string()))?;
     normalize_exchange(&mut parsed);
     let color_map = StepColorMap::from_exchange(&parsed);
+    let name_map = StepNameMap::from_exchange(&parsed);
     let sections = all_usable_sections(&parsed)?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()
         .map(truck_stepio::r#in::Table::from_data_section)
         .collect();
     let (meta, id) = build_initial_metadata(name, &parsed, &step_tables, text)?;
-    Ok((meta, id, step_tables, color_map))
+    Ok((meta, id, step_tables, color_map, name_map))
 }
 
 fn format_tessellation_status(
@@ -84,6 +86,7 @@ fn format_tessellation_status(
 pub(crate) struct TessellationJob {
     pub step_tables: Vec<truck_stepio::r#in::Table>,
     pub color_map: StepColorMap,
+    pub name_map: StepNameMap,
     pub file_id: FileId,
     pub meta: Metadata,
     pub generation: u64,
@@ -101,6 +104,7 @@ pub(crate) fn spawn_tessellation(
     let TessellationJob {
         step_tables,
         color_map,
+        name_map,
         file_id,
         meta,
         generation,
@@ -110,7 +114,7 @@ pub(crate) fn spawn_tessellation(
     let tolerance = (base_tolerance * multiplier).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
     wasm_bindgen_futures::spawn_local(async move {
         let total_shell_count: usize = step_tables.iter().map(|t| t.shell.len()).sum();
-        let output = extract_render_parts(&step_tables, Some(&color_map), tolerance);
+        let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
         let renderable_parts = output.parts;
         let skipped_shells = output.skipped_shells;
         let warnings = output.warnings;
@@ -217,7 +221,7 @@ pub(crate) fn use_file_processor(
                 Err(e) => return fail(StepError::FileRead(e.to_string())),
             };
 
-            let (meta, id, step_tables, color_map) = match parse_step_file_content(&name, &text) {
+            let (meta, id, step_tables, color_map, name_map) = match parse_step_file_content(&name, &text) {
                 Ok(parsed) => parsed,
                 Err(err) => return fail(err),
             };
@@ -236,6 +240,7 @@ pub(crate) fn use_file_processor(
                 TessellationJob {
                     step_tables,
                     color_map,
+                    name_map,
                     file_id: id.clone(),
                     meta: meta.clone(),
                     generation: next_gen,

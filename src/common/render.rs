@@ -9,6 +9,7 @@ use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
 use crate::common::color::{Color, StepColorMap, part_color};
+use crate::common::step_names::StepNameMap;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
 use crate::common::utils::{
@@ -33,7 +34,7 @@ impl GpuVertex {
 }
 
 /// One tessellated part (typically one shell): vertex/index buffers plus the
-/// per-part model matrix and color. Serializable, so whole models round-trip
+/// per-part model matrix, color, and optional name. Serializable, so whole models round-trip
 /// through localStorage without re-tessellating.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct RenderablePart {
@@ -41,6 +42,8 @@ pub struct RenderablePart {
     pub indices: Vec<u32>,
     pub model_matrix: Mat4,
     pub color: Color,
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 impl Default for RenderablePart {
@@ -50,6 +53,7 @@ impl Default for RenderablePart {
             indices: Vec::new(),
             model_matrix: Mat4::IDENTITY,
             color: Color::DEFAULT_PART,
+            name: None,
         }
     }
 }
@@ -134,6 +138,7 @@ pub struct TessellationOutput {
 pub fn extract_render_parts(
     step_tables: &[truck_stepio::r#in::Table],
     colors: Option<&StepColorMap>,
+    names: Option<&StepNameMap>,
     tolerance: f64,
 ) -> TessellationOutput {
     trace_span!("extract_render_parts");
@@ -148,6 +153,7 @@ pub fn extract_render_parts(
         let skipped = tessellate_table(
             table,
             colors,
+            names,
             tolerance,
             &mut parts_to_render,
             &mut warnings,
@@ -294,6 +300,7 @@ fn append_face_geometry(
 fn tessellate_table(
     table: &truck_stepio::r#in::Table,
     colors: Option<&StepColorMap>,
+    names: Option<&StepNameMap>,
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
     warnings: &mut Vec<String>,
@@ -357,12 +364,14 @@ fn tessellate_table(
             let color = colors
                 .and_then(|c| c.get(*shell_key))
                 .unwrap_or_else(|| part_color(parts_to_render.len()));
+            let name = names.and_then(|n| n.get(*shell_key)).map(String::from);
 
             parts_to_render.push(RenderablePart {
                 vertices,
                 indices,
                 model_matrix,
                 color,
+                name,
             });
         }
 
@@ -412,6 +421,7 @@ mod tests {
             indices,
             model_matrix: Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         }
     }
 
@@ -427,6 +437,7 @@ mod tests {
             indices: vec![0, 1, 2],
             model_matrix: Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -476,6 +487,7 @@ mod tests {
             indices: vec![0, 1, 2, 0, 1, 999, 0, 1],
             model_matrix: Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         approx::assert_relative_eq!(part.calculate_surface_area(), 0.5, epsilon = 1e-6);
@@ -491,6 +503,7 @@ mod tests {
             indices: (0..36).collect(),
             model_matrix: Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         };
 
         assert_eq!(part.vertex_count(), 24);
@@ -529,6 +542,7 @@ mod tests {
             indices: vec![0, 1, 0],
             model_matrix: Mat4::IDENTITY,
             color: Color::WHITE,
+            name: None,
         }
     }
 
