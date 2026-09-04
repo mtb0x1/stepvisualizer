@@ -177,6 +177,37 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
     None
 }
 
+/// Normalizes STEP entity records in-place before loading into `truck_stepio::Table`.
+///
+/// In ISO 10303-42, entities like `INTERSECTION_CURVE` and `BOUNDARY_CURVE` are direct subtypes
+/// of `SURFACE_CURVE` with identical parameter representations:
+/// `(name, curve_3d, associated_geometry, master_representation)`.
+/// `truck_stepio`'s entity loader recognizes `SURFACE_CURVE` and `SEAM_CURVE`, but omits
+/// `INTERSECTION_CURVE` and `BOUNDARY_CURVE`. Normalizing their record names to `"SURFACE_CURVE"`
+/// allows `truck_stepio` to parse them into `table.surface_curve`, enabling B-Rep edges to resolve
+/// properly rather than failing lookup and causing downstream triangulation panics.
+/// This function will probbaly act as a hook for "fixing" broken/missing STEP Parsing files details,
+/// due to ruststep crates being incomplete or having bugs.
+pub fn normalize_exchange(exchange: &mut Exchange) {
+    trace_span!("normalize_exchange");
+    for section in &mut exchange.data {
+        for entity in &mut section.entities {
+            let EntityInstance::Simple { record, .. } = entity else {
+                continue;
+            };
+
+            let name = record.name.as_str();
+            if (name.eq_ignore_ascii_case("INTERSECTION_CURVE")
+                || name.eq_ignore_ascii_case("BOUNDARY_CURVE"))
+                && name != "SURFACE_CURVE"
+            {
+                record.name.clear();
+                record.name.push_str("SURFACE_CURVE");
+            }
+        }
+    }
+}
+
 /// Returns all data sections carrying usable STEP content, or a
 /// domain error explaining why the file has none.
 pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepVizError> {
@@ -391,11 +422,20 @@ mod tests {
     /// Direct unit tests for the StepSchema enum parser and validate_schema function.
     #[wasm_bindgen_test]
     fn test_step_schema_enum() {
-        assert_eq!(StepSchema::parse("CONFIG_CONTROL_DESIGN"), Some(StepSchema::Ap203));
+        assert_eq!(
+            StepSchema::parse("CONFIG_CONTROL_DESIGN"),
+            Some(StepSchema::Ap203)
+        );
         assert_eq!(StepSchema::parse("ap203"), Some(StepSchema::Ap203));
-        assert_eq!(StepSchema::parse("AUTOMOTIVE_DESIGN"), Some(StepSchema::Ap214));
+        assert_eq!(
+            StepSchema::parse("AUTOMOTIVE_DESIGN"),
+            Some(StepSchema::Ap214)
+        );
         assert_eq!(StepSchema::parse("AP214"), Some(StepSchema::Ap214));
-        assert_eq!(StepSchema::parse("EXPLICIT_DRAUGHTING"), Some(StepSchema::Ap201));
+        assert_eq!(
+            StepSchema::parse("EXPLICIT_DRAUGHTING"),
+            Some(StepSchema::Ap201)
+        );
         assert_eq!(StepSchema::parse("AP201"), Some(StepSchema::Ap201));
         assert_eq!(StepSchema::parse("UNKNOWN_SCHEMA"), None);
 
@@ -545,8 +585,9 @@ mod tests {
 
         // 5. Tessellation & Part Extraction
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
-        let (render_parts, _skipped) = extract_render_parts(&step_tables, tolerance);
-        assert!(!render_parts.is_empty());
+        let output = extract_render_parts(&step_tables, tolerance);
+        assert!(!output.parts.is_empty());
+        let render_parts = output.parts;
 
         // 6. Complete Model Assembly
         let part_count = render_parts.len();
@@ -567,6 +608,107 @@ mod tests {
 
         assert!(model.total_vertices() > 0);
         assert!(model.total_triangles() > 0);
+        assert!(model.calculate_total_surface_area() > 0.0);
+        assert!(model.metadata.bounding_box.as_ref().unwrap().is_valid());
+    }
+
+    /// Verifies that normalize_exchange correctly remaps INTERSECTION_CURVE and BOUNDARY_CURVE
+    /// to SURFACE_CURVE so truck_stepio can parse them into table.surface_curve.
+    #[wasm_bindgen_test]
+    fn test_normalize_exchange_surface_curve_subtypes() {
+        let step_text = "ISO-10303-21;\n\
+                         HEADER;\n\
+                         FILE_DESCRIPTION(('Test'), '2;1');\n\
+                         FILE_NAME('test.stp', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                         FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                         ENDSEC;\n\
+                         DATA;\n\
+                         #1 = INTERSECTION_CURVE('int_curve', #10, (#20), .CURVE_3D.);\n\
+                         #2 = BOUNDARY_CURVE('bnd_curve', #11, (#21), .CURVE_3D.);\n\
+                         #3 = LINE('line', #12, #13);\n\
+                         ENDSEC;\n\
+                         END-ISO-10303-21;";
+
+        let mut parsed = ruststep::parser::parse(step_text).expect("parse");
+        normalize_exchange(&mut parsed);
+
+        let entities = &parsed.data[0].entities;
+        if let EntityInstance::Simple { record, .. } = &entities[0] {
+            assert_eq!(record.name, "SURFACE_CURVE");
+        } else {
+            panic!("Expected simple entity #1");
+        }
+
+        if let EntityInstance::Simple { record, .. } = &entities[1] {
+            assert_eq!(record.name, "SURFACE_CURVE");
+        } else {
+            panic!("Expected simple entity #2");
+        }
+
+        if let EntityInstance::Simple { record, .. } = &entities[2] {
+            assert_eq!(record.name, "LINE");
+        } else {
+            panic!("Expected simple entity #3");
+        }
+    }
+
+    /// End-to-end integration test reading, normalizing, and tessellating nasty_cheese.stp.
+    /// Verifies that INTERSECTION_CURVE normalization prevents truck-meshalgo panics,
+    /// yielding thousands of valid triangles and vertices.
+    #[wasm_bindgen_test]
+    fn step_pipeline_e2e_nasty_cheese() {
+        use crate::common::constants::compute_adaptive_tolerance;
+        use crate::common::render::{extract_render_parts, visible_bounds};
+        use crate::common::types::StepModel;
+
+        let stp_data = include_str!("../../examples/nasty_cheese.stp");
+
+        let mut parsed = ruststep::parser::parse(stp_data).expect("successful STEP AST parse");
+        normalize_exchange(&mut parsed);
+
+        let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
+        assert_eq!(usable_sections.len(), 1);
+
+        let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
+            .into_iter()
+            .map(truck_stepio::r#in::Table::from_data_section)
+            .collect();
+        assert_eq!(step_tables.len(), 1);
+
+        let (meta, file_id) =
+            build_initial_metadata("nasty_cheese.stp", &parsed, &step_tables, stp_data)
+                .expect("metadata successfully built");
+
+        assert_eq!(meta.header.file_name, "nasty_cheese");
+        assert_eq!(meta.header.file_schema, "CONFIG_CONTROL_DESIGN");
+        assert!(meta.entity_count > 0);
+        assert!(meta.bounding_box.is_some());
+
+        let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
+        let output = extract_render_parts(&step_tables, tolerance);
+        assert!(
+            !output.parts.is_empty(),
+            "Expected render parts for nasty_cheese.stp"
+        );
+
+        let render_parts = output.parts;
+        let mut model = StepModel {
+            id: file_id,
+            metadata: meta,
+            part_visibility: vec![true; render_parts.len()],
+            visibility_generation: 0,
+            cached_bounds: None,
+            render_parts,
+        };
+
+        model.metadata.vertex_count = model.total_vertices();
+        model.metadata.triangle_count = model.total_triangles();
+        if let Some(bbox) = visible_bounds(&model.render_parts, &model.part_visibility) {
+            model.metadata.bounding_box = Some(bbox);
+        }
+
+        assert!(model.total_vertices() > 5000);
+        assert!(model.total_triangles() > 5000);
         assert!(model.calculate_total_surface_area() > 0.0);
         assert!(model.metadata.bounding_box.as_ref().unwrap().is_valid());
     }

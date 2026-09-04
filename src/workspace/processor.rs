@@ -5,7 +5,7 @@ use crate::common::constants::{
 use crate::common::utils::input_file;
 use crate::common::{
     FileId, FileIndexItem, LruCache, Metadata, all_usable_sections, build_initial_metadata,
-    extract_render_parts, load_model, save_model,
+    extract_render_parts, load_model, normalize_exchange, save_model,
 };
 use crate::error::StepVizError;
 use crate::trace_span;
@@ -23,8 +23,9 @@ pub(crate) fn parse_step_file_content(
     name: &str,
     text: &str,
 ) -> Result<(Metadata, FileId, Vec<truck_stepio::r#in::Table>), StepVizError> {
-    let parsed =
+    let mut parsed =
         crate::ruststep::parser::parse(text).map_err(|e| StepVizError::Parse(e.to_string()))?;
+    normalize_exchange(&mut parsed);
     let sections = all_usable_sections(&parsed)?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()
@@ -34,13 +35,31 @@ pub(crate) fn parse_step_file_content(
     Ok((meta, id, step_tables))
 }
 
-fn format_tessellation_status(total_triangles: usize, skipped_shells: usize) -> String {
+fn format_tessellation_status(
+    total_triangles: usize,
+    skipped_shells: usize,
+    warnings: &[String],
+) -> String {
     if total_triangles == 0 {
-        "File loaded but no renderable geometry was found.".to_string()
+        if !warnings.is_empty() {
+            format!(
+                "File loaded but no renderable geometry found: {}.",
+                warnings.join("; ")
+            )
+        } else {
+            "File loaded but no renderable geometry was found.".to_string()
+        }
     } else if skipped_shells > 0 {
-        format!(
-            "Parsed STEP file. {skipped_shells} shell(s) could not be tessellated and were skipped."
-        )
+        if !warnings.is_empty() {
+            format!(
+                "Parsed STEP file. {skipped_shells} shell(s) could not be tessellated and were skipped: {}.",
+                warnings.join("; ")
+            )
+        } else {
+            format!(
+                "Parsed STEP file. {skipped_shells} shell(s) could not be tessellated and were skipped."
+            )
+        }
     } else {
         "Parsed STEP file successfully.".to_string()
     }
@@ -54,6 +73,7 @@ pub(crate) fn spawn_tessellation(
     file_id: FileId,
     meta: Metadata,
     states: StateHandles,
+    files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
     generation: u64,
 ) {
@@ -62,7 +82,10 @@ pub(crate) fn spawn_tessellation(
     let tolerance = (base_tolerance * multiplier).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
     wasm_bindgen_futures::spawn_local(async move {
         let total_shell_count: usize = step_tables.iter().map(|t| t.shell.len()).sum();
-        let (renderable_parts, skipped_shells) = extract_render_parts(&step_tables, tolerance);
+        let output = extract_render_parts(&step_tables, tolerance);
+        let renderable_parts = output.parts;
+        let skipped_shells = output.skipped_shells;
+        let warnings = output.warnings;
 
         if states.is_superseded(generation) {
             return;
@@ -70,14 +93,31 @@ pub(crate) fn spawn_tessellation(
 
         if skipped_shells > 0 && renderable_parts.is_empty() && skipped_shells == total_shell_count
         {
-            states.fail_load(
-                "Tessellation produced no geometry. The file may be too complex or use unsupported geometry.",
-            );
+            let fail_msg = if !warnings.is_empty() {
+                format!(
+                    "Tessellation produced no geometry. Skipped {skipped_shells} shell(s): {}.",
+                    warnings.join("; ")
+                )
+            } else {
+                "Tessellation produced no geometry. The file may be too complex or use unsupported geometry.".to_string()
+            };
+            states.fail_load(fail_msg);
             return;
         }
 
         let model = build_step_model(file_id.clone(), meta, renderable_parts);
         save_model(&model);
+
+        // Record the file in the history index ONLY after successful tessellation and model persistence.
+        add_to_index(
+            &files_index,
+            FileIndexItem {
+                id: file_id.clone(),
+                name: model.metadata.header.file_name.clone(),
+                entity_count: model.metadata.entity_count,
+                time_stamp: model.metadata.header.time_stamp.clone(),
+            },
+        );
 
         let total_triangles = model.metadata.triangle_count;
         let model_rc = Rc::new(model);
@@ -90,7 +130,7 @@ pub(crate) fn spawn_tessellation(
             return;
         }
 
-        let status_msg = format_tessellation_status(total_triangles, skipped_shells);
+        let status_msg = format_tessellation_status(total_triangles, skipped_shells, &warnings);
         states.set_loaded_model(model_rc, file_id, &status_msg);
     });
 }
@@ -169,19 +209,9 @@ pub(crate) fn use_file_processor(
                 id.clone(),
                 meta.clone(),
                 states_for_reader.clone(),
+                files_index.clone(),
                 cache.clone(),
                 next_gen,
-            );
-
-            // Record the file in the history index (most recent first).
-            add_to_index(
-                &files_index,
-                FileIndexItem {
-                    id,
-                    name: meta.header.file_name,
-                    entity_count: meta.entity_count,
-                    time_stamp: meta.header.time_stamp,
-                },
             );
         });
         *states.file_reader.borrow_mut() = Some(reader);

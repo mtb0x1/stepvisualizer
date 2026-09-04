@@ -100,7 +100,11 @@ pub(crate) fn use_workspace_management(
                             promote_in_index(&files_index, &file_id);
                         } else if states.is_current(next_gen) {
                             states.is_processing.set(false);
-                            states.set_result("Cached data missing.", true);
+                            remove_from_index(&files_index, &file_id);
+                            states.set_result(
+                                "Cached data missing. Removed file from history.",
+                                true,
+                            );
                         }
                     });
                 }

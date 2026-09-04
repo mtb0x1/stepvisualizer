@@ -12,9 +12,9 @@
 //! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
 //! - `common`: domain types + pure logic (parsing, tessellation, caches, math, logging)
 //! - `error`: the crate-wide error type
+pub use truck_stepio::r#in::ruststep;
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
-pub use truck_stepio::r#in::ruststep;
 pub mod common;
 use common::error;
 mod rendering;

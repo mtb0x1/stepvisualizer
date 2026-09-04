@@ -117,7 +117,17 @@ impl RenderablePart {
 }
 
 /// Tessellate `step_table` into renderable parts — or return the cached
-/// result for `file_id` when it was computed earlier this session.
+/// Result of [`extract_render_parts`], containing the extracted meshes, the
+/// number of skipped shells, and any descriptive warnings.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct TessellationOutput {
+    pub parts: Vec<RenderablePart>,
+    pub skipped_shells: usize,
+    pub warnings: Vec<String>,
+}
+
+/// Tessellates geometry from STEP entity tables into GPU-ready [`RenderablePart`]s.
+/// Returns a [`TessellationOutput`] containing parts, count of skipped shells, and warnings.
 ///
 /// `tolerance` is the triangulation tolerance (smaller = finer, slower).
 /// The whole-model centering translation is baked into each part's model
@@ -125,16 +135,17 @@ impl RenderablePart {
 pub fn extract_render_parts(
     step_tables: &[truck_stepio::r#in::Table],
     tolerance: f64,
-) -> (Vec<RenderablePart>, usize) {
+) -> TessellationOutput {
     trace_span!("extract_render_parts");
 
     let total_start = now_ms();
     let mut parts_to_render = Vec::new();
     let mut total_skipped: usize = 0;
+    let mut warnings = Vec::new();
 
     for (i, table) in step_tables.iter().enumerate() {
         let section_start = now_ms();
-        let skipped = tessellate_table(table, tolerance, &mut parts_to_render);
+        let skipped = tessellate_table(table, tolerance, &mut parts_to_render, &mut warnings);
         total_skipped += skipped;
         let tessellate_ms = now_ms() - section_start;
         let msg = format!(
@@ -171,7 +182,11 @@ pub fn extract_render_parts(
         part.translate(offset);
     }
 
-    (parts_to_render, total_skipped)
+    TessellationOutput {
+        parts: parts_to_render,
+        skipped_shells: total_skipped,
+        warnings,
+    }
 }
 
 /// Bounding box over a subset of parts, taking `visibility` into account.
@@ -269,11 +284,12 @@ fn append_face_geometry(
 
 /// Tessellate every shell in the table, producing one `RenderablePart` per
 /// non-empty shell. Part colors cycle through [`COLORS`]; a shell that fails
-/// to compress is skipped with a warning instead of failing the whole file.
+/// to compress or has missing edges is skipped with a warning instead of failing the whole file.
 fn tessellate_table(
     table: &truck_stepio::r#in::Table,
     tolerance: f64,
     parts_to_render: &mut Vec<RenderablePart>,
+    warnings: &mut Vec<String>,
 ) -> usize {
     let mut shells = Vec::with_capacity(table.shell.len());
     shells.extend(table.shell.iter());
@@ -287,16 +303,27 @@ fn tessellate_table(
         let cshell = match table.to_compressed_shell(shell) {
             Ok(cshell) => cshell,
             Err(err) => {
-                let msg = format!(
-                    "extract_render_parts => failed to compress shell {}: {}",
-                    shell_index, err
-                );
-                logger::warn(&msg);
+                let warn = format!("shell {shell_index} failed to compress: {err}");
+                logger::warn(&format!("extract_render_parts => {warn}"));
+                warnings.push(warn);
                 skipped += 1;
                 continue;
             }
         };
         let compress_ms = now_ms() - compress_start;
+
+        // Defensive guard: if a compressed shell has faces but zero valid edges
+        // (e.g. unhandled curve geometry), truck-meshalgo will panic at line 244 on
+        // empty boundary point vectors. Gracefully log and skip instead of aborting.
+        if !cshell.faces.is_empty() && cshell.edges.is_empty() {
+            let warn = format!("shell {shell_index} has faces but no valid boundary edges");
+            logger::warn(&format!(
+                "extract_render_parts => {warn}; skipped to avoid panic"
+            ));
+            warnings.push(warn);
+            skipped += 1;
+            continue;
+        }
 
         let tri_start = now_ms();
 
