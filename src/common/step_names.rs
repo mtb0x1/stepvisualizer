@@ -54,49 +54,65 @@ impl StepNameMap {
             });
 
             // Find all representations that DIRECTLY contain any of this shell's solids or the shell itself
-            let matching_reps: Vec<u64> = index
-                .rep_items
-                .iter()
-                .filter(|(_, items)| {
-                    items.contains(&shell_id)
-                        || solids.is_some_and(|s_list| s_list.iter().any(|s| items.contains(s)))
-                })
-                .map(|(rep_id, _)| *rep_id)
-                .collect();
+            let mut matching_reps: Vec<u64> = Vec::new();
+            if let Some(reps) = index.item_to_reps.get(&shell_id) {
+                matching_reps.extend(reps);
+            }
+            if let Some(s_list) = solids {
+                for s in s_list {
+                    if let Some(reps) = index.item_to_reps.get(s) {
+                        for &r in reps {
+                            if !matching_reps.contains(&r) {
+                                matching_reps.push(r);
+                            }
+                        }
+                    }
+                }
+            }
 
-            // 2. Check product name
-            let prod_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
-                let pd = index.pds_to_pd.get(&pds)?;
-                let pdf = index.pd_to_pdf.get(pd)?;
-                let prod = index.pdf_to_prod.get(pdf)?;
-                index.prod_names.get(prod).map(|s| s.as_str())
-            });
+            // Extract candidate names from matching representations in a single consolidated pass
+            let mut prod_candidate = None;
+            let mut nauo_candidate = None;
+            let mut pd_candidate = None;
+            let mut pds_candidate = None;
+            let mut rep_candidate = None;
 
-            // 3. Check assembly instance occurrence name (NAUO)
-            let nauo_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
-                let pd = index.pds_to_pd.get(&pds)?;
-                index.nauo_names.get(pd).map(|s| s.as_str())
-            });
+            for &r in &matching_reps {
+                if rep_candidate.is_none() {
+                    rep_candidate = index.rep_names.get(&r).map(|s| s.as_str());
+                }
 
-            // 4. Check product definition name
-            let pd_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
-                let pd = index.pds_to_pd.get(&pds)?;
-                index.pd_names.get(pd).map(|s| s.as_str())
-            });
+                if prod_candidate.is_some()
+                    && nauo_candidate.is_some()
+                    && pd_candidate.is_some()
+                    && pds_candidate.is_some()
+                {
+                    continue;
+                }
 
-            // 5. Check product definition shape name/desc
-            let pds_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
-                index.pds_names.get(&pds).map(|s| s.as_str())
-            });
+                if let Some(pds) = resolve_pds_for_rep(r, &index.shape_rep_to_pds, &index.rep_links)
+                {
+                    if pds_candidate.is_none() {
+                        pds_candidate = index.pds_names.get(&pds).map(|s| s.as_str());
+                    }
 
-            // 6. Check representation name
-            let rep_candidate = matching_reps
-                .iter()
-                .find_map(|r| index.rep_names.get(r).map(|s| s.as_str()));
+                    if let Some(pd) = index.pds_to_pd.get(&pds) {
+                        if nauo_candidate.is_none() {
+                            nauo_candidate = index.nauo_names.get(pd).map(|s| s.as_str());
+                        }
+                        if pd_candidate.is_none() {
+                            pd_candidate = index.pd_names.get(pd).map(|s| s.as_str());
+                        }
+
+                        if prod_candidate.is_none()
+                            && let Some(pdf) = index.pd_to_pdf.get(pd)
+                            && let Some(prod) = index.pdf_to_prod.get(pdf)
+                        {
+                            prod_candidate = index.prod_names.get(prod).map(|s| s.as_str());
+                        }
+                    }
+                }
+            }
 
             // 7. Check shell direct name
             let shell_candidate = index.shell_direct_names.get(&shell_id).map(|s| s.as_str());

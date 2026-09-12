@@ -273,26 +273,16 @@ impl StepColorMap {
 
     /// Extracts colors and connects presentation styles to shells from a pre-built [`ExchangeIndex`].
     pub fn from_index(index: &ExchangeIndex) -> Self {
-        // Resolve presentation styles recursively to Color
+        // Resolve presentation styles recursively to Color via memoized DFS
         let mut resolved_styles: HashMap<u64, Color> = index.direct_colors.clone();
-        let mut changed = true;
-        let mut passes = 0;
-        const MAX_STYLE_RESOLUTION_PASSES: usize = 16;
-        while changed && passes < MAX_STYLE_RESOLUTION_PASSES {
-            changed = false;
-            passes += 1;
-            for (&style_id, refs) in &index.style_edges {
-                if resolved_styles.contains_key(&style_id) {
-                    continue;
-                }
-                for &child_id in refs {
-                    if let Some(&color) = resolved_styles.get(&child_id) {
-                        resolved_styles.insert(style_id, color);
-                        changed = true;
-                        break;
-                    }
-                }
-            }
+        let mut visiting = std::collections::HashSet::new();
+        for &style_id in index.style_edges.keys() {
+            resolve_style_color(
+                style_id,
+                &index.style_edges,
+                &mut resolved_styles,
+                &mut visiting,
+            );
         }
 
         // Map styled items to shells
@@ -332,6 +322,34 @@ impl StepColorMap {
         let mut ex = exchange.clone();
         Self::from_index(&ExchangeIndex::build(&mut ex))
     }
+}
+
+/// Recursively resolves a presentation style entity to its terminal [`Color`] via memoized DFS,
+/// breaking any cyclic references safely.
+fn resolve_style_color(
+    style_id: u64,
+    style_edges: &HashMap<u64, Vec<u64>>,
+    resolved: &mut HashMap<u64, Color>,
+    visiting: &mut std::collections::HashSet<u64>,
+) -> Option<Color> {
+    if let Some(&color) = resolved.get(&style_id) {
+        return Some(color);
+    }
+    if !visiting.insert(style_id) {
+        // Cycle detected; abort this branch
+        return None;
+    }
+    if let Some(children) = style_edges.get(&style_id) {
+        for &child in children {
+            if let Some(c) = resolve_style_color(child, style_edges, resolved, visiting) {
+                resolved.insert(style_id, c);
+                visiting.remove(&style_id);
+                return Some(c);
+            }
+        }
+    }
+    visiting.remove(&style_id);
+    None
 }
 
 #[cfg(test)]

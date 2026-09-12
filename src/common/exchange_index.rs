@@ -55,6 +55,8 @@ pub struct ExchangeIndex {
     pub solid_names: HashMap<u64, String>,
     /// SHAPE_REPRESENTATION-family id → list of item entity ids.
     pub rep_items: HashMap<u64, Vec<u64>>,
+    /// item entity id (shell or solid) → list of SHAPE_REPRESENTATION entity ids containing it.
+    pub item_to_reps: HashMap<u64, Vec<u64>>,
     /// SHAPE_REPRESENTATION-family id → cleaned name.
     pub rep_names: HashMap<u64, String>,
     /// (rep1_id, rep2_id) pairs from REPRESENTATION_RELATIONSHIP entities.
@@ -374,8 +376,14 @@ impl ExchangeIndex {
             );
         }
         if let Some(items_param) = params.get(1) {
-            self.rep_items
-                .insert(entity_id, extract_entity_refs(items_param));
+            let refs = extract_entity_refs(items_param);
+            for &item_id in &refs {
+                self.item_to_reps
+                    .entry(item_id)
+                    .or_default()
+                    .push(entity_id);
+            }
+            self.rep_items.insert(entity_id, refs);
         }
     }
 
