@@ -77,21 +77,9 @@ pub async fn render_wgpu_on_canvas(
     };
 
     let max_size = bounds.max_extent().max(0.1);
-    let view_target = bounds.center();
 
-    // The camera distance is expressed for a reference model of size ~1 (see
-    // `CameraState::DEFAULT`). Real models span arbitrary coordinate scales, so
-    // scaling the orbit distance by the visible extent keeps the framing
-    // identical regardless of model size — without it, a large model would
-    // swallow the camera (eye ends up inside the geometry).
-    let fit_distance = camera.distance * max_size;
-    let camera_target = CameraState {
-        target: view_target,
-        distance: fit_distance,
-        ..*camera
-    };
-    let eye = camera_target.eye_position();
-    let view_matrix = look_at_mat4(eye, view_target, DVec3::Y);
+    let eye = camera.eye_position();
+    let view_matrix = look_at_mat4(eye, camera.target, DVec3::Y);
 
     let aspect = viewport_size.aspect_ratio();
     const FOV_Y: f64 = std::f64::consts::FRAC_PI_3;

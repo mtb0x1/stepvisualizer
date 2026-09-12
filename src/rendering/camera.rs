@@ -232,4 +232,31 @@ mod tests {
         approx::assert_relative_eq!(eye_before.z, eye_after.z, epsilon = 1e-5);
         assert_eq!(retargeted.target, new_target);
     }
+
+    #[wasm_bindgen_test]
+    fn test_projection_matrix_ndc() {
+        use glam::DVec4;
+        let eye = DVec3::new(0.0, 0.0, 10.0);
+        let target = DVec3::ZERO;
+        let view = crate::common::look_at_mat4(eye, target, DVec3::Y);
+        let proj = crate::common::perspective(std::f64::consts::FRAC_PI_3, 1.0, 0.1, 100.0);
+        let vp = proj * view;
+
+        // Point at origin (distance 10 from eye, in front of camera)
+        let clip = vp * DVec4::new(0.0, 0.0, 0.0, 1.0);
+        let ndc = clip.truncate() / clip.w;
+        assert!(ndc.z >= 0.0 && ndc.z <= 1.0, "ndc.z was {}", ndc.z);
+
+        // Actual l44mji vertex with distance 300
+        let eye_300 = spherical_to_cartesian(0.8, 0.9, 302.25, DVec3::ZERO);
+        let view_300 = crate::common::look_at_mat4(eye_300, DVec3::ZERO, DVec3::Y);
+        let proj_300 =
+            crate::common::perspective(std::f64::consts::FRAC_PI_3, 1152.0 / 834.0, 0.1, 10075.0);
+        let vp_300 = proj_300 * view_300;
+        let v_clip = vp_300 * DVec4::new(0.88, -6.35, 40.22, 1.0);
+        let v_ndc = v_clip.truncate() / v_clip.w;
+        assert!(v_ndc.x >= -1.0 && v_ndc.x <= 1.0, "v_ndc.x = {}", v_ndc.x);
+        assert!(v_ndc.y >= -1.0 && v_ndc.y <= 1.0, "v_ndc.y = {}", v_ndc.y);
+        assert!(v_ndc.z >= 0.0 && v_ndc.z <= 1.0, "v_ndc.z = {}", v_ndc.z);
+    }
 }
