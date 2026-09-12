@@ -3,9 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::common::utils::{
-    extract_entity_refs, param_as_list, param_as_ref, param_as_str,
-};
+use crate::common::utils::{extract_entity_refs, param_as_list, param_as_ref, param_as_str};
 use crate::ruststep::ast::{EntityInstance, Exchange};
 
 /// Extracted mapping of STEP shell entity IDs to resolved, human-readable part names.
@@ -62,38 +60,33 @@ impl StepNameMap {
                         if name.eq_ignore_ascii_case("CLOSED_SHELL")
                             || name.eq_ignore_ascii_case("OPEN_SHELL")
                         {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str) {
-                                    if is_valid_part_name(raw_name) {
-                                        shell_direct_names
-                                            .insert(entity_id, clean_part_name(raw_name));
-                                    }
-                                }
+                            if let Some(params) = param_as_list(&record.parameter)
+                                && let Some(raw_name) = params.first().and_then(param_as_str)
+                                && is_valid_part_name(raw_name)
+                            {
+                                shell_direct_names.insert(entity_id, clean_part_name(raw_name));
                             }
                         } else if name.eq_ignore_ascii_case("MANIFOLD_SOLID_BREP")
                             || name.eq_ignore_ascii_case("BREP_WITH_VOIDS")
                             || name.eq_ignore_ascii_case("FACETED_BREP")
                         {
                             if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str) {
-                                    if is_valid_part_name(raw_name) {
-                                        solid_names.insert(entity_id, clean_part_name(raw_name));
-                                    }
+                                if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    && is_valid_part_name(raw_name)
+                                {
+                                    solid_names.insert(entity_id, clean_part_name(raw_name));
                                 }
                                 if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
                                     solid_to_shell.insert(entity_id, shell_id);
-                                    shell_to_solids
-                                        .entry(shell_id)
-                                        .or_default()
-                                        .push(entity_id);
+                                    shell_to_solids.entry(shell_id).or_default().push(entity_id);
                                 }
                             }
                         } else if name.eq_ignore_ascii_case("SHELL_BASED_SURFACE_MODEL") {
                             if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str) {
-                                    if is_valid_part_name(raw_name) {
-                                        solid_names.insert(entity_id, clean_part_name(raw_name));
-                                    }
+                                if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    && is_valid_part_name(raw_name)
+                                {
+                                    solid_names.insert(entity_id, clean_part_name(raw_name));
                                 }
                                 if let Some(shells_param) = params.get(1) {
                                     for shell_id in extract_entity_refs(shells_param) {
@@ -108,14 +101,16 @@ impl StepNameMap {
                         } else if name.eq_ignore_ascii_case("ADVANCED_BREP_SHAPE_REPRESENTATION")
                             || name.eq_ignore_ascii_case("SHAPE_REPRESENTATION")
                             || name.eq_ignore_ascii_case("MANIFOLD_SURFACE_SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case("GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION")
+                            || name.eq_ignore_ascii_case(
+                                "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
+                            )
                             || name.eq_ignore_ascii_case("REPRESENTATION")
                         {
                             if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str) {
-                                    if is_valid_part_name(raw_name) {
-                                        rep_names.insert(entity_id, clean_part_name(raw_name));
-                                    }
+                                if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    && is_valid_part_name(raw_name)
+                                {
+                                    rep_names.insert(entity_id, clean_part_name(raw_name));
                                 }
                                 if let Some(items_param) = params.get(1) {
                                     let items = extract_entity_refs(items_param);
@@ -130,24 +125,23 @@ impl StepNameMap {
                                 rep_links.push((refs[0], refs[1]));
                             }
                         } else if name.eq_ignore_ascii_case("ID_ATTRIBUTE") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let (Some(raw_val), Some(target_id)) = (
+                            if let Some(params) = param_as_list(&record.parameter)
+                                && let (Some(raw_val), Some(target_id)) = (
                                     params.first().and_then(param_as_str),
                                     params.get(1).and_then(param_as_ref),
-                                ) {
-                                    if is_valid_part_name(raw_val) {
-                                        rep_names.insert(target_id, clean_part_name(raw_val));
-                                    }
-                                }
+                                )
+                                && is_valid_part_name(raw_val)
+                            {
+                                rep_names.insert(target_id, clean_part_name(raw_val));
                             }
                         } else if name.eq_ignore_ascii_case("SHAPE_DEFINITION_REPRESENTATION") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let (Some(pds_id), Some(rep_id)) = (
+                            if let Some(params) = param_as_list(&record.parameter)
+                                && let (Some(pds_id), Some(rep_id)) = (
                                     params.first().and_then(param_as_ref),
                                     params.get(1).and_then(param_as_ref),
-                                ) {
-                                    shape_rep_to_pds.insert(rep_id, pds_id);
-                                }
+                                )
+                            {
+                                shape_rep_to_pds.insert(rep_id, pds_id);
                             }
                         } else if name.eq_ignore_ascii_case("PRODUCT_DEFINITION_SHAPE") {
                             if let Some(params) = param_as_list(&record.parameter) {
@@ -195,27 +189,28 @@ impl StepNameMap {
                                     prod_names.insert(entity_id, clean_part_name(val));
                                 }
                             }
-                        } else if name.eq_ignore_ascii_case("NEXT_ASSEMBLY_USAGE_OCCURRENCE") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                let raw_id = params.first().and_then(param_as_str);
-                                let raw_name = params.get(1).and_then(param_as_str);
-                                let raw_desc = params.get(2).and_then(param_as_str);
-                                let chosen = raw_desc
-                                    .filter(|s| is_valid_part_name(s))
-                                    .or_else(|| raw_id.filter(|s| is_valid_part_name(s)))
-                                    .or_else(|| raw_name.filter(|s| is_valid_part_name(s)));
-                                if let (Some(val), Some(related_pd)) =
-                                    (chosen, params.get(4).and_then(param_as_ref))
-                                {
-                                    nauo_names.insert(related_pd, clean_part_name(val));
-                                }
+                        } else if name.eq_ignore_ascii_case("NEXT_ASSEMBLY_USAGE_OCCURRENCE")
+                            && let Some(params) = param_as_list(&record.parameter)
+                        {
+                            let raw_id = params.first().and_then(param_as_str);
+                            let raw_name = params.get(1).and_then(param_as_str);
+                            let raw_desc = params.get(2).and_then(param_as_str);
+                            let chosen = raw_desc
+                                .filter(|s| is_valid_part_name(s))
+                                .or_else(|| raw_id.filter(|s| is_valid_part_name(s)))
+                                .or_else(|| raw_name.filter(|s| is_valid_part_name(s)));
+                            if let (Some(val), Some(related_pd)) =
+                                (chosen, params.get(4).and_then(param_as_ref))
+                            {
+                                nauo_names.insert(related_pd, clean_part_name(val));
                             }
                         }
                     }
                     EntityInstance::Complex { subsuper, .. } => {
                         let is_rep_rel = subsuper.0.iter().any(|r| {
                             r.name.eq_ignore_ascii_case("REPRESENTATION_RELATIONSHIP")
-                                || r.name.eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
+                                || r.name
+                                    .eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
                         });
                         if is_rep_rel {
                             let mut all_refs = Vec::new();
@@ -332,10 +327,10 @@ fn resolve_pds_for_rep(
             if let Some(&pds) = shape_rep_to_pds.get(&r2) {
                 return Some(pds);
             }
-        } else if r2 == rep_id {
-            if let Some(&pds) = shape_rep_to_pds.get(&r1) {
-                return Some(pds);
-            }
+        } else if r2 == rep_id
+            && let Some(&pds) = shape_rep_to_pds.get(&r1)
+        {
+            return Some(pds);
         }
     }
     None
@@ -406,7 +401,7 @@ pub fn is_valid_part_name(s: &str) -> bool {
         return false;
     }
     let lower = clean.to_ascii_lowercase();
-    if lower == "none"
+    !(lower == "none"
         || lower == "null"
         || lower == "na"
         || lower == "n/a"
@@ -418,11 +413,7 @@ pub fn is_valid_part_name(s: &str) -> bool {
         || lower == "none/default"
         || lower == "undefined"
         || lower == "solid"
-        || lower == "part"
-    {
-        return false;
-    }
-    true
+        || lower == "part")
 }
 
 /// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
@@ -471,10 +462,7 @@ mod tests {
     fn test_clean_part_name() {
         assert_eq!(clean_part_name("'Housing'"), "Housing");
         assert_eq!(clean_part_name("  \"Pin 1\"  "), "Pin 1");
-        assert_eq!(
-            clean_part_name("'SHAPE FOR FW_EXP_CLIP.'"),
-            "FW_EXP_CLIP"
-        );
+        assert_eq!(clean_part_name("'SHAPE FOR FW_EXP_CLIP.'"), "FW_EXP_CLIP");
     }
 
     #[wasm_bindgen_test]

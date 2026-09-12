@@ -719,7 +719,8 @@ mod tests {
         let color_map = crate::common::StepColorMap::from_exchange(&parsed);
         let name_map = crate::common::StepNameMap::from_exchange(&parsed);
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
-        let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
+        let output =
+            extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
         assert!(!output.parts.is_empty());
         let render_parts = output.parts;
 

@@ -155,7 +155,8 @@ mod tests {
     #[wasm_bindgen_test]
     fn build_step_model_initializes_counts_and_visibility() {
         let step = include_str!("../../examples/io1-ca-214.stp");
-        let (meta, _, _, _, _) = parse_step_file_content("io1-ca-214.stp", step).expect("valid parse");
+        let (meta, _, _, _, _) =
+            parse_step_file_content("io1-ca-214.stp", step).expect("valid parse");
         let id = FileId::from_content("test_model");
         let model = build_step_model(id.clone(), meta, Vec::new());
         assert_eq!(model.id, id);

@@ -114,7 +114,8 @@ pub(crate) fn spawn_tessellation(
     let tolerance = (base_tolerance * multiplier).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
     wasm_bindgen_futures::spawn_local(async move {
         let total_shell_count: usize = step_tables.iter().map(|t| t.shell.len()).sum();
-        let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
+        let output =
+            extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
         let renderable_parts = output.parts;
         let skipped_shells = output.skipped_shells;
         let warnings = output.warnings;
@@ -221,10 +222,11 @@ pub(crate) fn use_file_processor(
                 Err(e) => return fail(StepError::FileRead(e.to_string())),
             };
 
-            let (meta, id, step_tables, color_map, name_map) = match parse_step_file_content(&name, &text) {
-                Ok(parsed) => parsed,
-                Err(err) => return fail(err),
-            };
+            let (meta, id, step_tables, color_map, name_map) =
+                match parse_step_file_content(&name, &text) {
+                    Ok(parsed) => parsed,
+                    Err(err) => return fail(err),
+                };
 
             if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, load_model) {
                 states_for_reader.set_loaded_model(model_rc, id.clone(), "Loaded from cache");

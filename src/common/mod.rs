@@ -17,7 +17,6 @@ pub mod utils;
 
 pub use cache::LruCache;
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
-pub use step_names::StepNameMap;
 pub use glam::dcamera::rh::proj::opengl::perspective;
 pub use glam::dcamera::rh::view::look_at_mat4;
 pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};
@@ -29,6 +28,7 @@ pub use parser::{
 pub use render::{
     GpuVertex, RenderablePart, TessellationOutput, extract_render_parts, visible_bounds,
 };
+pub use step_names::StepNameMap;
 #[allow(unused_imports)]
 pub use storage::{
     clear_all_storage, delete_model, hash_text_to_id, load_index, load_model, save_index,

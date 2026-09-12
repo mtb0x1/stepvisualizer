@@ -129,7 +129,6 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use wasm_bindgen_test::*;
 
     wasm_bindgen_test_configure!(run_in_browser);
@@ -142,10 +141,7 @@ mod tests {
 
     #[wasm_bindgen_test]
     fn test_mesh_display_name_with_custom_name() {
-        assert_eq!(
-            resolve_mesh_display_name(Some("Housing"), 0),
-            "Housing"
-        );
+        assert_eq!(resolve_mesh_display_name(Some("Housing"), 0), "Housing");
         assert_eq!(
             resolve_mesh_display_name(Some("l-bracket_1"), 2),
             "l-bracket_1"
