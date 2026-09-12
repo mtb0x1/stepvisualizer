@@ -229,35 +229,71 @@ pub(crate) fn use_file_processor(
                 Err(e) => return fail(StepError::FileRead(e.to_string())),
             };
 
-            let (meta, id, step_tables, color_map, name_map) =
-                match parse_step_file_content(&name, &text) {
-                    Ok(parsed) => parsed,
-                    Err(err) => return fail(err),
-                };
+            let id = crate::common::storage::hash_text_to_id(&text);
 
+            // Fast-path 1: Check synchronous in-memory LruCache / localStorage
             if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, load_model) {
                 states_for_reader.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
                 promote_in_index(&files_index, &id);
                 return;
             }
 
-            states_for_reader.metadata.set(Some(meta.clone()));
-            states_for_reader.selected_file.set(Some(id.clone()));
-            states_for_reader.set_result("Tessellating geometry for 3D view...", false);
+            // Fast-path 2: Check asynchronous IndexedDB before falling back to full AST parsing & tessellation
+            let states_async = states_for_reader.clone();
+            let cache_async = cache.clone();
+            let files_index_async = files_index.clone();
+            let file_id = id.clone();
+            wasm_bindgen_futures::spawn_local(async move {
+                if let Some(model) = crate::common::storage::load_model_indexeddb(&file_id).await {
+                    if states_async.is_superseded(next_gen) {
+                        return;
+                    }
+                    let model_rc = Rc::new(model);
+                    cache_async
+                        .borrow_mut()
+                        .insert_rc(file_id.clone(), model_rc.clone());
+                    states_async.set_loaded_model(model_rc, file_id.clone(), "Loaded from storage");
+                    promote_in_index(&files_index_async, &file_id);
+                    return;
+                }
 
-            spawn_tessellation(
-                TessellationJob {
-                    step_tables,
-                    color_map,
-                    name_map,
-                    file_id: id.clone(),
-                    meta: meta.clone(),
-                    generation: next_gen,
-                },
-                states_for_reader.clone(),
-                files_index.clone(),
-                cache.clone(),
-            );
+                if states_async.is_superseded(next_gen) {
+                    return;
+                }
+
+                let (meta, _id, step_tables, color_map, name_map) =
+                    match parse_step_file_content(&name, &text) {
+                        Ok(parsed) => parsed,
+                        Err(err) => {
+                            if states_async.is_current(next_gen) {
+                                states_async.fail_load(err);
+                            }
+                            return;
+                        }
+                    };
+
+                if states_async.is_superseded(next_gen) {
+                    return;
+                }
+
+                states_async.metadata.set(Some(meta.clone()));
+                states_async.selected_file.set(Some(file_id.clone()));
+                states_async.set_result("Tessellating geometry for 3D view...", false);
+
+                spawn_tessellation(
+                    TessellationJob {
+                        step_tables,
+                        color_map,
+                        name_map,
+                        file_id,
+                        meta,
+                        generation: next_gen,
+                    },
+                    states_async,
+                    files_index_async,
+                    cache_async,
+                );
+            });
         });
         *states.file_reader.borrow_mut() = Some(reader);
     })
