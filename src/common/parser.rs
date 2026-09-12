@@ -1,7 +1,8 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use super::logger;
+use crate::common::exchange_index::ExchangeIndex;
 use crate::common::storage::hash_text_to_id;
-use crate::common::utils::{find_ignore_ascii_case, param_as_enum, param_as_list, param_as_str};
+use crate::common::utils::find_ignore_ascii_case;
 use crate::error::StepError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
 use crate::ruststep::header::{FileSchema, Header};
@@ -180,38 +181,13 @@ pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepError> {
 
 /// Parse unit system (e.g. `LengthUnit::Millimetre`) from the exchange structure.
 ///
-/// Units are declared as `(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))`
-/// (a Complex entity) alongside sibling `PLANE_ANGLE_UNIT`/`SOLID_ANGLE_UNIT`
-/// forms. We must prefer the length unit: a naive "first SI_UNIT wins" scan
-/// returns the angle unit because it appears earlier in the file.
+/// In the hot path, prefer [`ExchangeIndex::build`] which resolves the unit as part of its
+/// single combined pass. This function is retained for tests and call sites that do not
+/// have a pre-built index available.
 pub fn parse_units(exchange: &Exchange) -> Option<LengthUnit> {
     trace_span!("parse_units");
-    let mut fallback: Option<LengthUnit> = None;
-    for section in &exchange.data {
-        for entity in &section.entities {
-            match entity {
-                EntityInstance::Simple { record, .. } => {
-                    if fallback.is_none() {
-                        fallback = unit_from_record(record);
-                    }
-                }
-                EntityInstance::Complex { subsuper, .. } => {
-                    let is_length = subsuper
-                        .0
-                        .iter()
-                        .any(|r| r.name.eq_ignore_ascii_case("LENGTH_UNIT"));
-                    if is_length {
-                        if let Some(unit) = unit_from_subsuper(&subsuper.0) {
-                            return Some(unit);
-                        }
-                    } else if fallback.is_none() {
-                        fallback = unit_from_subsuper(&subsuper.0);
-                    }
-                }
-            }
-        }
-    }
-    fallback
+    let mut ex = exchange.clone();
+    ExchangeIndex::build(&mut ex).resolved_unit()
 }
 
 /// Axis-aligned bounds over all `CARTESIAN_POINT`s in the tables. Placement
@@ -232,36 +208,13 @@ pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option
     bbox.is_valid().then_some(bbox)
 }
 
-fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
-    records.iter().find_map(unit_from_record)
-}
-
-fn unit_from_record(record: &Record) -> Option<LengthUnit> {
-    if record.name.eq_ignore_ascii_case("SI_UNIT") {
-        let params = param_as_list(&record.parameter)?;
-        let unit = params.get(1).and_then(param_as_enum)?;
-        let prefix = params.first().and_then(param_as_enum);
-        return LengthUnit::from_si_spec(unit, prefix);
-    }
-    if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
-        let params = param_as_list(&record.parameter)?;
-        let name = params.first().and_then(param_as_str)?;
-        return LengthUnit::from_name(name);
-    }
-    None
-}
-
-/// Normalizes STEP entity records in-place before loading into `truck_stepio::Table`.
+/// Normalises STEP entity records in-place before loading into `truck_stepio::Table`.
 ///
-/// In ISO 10303-42, entities like `INTERSECTION_CURVE` and `BOUNDARY_CURVE` are direct subtypes
-/// of `SURFACE_CURVE` with identical parameter representations:
-/// `(name, curve_3d, associated_geometry, master_representation)`.
-/// `truck_stepio`'s entity loader recognizes `SURFACE_CURVE` and `SEAM_CURVE`, but omits
-/// `INTERSECTION_CURVE` and `BOUNDARY_CURVE`. Normalizing their record names to `"SURFACE_CURVE"`
-/// allows `truck_stepio` to parse them into `table.surface_curve`, enabling B-Rep edges to resolve
-/// properly rather than failing lookup and causing downstream triangulation panics.
-/// This function will probbaly act as a hook for "fixing" broken/missing STEP Parsing files details,
-/// due to ruststep crates being incomplete or having bugs.
+/// **Deprecated hot-path**: in the hot path this is done inside [`ExchangeIndex::build`].
+/// This wrapper is retained for tests that only have a parsed `&mut Exchange`.
+///
+/// Renames `INTERSECTION_CURVE` and `BOUNDARY_CURVE` → `SURFACE_CURVE` so that
+/// `truck_stepio` can parse them into `table.surface_curve`.
 pub fn normalize_exchange(exchange: &mut Exchange) {
     trace_span!("normalize_exchange");
     for section in &mut exchange.data {
@@ -308,11 +261,15 @@ pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepE
 /// box, units) for a parsed STEP file, together with its content-hash id.
 /// The tessellated counts (vertices/triangles) are filled in later, once
 /// the geometry pass has produced them.
+///
+/// `units` should be pre-resolved from [`ExchangeIndex::resolved_unit`] in the hot path
+/// so that no additional AST scan is required.
 pub fn build_initial_metadata(
     fallback_name: &str,
     parsed: &Exchange,
     step_tables: &[truck_stepio::r#in::Table],
     text: &str,
+    units: Option<LengthUnit>,
 ) -> Result<(Metadata, FileId), StepError> {
     trace_span!("build_initial_metadata");
     if parsed.header.len() < 3 {
@@ -338,7 +295,7 @@ pub fn build_initial_metadata(
         header: step_header,
         entity_count,
         bounding_box: compute_bounding_box(step_tables),
-        units: parse_units(parsed),
+        units,
         vertex_count: 0,
         triangle_count: 0,
         volume: None,
@@ -412,11 +369,11 @@ mod tests {
     fn schema_supported_ap203() {
         let text1 = step_with_schema("CONFIG_CONTROL_DESIGN");
         let parsed1 = ruststep::parser::parse(&text1).expect("parse");
-        assert!(build_initial_metadata("test", &parsed1, &[], &text1).is_ok());
+        assert!(build_initial_metadata("test", &parsed1, &[], &text1, None).is_ok());
 
         let text2 = step_with_schema("AP203");
         let parsed2 = ruststep::parser::parse(&text2).expect("parse");
-        assert!(build_initial_metadata("test", &parsed2, &[], &text2).is_ok());
+        assert!(build_initial_metadata("test", &parsed2, &[], &text2, None).is_ok());
     }
 
     /// Verifies that schemas specifying AP214 / AUTOMOTIVE_DESIGN are accepted as supported.
@@ -424,7 +381,7 @@ mod tests {
     fn schema_supported_ap214() {
         let text = step_with_schema("AUTOMOTIVE_DESIGN");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+        assert!(build_initial_metadata("test", &parsed, &[], &text, None).is_ok());
     }
 
     /// Verifies that schemas specifying AP201 are accepted as supported.
@@ -432,7 +389,7 @@ mod tests {
     fn schema_supported_ap201() {
         let text = step_with_schema("AP201");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+        assert!(build_initial_metadata("test", &parsed, &[], &text, None).is_ok());
     }
 
     /// Verifies that unsupported AP209 / STRUCTURAL_ANALYSIS_DESIGN schemas return an UnsupportedSchema error.
@@ -440,7 +397,7 @@ mod tests {
     fn schema_unsupported_ap209() {
         let text = step_with_schema("STRUCTURAL_ANALYSIS_DESIGN");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        let res = build_initial_metadata("test", &parsed, &[], &text);
+        let res = build_initial_metadata("test", &parsed, &[], &text, None);
 
         match res {
             Err(StepError::UnsupportedSchema { schema }) => {
@@ -455,7 +412,7 @@ mod tests {
     fn schema_unsupported_ap224() {
         let text = step_with_schema("FEATURE_BASED_PROCESS_PLANNING");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        let res = build_initial_metadata("test", &parsed, &[], &text);
+        let res = build_initial_metadata("test", &parsed, &[], &text, None);
 
         match res {
             Err(StepError::UnsupportedSchema { schema }) => {
@@ -470,7 +427,7 @@ mod tests {
     fn schema_case_insensitivity() {
         let text = step_with_schema("config_control_design");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+        assert!(build_initial_metadata("test", &parsed, &[], &text, None).is_ok());
     }
 
     /// Verifies that EXPLICIT_DRAUGHTING (the standard ISO 10303-201 schema name) is accepted.
@@ -478,7 +435,7 @@ mod tests {
     fn schema_supported_ap201_explicit_draughting() {
         let text = step_with_schema("EXPLICIT_DRAUGHTING");
         let parsed = ruststep::parser::parse(&text).expect("parse");
-        assert!(build_initial_metadata("test", &parsed, &[], &text).is_ok());
+        assert!(build_initial_metadata("test", &parsed, &[], &text, None).is_ok());
     }
 
     /// Verifies that schemas with ASN.1 object identifiers are properly matched.
@@ -486,11 +443,11 @@ mod tests {
     fn schema_supported_with_asn1_parameters() {
         let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
         let parsed_214 = ruststep::parser::parse(&text_214).expect("parse");
-        assert!(build_initial_metadata("test", &parsed_214, &[], &text_214).is_ok());
+        assert!(build_initial_metadata("test", &parsed_214, &[], &text_214, None).is_ok());
 
         let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN { 1 0 10303 203 1 }");
         let parsed_203 = ruststep::parser::parse(&text_203).expect("parse");
-        assert!(build_initial_metadata("test", &parsed_203, &[], &text_203).is_ok());
+        assert!(build_initial_metadata("test", &parsed_203, &[], &text_203, None).is_ok());
     }
 
     /// Direct unit tests for the StepSchema enum parser and validate_schema function.
@@ -684,13 +641,14 @@ mod tests {
     #[wasm_bindgen_test]
     fn step_pipeline_e2e_real_model() {
         use crate::common::constants::compute_adaptive_tolerance;
+        use crate::common::exchange_index::ExchangeIndex;
         use crate::common::render::{extract_render_parts, visible_bounds};
         use crate::common::types::StepModel;
 
         let stp_data = include_str!("../../examples/io1-ca-214.stp");
 
         // 1. Full STEP text parse
-        let parsed = ruststep::parser::parse(stp_data).expect("successful STEP AST parse");
+        let mut parsed = ruststep::parser::parse(stp_data).expect("successful STEP AST parse");
 
         // 2. Data section filtering
         let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
@@ -704,8 +662,13 @@ mod tests {
         assert_eq!(step_tables.len(), 1);
 
         // 4. Initial metadata build & schema validation
+        let index = ExchangeIndex::build(&mut parsed);
+        let units = index.resolved_unit();
+        let color_map = crate::common::StepColorMap::from_index(&index);
+        let name_map = crate::common::StepNameMap::from_index(&index);
+        drop(index);
         let (meta, file_id) =
-            build_initial_metadata("io1-ca-214.stp", &parsed, &step_tables, stp_data)
+            build_initial_metadata("io1-ca-214.stp", &parsed, &step_tables, stp_data, units)
                 .expect("metadata successfully built");
 
         assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
@@ -716,8 +679,6 @@ mod tests {
         assert_eq!(file_id.as_str().len(), 16);
 
         // 5. Tessellation & Part Extraction
-        let color_map = crate::common::StepColorMap::from_exchange(&parsed);
-        let name_map = crate::common::StepNameMap::from_exchange(&parsed);
         let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
         let output =
             extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
@@ -793,13 +754,16 @@ mod tests {
     #[wasm_bindgen_test]
     fn step_pipeline_e2e_nasty_cheese() {
         use crate::common::constants::compute_adaptive_tolerance;
+        use crate::common::exchange_index::ExchangeIndex;
         use crate::common::render::{extract_render_parts, visible_bounds};
         use crate::common::types::StepModel;
 
         let stp_data = include_str!("../../examples/nasty_cheese.stp");
 
         let mut parsed = ruststep::parser::parse(stp_data).expect("successful STEP AST parse");
-        normalize_exchange(&mut parsed);
+        let index = ExchangeIndex::build(&mut parsed);
+        let units = index.resolved_unit();
+        drop(index);
 
         let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
         assert_eq!(usable_sections.len(), 1);
@@ -811,7 +775,7 @@ mod tests {
         assert_eq!(step_tables.len(), 1);
 
         let (meta, file_id) =
-            build_initial_metadata("nasty_cheese.stp", &parsed, &step_tables, stp_data)
+            build_initial_metadata("nasty_cheese.stp", &parsed, &step_tables, stp_data, units)
                 .expect("metadata successfully built");
 
         assert_eq!(meta.header.file_name, "nasty_cheese");

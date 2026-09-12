@@ -5,6 +5,7 @@ pub mod cache;
 pub mod color;
 pub mod constants;
 pub mod error;
+pub mod exchange_index;
 pub mod fps_meter;
 pub mod logger;
 pub mod parser;
@@ -17,13 +18,14 @@ pub mod utils;
 
 pub use cache::LruCache;
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
+pub use exchange_index::ExchangeIndex;
 pub use glam::dcamera::rh::proj::opengl::perspective;
 pub use glam::dcamera::rh::view::look_at_mat4;
 pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};
 #[allow(unused_imports)]
 pub use parser::{
     StepSchema, all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header,
-    normalize_exchange, parse_units, probe_validate_step_buffer, validate_schema,
+    parse_units, probe_validate_step_buffer, validate_schema,
 };
 pub use render::{
     GpuVertex, RenderablePart, TessellationOutput, extract_render_parts, visible_bounds,

@@ -8,10 +8,8 @@ use bytemuck::{Pod, Zeroable};
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 
-use crate::common::utils::{
-    extract_entity_refs, param_as_list, param_as_real, param_as_ref, param_as_str,
-};
-use crate::ruststep::ast::{EntityInstance, Exchange, Parameter};
+use crate::common::exchange_index::ExchangeIndex;
+use crate::ruststep::ast::Exchange;
 
 /// RGBA color representation backed by `glam::Vec4`.
 ///
@@ -273,105 +271,17 @@ impl StepColorMap {
         self.shell_colors.len()
     }
 
-    /// Extracts colors and connects presentation styles to shells from a parsed STEP AST.
-    pub fn from_exchange(exchange: &Exchange) -> Self {
-        let mut direct_colors: HashMap<u64, Color> = HashMap::new();
-        let mut style_edges: HashMap<u64, Vec<u64>> = HashMap::new();
-        let mut solid_to_shell: HashMap<u64, u64> = HashMap::new();
-        let mut shell_to_faces: HashMap<u64, Vec<u64>> = HashMap::new();
-        let mut face_to_shell: HashMap<u64, u64> = HashMap::new();
-        let mut styled_items: Vec<(Vec<u64>, u64)> = Vec::new();
-
-        for section in &exchange.data {
-            for entity in &section.entities {
-                let EntityInstance::Simple { id, record } = entity else {
-                    continue;
-                };
-                let entity_id = *id;
-                let name = record.name.as_str();
-
-                if name.eq_ignore_ascii_case("COLOUR_RGB") {
-                    if let Some(params) = param_as_list(&record.parameter).filter(|p| p.len() >= 4)
-                    {
-                        let r = param_as_real(&params[1]).unwrap_or(0.0) as f32;
-                        let g = param_as_real(&params[2]).unwrap_or(0.0) as f32;
-                        let b = param_as_real(&params[3]).unwrap_or(0.0) as f32;
-                        direct_colors.insert(
-                            entity_id,
-                            Color::rgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0)),
-                        );
-                    }
-                } else if name.eq_ignore_ascii_case("DRAUGHTING_PRE_DEFINED_COLOUR")
-                    || name.eq_ignore_ascii_case("PRE_DEFINED_COLOUR")
-                {
-                    let col_name = match &record.parameter {
-                        Parameter::String(s) | Parameter::Enumeration(s) => Some(s.as_str()),
-                        Parameter::List(l) => l.first().and_then(param_as_str),
-                        _ => None,
-                    };
-                    if let Some(color) = col_name.and_then(Color::parse_flexible) {
-                        direct_colors.insert(entity_id, color);
-                    }
-                } else if name.eq_ignore_ascii_case("FILL_AREA_STYLE_COLOUR")
-                    || name.eq_ignore_ascii_case("FILL_AREA_STYLE")
-                    || name.eq_ignore_ascii_case("SURFACE_STYLE_FILL_AREA")
-                    || name.eq_ignore_ascii_case("SURFACE_SIDE_STYLE")
-                    || name.eq_ignore_ascii_case("SURFACE_STYLE_USAGE")
-                    || name.eq_ignore_ascii_case("PRESENTATION_STYLE_ASSIGNMENT")
-                    || name.eq_ignore_ascii_case("CURVE_STYLE")
-                    || name.eq_ignore_ascii_case("SYMBOL_STYLE")
-                    || name.eq_ignore_ascii_case("SYMBOL_COLOUR")
-                {
-                    let refs = extract_entity_refs(&record.parameter);
-                    if !refs.is_empty() {
-                        style_edges.insert(entity_id, refs);
-                    }
-                } else if name.eq_ignore_ascii_case("MANIFOLD_SOLID_BREP")
-                    || name.eq_ignore_ascii_case("BREP_WITH_VOIDS")
-                    || name.eq_ignore_ascii_case("FACETED_BREP")
-                {
-                    let outer_shell = param_as_list(&record.parameter)
-                        .and_then(|p| p.get(1))
-                        .and_then(param_as_ref);
-                    if let Some(shell_id) = outer_shell {
-                        solid_to_shell.insert(entity_id, shell_id);
-                    }
-                } else if name.eq_ignore_ascii_case("CLOSED_SHELL")
-                    || name.eq_ignore_ascii_case("OPEN_SHELL")
-                {
-                    let faces_param = param_as_list(&record.parameter).and_then(|p| p.get(1));
-                    if let Some(faces) = faces_param {
-                        let face_refs = extract_entity_refs(faces);
-                        for &face_id in &face_refs {
-                            face_to_shell.insert(face_id, entity_id);
-                        }
-                        shell_to_faces.insert(entity_id, face_refs);
-                    }
-                } else if name.eq_ignore_ascii_case("STYLED_ITEM")
-                    || name.eq_ignore_ascii_case("OVER_RIDING_STYLED_ITEM")
-                {
-                    let Some(params) = param_as_list(&record.parameter) else {
-                        continue;
-                    };
-                    let target = params.get(2).and_then(param_as_ref);
-                    if let (Some(styles_param), Some(target_id)) = (params.get(1), target) {
-                        let style_refs = extract_entity_refs(styles_param);
-                        styled_items.push((style_refs, target_id));
-                    }
-                }
-            }
-        }
-
+    /// Extracts colors and connects presentation styles to shells from a pre-built [`ExchangeIndex`].
+    pub fn from_index(index: &ExchangeIndex) -> Self {
         // Resolve presentation styles recursively to Color
-        let mut resolved_styles: HashMap<u64, Color> = direct_colors;
+        let mut resolved_styles: HashMap<u64, Color> = index.direct_colors.clone();
         let mut changed = true;
         let mut passes = 0;
-        // Limit passes to prevent infinite loop on cyclic data
         const MAX_STYLE_RESOLUTION_PASSES: usize = 16;
         while changed && passes < MAX_STYLE_RESOLUTION_PASSES {
             changed = false;
             passes += 1;
-            for (&style_id, refs) in &style_edges {
+            for (&style_id, refs) in &index.style_edges {
                 if resolved_styles.contains_key(&style_id) {
                     continue;
                 }
@@ -387,33 +297,40 @@ impl StepColorMap {
 
         // Map styled items to shells
         let mut shell_colors = HashMap::new();
-        for (styles, target) in styled_items {
+        for (styles, target) in &index.styled_items {
             let mut resolved_color = None;
             for style_id in styles {
-                if let Some(&c) = resolved_styles.get(&style_id) {
+                if let Some(&c) = resolved_styles.get(style_id) {
                     resolved_color = Some(c);
                     break;
                 }
             }
-
             let Some(color) = resolved_color else {
                 continue;
             };
 
             // Resolve target geometry to a shell ID
-            if let Some(&shell_id) = solid_to_shell.get(&target) {
+            if let Some(&shell_id) = index.solid_to_shell_color.get(target) {
                 shell_colors.insert(shell_id, color);
-            } else if shell_to_faces.contains_key(&target) {
-                shell_colors.insert(target, color);
-            } else if let Some(&shell_id) = face_to_shell.get(&target) {
+            } else if index.shell_to_faces.contains_key(target) {
+                shell_colors.insert(*target, color);
+            } else if let Some(&shell_id) = index.face_to_shell.get(target) {
                 shell_colors.insert(shell_id, color);
             } else {
-                // Also store direct target ref as fallback
-                shell_colors.insert(target, color);
+                shell_colors.insert(*target, color);
             }
         }
 
         Self { shell_colors }
+    }
+
+    /// Extracts colors and connects presentation styles to shells from a parsed STEP AST.
+    ///
+    /// In the hot path use [`ExchangeIndex::build`] + [`Self::from_index`] instead.
+    /// This wrapper clones the exchange so it can be used from tests that only have `&Exchange`.
+    pub fn from_exchange(exchange: &Exchange) -> Self {
+        let mut ex = exchange.clone();
+        Self::from_index(&ExchangeIndex::build(&mut ex))
     }
 }
 

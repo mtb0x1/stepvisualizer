@@ -4,8 +4,8 @@ use crate::common::constants::{
 };
 use crate::common::utils::input_file;
 use crate::common::{
-    FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap, all_usable_sections,
-    build_initial_metadata, extract_render_parts, load_model, normalize_exchange,
+    ExchangeIndex, FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap,
+    all_usable_sections, build_initial_metadata, extract_render_parts, load_model,
     probe_validate_step_buffer, save_model,
 };
 use crate::error::StepError;
@@ -40,15 +40,22 @@ pub(crate) fn parse_step_file_content(
 
     let mut parsed =
         crate::ruststep::parser::parse(text).map_err(|e| StepError::Parse(e.to_string()))?;
-    normalize_exchange(&mut parsed);
-    let color_map = StepColorMap::from_exchange(&parsed);
-    let name_map = StepNameMap::from_exchange(&parsed);
+
+    // Single combined pass: normalises INTERSECTION/BOUNDARY_CURVE → SURFACE_CURVE,
+    // and simultaneously collects all data for color, name, and unit extraction.
+    let index = ExchangeIndex::build(&mut parsed);
+    let color_map = StepColorMap::from_index(&index);
+    let name_map = StepNameMap::from_index(&index);
+    let units = index.resolved_unit();
+    // Drop the index before building step tables to free intermediate HashMap memory.
+    drop(index);
+
     let sections = all_usable_sections(&parsed)?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()
         .map(truck_stepio::r#in::Table::from_data_section)
         .collect();
-    let (meta, id) = build_initial_metadata(name, &parsed, &step_tables, text)?;
+    let (meta, id) = build_initial_metadata(name, &parsed, &step_tables, text, units)?;
     Ok((meta, id, step_tables, color_map, name_map))
 }
 

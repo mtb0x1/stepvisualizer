@@ -3,8 +3,8 @@
 
 use std::collections::HashMap;
 
-use crate::common::utils::{extract_entity_refs, param_as_list, param_as_ref, param_as_str};
-use crate::ruststep::ast::{EntityInstance, Exchange};
+use crate::common::exchange_index::ExchangeIndex;
+use crate::ruststep::ast::Exchange;
 
 /// Extracted mapping of STEP shell entity IDs to resolved, human-readable part names.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -32,221 +32,30 @@ impl StepNameMap {
         self.shell_names.len()
     }
 
-    /// Extracts part names and associates them with shells from a parsed STEP AST.
-    pub fn from_exchange(exchange: &Exchange) -> Self {
-        let mut shell_direct_names: HashMap<u64, String> = HashMap::new();
-        let mut solid_to_shell: HashMap<u64, u64> = HashMap::new();
-        let mut shell_to_solids: HashMap<u64, Vec<u64>> = HashMap::new();
-        let mut solid_names: HashMap<u64, String> = HashMap::new();
-        let mut rep_items: HashMap<u64, Vec<u64>> = HashMap::new();
-        let mut rep_names: HashMap<u64, String> = HashMap::new();
-        let mut rep_links: Vec<(u64, u64)> = Vec::new();
-        let mut shape_rep_to_pds: HashMap<u64, u64> = HashMap::new();
-        let mut pds_names: HashMap<u64, String> = HashMap::new();
-        let mut pds_to_pd: HashMap<u64, u64> = HashMap::new();
-        let mut pd_names: HashMap<u64, String> = HashMap::new();
-        let mut pd_to_pdf: HashMap<u64, u64> = HashMap::new();
-        let mut pdf_to_prod: HashMap<u64, u64> = HashMap::new();
-        let mut prod_names: HashMap<u64, String> = HashMap::new();
-        let mut nauo_names: HashMap<u64, String> = HashMap::new();
-
-        for section in &exchange.data {
-            for entity in &section.entities {
-                match entity {
-                    EntityInstance::Simple { id, record } => {
-                        let entity_id = *id;
-                        let name = record.name.as_str();
-
-                        if name.eq_ignore_ascii_case("CLOSED_SHELL")
-                            || name.eq_ignore_ascii_case("OPEN_SHELL")
-                        {
-                            if let Some(params) = param_as_list(&record.parameter)
-                                && let Some(raw_name) = params.first().and_then(param_as_str)
-                                && is_valid_part_name(raw_name)
-                            {
-                                shell_direct_names.insert(entity_id, clean_part_name(raw_name));
-                            }
-                        } else if name.eq_ignore_ascii_case("MANIFOLD_SOLID_BREP")
-                            || name.eq_ignore_ascii_case("BREP_WITH_VOIDS")
-                            || name.eq_ignore_ascii_case("FACETED_BREP")
-                        {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str)
-                                    && is_valid_part_name(raw_name)
-                                {
-                                    solid_names.insert(entity_id, clean_part_name(raw_name));
-                                }
-                                if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
-                                    solid_to_shell.insert(entity_id, shell_id);
-                                    shell_to_solids.entry(shell_id).or_default().push(entity_id);
-                                }
-                            }
-                        } else if name.eq_ignore_ascii_case("SHELL_BASED_SURFACE_MODEL") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str)
-                                    && is_valid_part_name(raw_name)
-                                {
-                                    solid_names.insert(entity_id, clean_part_name(raw_name));
-                                }
-                                if let Some(shells_param) = params.get(1) {
-                                    for shell_id in extract_entity_refs(shells_param) {
-                                        solid_to_shell.insert(entity_id, shell_id);
-                                        shell_to_solids
-                                            .entry(shell_id)
-                                            .or_default()
-                                            .push(entity_id);
-                                    }
-                                }
-                            }
-                        } else if name.eq_ignore_ascii_case("ADVANCED_BREP_SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case("SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case("MANIFOLD_SURFACE_SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case(
-                                "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
-                            )
-                            || name.eq_ignore_ascii_case("REPRESENTATION")
-                        {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                if let Some(raw_name) = params.first().and_then(param_as_str)
-                                    && is_valid_part_name(raw_name)
-                                {
-                                    rep_names.insert(entity_id, clean_part_name(raw_name));
-                                }
-                                if let Some(items_param) = params.get(1) {
-                                    let items = extract_entity_refs(items_param);
-                                    rep_items.insert(entity_id, items);
-                                }
-                            }
-                        } else if name.eq_ignore_ascii_case("REPRESENTATION_RELATIONSHIP")
-                            || name.eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
-                        {
-                            let refs = extract_entity_refs(&record.parameter);
-                            if refs.len() >= 2 {
-                                rep_links.push((refs[0], refs[1]));
-                            }
-                        } else if name.eq_ignore_ascii_case("ID_ATTRIBUTE") {
-                            if let Some(params) = param_as_list(&record.parameter)
-                                && let (Some(raw_val), Some(target_id)) = (
-                                    params.first().and_then(param_as_str),
-                                    params.get(1).and_then(param_as_ref),
-                                )
-                                && is_valid_part_name(raw_val)
-                            {
-                                rep_names.insert(target_id, clean_part_name(raw_val));
-                            }
-                        } else if name.eq_ignore_ascii_case("SHAPE_DEFINITION_REPRESENTATION") {
-                            if let Some(params) = param_as_list(&record.parameter)
-                                && let (Some(pds_id), Some(rep_id)) = (
-                                    params.first().and_then(param_as_ref),
-                                    params.get(1).and_then(param_as_ref),
-                                )
-                            {
-                                shape_rep_to_pds.insert(rep_id, pds_id);
-                            }
-                        } else if name.eq_ignore_ascii_case("PRODUCT_DEFINITION_SHAPE") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                let raw_name = params.first().and_then(param_as_str);
-                                let raw_desc = params.get(1).and_then(param_as_str);
-                                let chosen = raw_desc
-                                    .filter(|s| is_valid_part_name(s))
-                                    .or_else(|| raw_name.filter(|s| is_valid_part_name(s)));
-                                if let Some(val) = chosen {
-                                    pds_names.insert(entity_id, clean_part_name(val));
-                                }
-                                if let Some(pd_id) = params.get(2).and_then(param_as_ref) {
-                                    pds_to_pd.insert(entity_id, pd_id);
-                                }
-                            }
-                        } else if name.eq_ignore_ascii_case("PRODUCT_DEFINITION") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                let raw_id = params.first().and_then(param_as_str);
-                                let raw_desc = params.get(1).and_then(param_as_str);
-                                let chosen = raw_id
-                                    .filter(|s| is_valid_part_name(s))
-                                    .or_else(|| raw_desc.filter(|s| is_valid_part_name(s)));
-                                if let Some(val) = chosen {
-                                    pd_names.insert(entity_id, clean_part_name(val));
-                                }
-                                if let Some(pdf_id) = params.get(2).and_then(param_as_ref) {
-                                    pd_to_pdf.insert(entity_id, pdf_id);
-                                }
-                            }
-                        } else if name.starts_with("PRODUCT_DEFINITION_FORMATION") {
-                            let refs = extract_entity_refs(&record.parameter);
-                            if let Some(&prod_id) = refs.first() {
-                                pdf_to_prod.insert(entity_id, prod_id);
-                            }
-                        } else if name.eq_ignore_ascii_case("PRODUCT") {
-                            if let Some(params) = param_as_list(&record.parameter) {
-                                let raw_id = params.first().and_then(param_as_str);
-                                let raw_name = params.get(1).and_then(param_as_str);
-                                let raw_desc = params.get(2).and_then(param_as_str);
-                                let chosen = raw_name
-                                    .filter(|s| is_valid_part_name(s))
-                                    .or_else(|| raw_id.filter(|s| is_valid_part_name(s)))
-                                    .or_else(|| raw_desc.filter(|s| is_valid_part_name(s)));
-                                if let Some(val) = chosen {
-                                    prod_names.insert(entity_id, clean_part_name(val));
-                                }
-                            }
-                        } else if name.eq_ignore_ascii_case("NEXT_ASSEMBLY_USAGE_OCCURRENCE")
-                            && let Some(params) = param_as_list(&record.parameter)
-                        {
-                            let raw_id = params.first().and_then(param_as_str);
-                            let raw_name = params.get(1).and_then(param_as_str);
-                            let raw_desc = params.get(2).and_then(param_as_str);
-                            let chosen = raw_desc
-                                .filter(|s| is_valid_part_name(s))
-                                .or_else(|| raw_id.filter(|s| is_valid_part_name(s)))
-                                .or_else(|| raw_name.filter(|s| is_valid_part_name(s)));
-                            if let (Some(val), Some(related_pd)) =
-                                (chosen, params.get(4).and_then(param_as_ref))
-                            {
-                                nauo_names.insert(related_pd, clean_part_name(val));
-                            }
-                        }
-                    }
-                    EntityInstance::Complex { subsuper, .. } => {
-                        let is_rep_rel = subsuper.0.iter().any(|r| {
-                            r.name.eq_ignore_ascii_case("REPRESENTATION_RELATIONSHIP")
-                                || r.name
-                                    .eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
-                        });
-                        if is_rep_rel {
-                            let mut all_refs = Vec::new();
-                            for r in &subsuper.0 {
-                                all_refs.extend(extract_entity_refs(&r.parameter));
-                            }
-                            if all_refs.len() >= 2 {
-                                rep_links.push((all_refs[0], all_refs[1]));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
+    /// Extracts part names and associates them with shells from a pre-built [`ExchangeIndex`].
+    pub fn from_index(index: &ExchangeIndex) -> Self {
         // Gather all shell IDs found in the file
         let mut all_shells = std::collections::HashSet::new();
-        all_shells.extend(shell_direct_names.keys().copied());
-        all_shells.extend(solid_to_shell.values().copied());
-        all_shells.extend(shell_to_solids.keys().copied());
+        all_shells.extend(index.shell_direct_names.keys().copied());
+        all_shells.extend(index.solid_to_shell_names.values().copied());
+        all_shells.extend(index.shell_to_solids.keys().copied());
 
         let mut shell_names = HashMap::new();
 
         for shell_id in all_shells {
-            let solids = shell_to_solids.get(&shell_id);
+            let solids = index.shell_to_solids.get(&shell_id);
 
             // 1. Check solid name
             let solid_candidate = solids.and_then(|sol_list| {
                 sol_list
                     .iter()
-                    .find_map(|s| solid_names.get(s))
+                    .find_map(|s| index.solid_names.get(s))
                     .map(|s| s.as_str())
             });
 
             // Find all representations that DIRECTLY contain any of this shell's solids or the shell itself
-            let matching_reps: Vec<u64> = rep_items
+            let matching_reps: Vec<u64> = index
+                .rep_items
                 .iter()
                 .filter(|(_, items)| {
                     items.contains(&shell_id)
@@ -257,40 +66,40 @@ impl StepNameMap {
 
             // 2. Check product name
             let prod_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &shape_rep_to_pds, &rep_links)?;
-                let pd = pds_to_pd.get(&pds)?;
-                let pdf = pd_to_pdf.get(pd)?;
-                let prod = pdf_to_prod.get(pdf)?;
-                prod_names.get(prod).map(|s| s.as_str())
+                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
+                let pd = index.pds_to_pd.get(&pds)?;
+                let pdf = index.pd_to_pdf.get(pd)?;
+                let prod = index.pdf_to_prod.get(pdf)?;
+                index.prod_names.get(prod).map(|s| s.as_str())
             });
 
             // 3. Check assembly instance occurrence name (NAUO)
             let nauo_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &shape_rep_to_pds, &rep_links)?;
-                let pd = pds_to_pd.get(&pds)?;
-                nauo_names.get(pd).map(|s| s.as_str())
+                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
+                let pd = index.pds_to_pd.get(&pds)?;
+                index.nauo_names.get(pd).map(|s| s.as_str())
             });
 
             // 4. Check product definition name
             let pd_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &shape_rep_to_pds, &rep_links)?;
-                let pd = pds_to_pd.get(&pds)?;
-                pd_names.get(pd).map(|s| s.as_str())
+                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
+                let pd = index.pds_to_pd.get(&pds)?;
+                index.pd_names.get(pd).map(|s| s.as_str())
             });
 
             // 5. Check product definition shape name/desc
             let pds_candidate = matching_reps.iter().find_map(|r| {
-                let pds = resolve_pds_for_rep(*r, &shape_rep_to_pds, &rep_links)?;
-                pds_names.get(&pds).map(|s| s.as_str())
+                let pds = resolve_pds_for_rep(*r, &index.shape_rep_to_pds, &index.rep_links)?;
+                index.pds_names.get(&pds).map(|s| s.as_str())
             });
 
             // 6. Check representation name
             let rep_candidate = matching_reps
                 .iter()
-                .find_map(|r| rep_names.get(r).map(|s| s.as_str()));
+                .find_map(|r| index.rep_names.get(r).map(|s| s.as_str()));
 
             // 7. Check shell direct name
-            let shell_candidate = shell_direct_names.get(&shell_id).map(|s| s.as_str());
+            let shell_candidate = index.shell_direct_names.get(&shell_id).map(|s| s.as_str());
 
             // Determine best name candidate
             let chosen = select_best_name(
@@ -309,6 +118,15 @@ impl StepNameMap {
         }
 
         Self { shell_names }
+    }
+
+    /// Extracts part names and associates them with shells from a parsed STEP AST.
+    ///
+    /// In the hot path use [`ExchangeIndex::build`] + [`Self::from_index`] instead.
+    /// This wrapper clones the exchange so it can be used from tests that only have `&Exchange`.
+    pub fn from_exchange(exchange: &Exchange) -> Self {
+        let mut ex = exchange.clone();
+        Self::from_index(&ExchangeIndex::build(&mut ex))
     }
 }
 
