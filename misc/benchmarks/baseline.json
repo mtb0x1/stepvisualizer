@@ -1,0 +1,161 @@
+{
+  "file_name": "/examples/l44mji.step",
+  "file_size_bytes": 17635185,
+  "runs": 3,
+  "iterations": [
+    {
+      "run_index": 4,
+      "timings": {
+        "ingestion_ms": 125.46500000078231,
+        "parse_ast_ms": 874.4899999992922,
+        "index_tables_ms": 86.41000000014901,
+        "tessellation_ms": 1252.7050000000745,
+        "gpu_upload_ms": 0.3250000001862645,
+        "gpu_render_sync_ms": 0.09499999973922968,
+        "total_hotpath_ms": 2214.024999999441,
+        "total_wallclock_ms": 2339.5
+      },
+      "memory": {
+        "wasm_linear_memory_bytes": 106823680,
+        "wasm_linear_memory_pages": 1630,
+        "gpu_vertex_bytes": 1140216,
+        "gpu_index_bytes": 524748,
+        "gpu_uniform_bytes": 224,
+        "total_gpu_buffer_bytes": 1665188
+      },
+      "geometry": {
+        "part_count": 2,
+        "vertex_count": 47509,
+        "triangle_count": 43729,
+        "skipped_shells": 0
+      }
+    },
+    {
+      "run_index": 5,
+      "timings": {
+        "ingestion_ms": 125.46500000078231,
+        "parse_ast_ms": 875.9599999999627,
+        "index_tables_ms": 86.1949999993667,
+        "tessellation_ms": 1247.8150000004098,
+        "gpu_upload_ms": 0.3049999997019768,
+        "gpu_render_sync_ms": 0.10000000055879354,
+        "total_hotpath_ms": 2210.375,
+        "total_wallclock_ms": 2335.8400000007823
+      },
+      "memory": {
+        "wasm_linear_memory_bytes": 106823680,
+        "wasm_linear_memory_pages": 1630,
+        "gpu_vertex_bytes": 1140216,
+        "gpu_index_bytes": 524748,
+        "gpu_uniform_bytes": 224,
+        "total_gpu_buffer_bytes": 1665188
+      },
+      "geometry": {
+        "part_count": 2,
+        "vertex_count": 47509,
+        "triangle_count": 43729,
+        "skipped_shells": 0
+      }
+    },
+    {
+      "run_index": 6,
+      "timings": {
+        "ingestion_ms": 125.46500000078231,
+        "parse_ast_ms": 910.910000000149,
+        "index_tables_ms": 84.28000000026077,
+        "tessellation_ms": 1256.6650000000373,
+        "gpu_upload_ms": 1.3799999998882413,
+        "gpu_render_sync_ms": 0.09500000067055225,
+        "total_hotpath_ms": 2253.330000001006,
+        "total_wallclock_ms": 2378.810000001453
+      },
+      "memory": {
+        "wasm_linear_memory_bytes": 115343360,
+        "wasm_linear_memory_pages": 1760,
+        "gpu_vertex_bytes": 1140216,
+        "gpu_index_bytes": 524748,
+        "gpu_uniform_bytes": 224,
+        "total_gpu_buffer_bytes": 1665188
+      },
+      "geometry": {
+        "part_count": 2,
+        "vertex_count": 47509,
+        "triangle_count": 43729,
+        "skipped_shells": 0
+      }
+    }
+  ],
+  "summary": {
+    "ingestion": {
+      "mean": 125.46500000078231,
+      "median": 125.46500000078231,
+      "std_dev": 0,
+      "min": 125.46500000078231,
+      "max": 125.46500000078231
+    },
+    "parse_ast": {
+      "mean": 887.1199999998013,
+      "median": 875.9599999999627,
+      "std_dev": 16.832771608044833,
+      "min": 874.4899999992922,
+      "max": 910.910000000149
+    },
+    "index_tables": {
+      "mean": 85.62833333325882,
+      "median": 86.1949999993667,
+      "std_dev": 0.9574474163940061,
+      "min": 84.28000000026077,
+      "max": 86.41000000014901
+    },
+    "tessellation": {
+      "mean": 1252.395000000174,
+      "median": 1252.7050000000745,
+      "std_dev": 3.619640866007323,
+      "min": 1247.8150000004098,
+      "max": 1256.6650000000373
+    },
+    "gpu_upload": {
+      "mean": 0.6699999999254942,
+      "median": 0.3250000001862645,
+      "std_dev": 0.5021122052325014,
+      "min": 0.3049999997019768,
+      "max": 1.3799999998882413
+    },
+    "gpu_render_sync": {
+      "mean": 0.09666666698952515,
+      "median": 0.09500000067055225,
+      "std_dev": 0.0023570227707864645,
+      "min": 0.09499999973922968,
+      "max": 0.10000000055879354
+    },
+    "total_hotpath": {
+      "mean": 2225.910000000149,
+      "median": 2214.024999999441,
+      "std_dev": 19.44604372846777,
+      "min": 2210.375,
+      "max": 2253.330000001006
+    },
+    "total_wallclock": {
+      "mean": 2351.3833333340785,
+      "median": 2339.5,
+      "std_dev": 19.451057098283385,
+      "min": 2335.8400000007823,
+      "max": 2378.810000001453
+    }
+  },
+  "memory": {
+    "wasm_linear_memory_bytes": 115343360,
+    "wasm_linear_memory_pages": 1760,
+    "gpu_vertex_bytes": 1140216,
+    "gpu_index_bytes": 524748,
+    "gpu_uniform_bytes": 224,
+    "total_gpu_buffer_bytes": 1665188
+  },
+  "geometry": {
+    "part_count": 2,
+    "vertex_count": 47509,
+    "triangle_count": 43729,
+    "skipped_shells": 0
+  },
+  "status": "SUCCESS"
+}

@@ -17,7 +17,7 @@ use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 pub mod common;
 use common::error;
-mod rendering;
+pub mod rendering;
 mod ui;
 mod workspace;
 use common::constants::NO_WEBGPU_MSG;

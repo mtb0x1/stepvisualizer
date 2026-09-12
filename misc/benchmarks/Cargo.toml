@@ -1,0 +1,36 @@
+[package]
+name = "benchmarks"
+version = "0.0.1"
+edition = "2024"
+authors = ["mtb0x1"]
+description = "End-to-end hot path performance & memory benchmark for StepVisualizer"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+stepvisualizer = { path = "../.." }
+wasm-bindgen = "0.2.127"
+wasm-bindgen-futures = "0.4.77"
+js-sys = "0.3.81"
+web-sys = { version = "0.3.81", features = [
+    "HtmlCanvasElement",
+    "Window",
+    "Document",
+    "Performance",
+    "console",
+] }
+wgpu = { version = "30.0.1", features = ["webgpu", "wgsl", "web"] }
+glam = { version = "0.33.6", features = ["bytemuck", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+gloo-net = "0.5.0"
+futures-channel = "0.3"
+truck-stepio = "0.3.0"
+
+[profile.release]
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+panic = "abort"
+strip = true

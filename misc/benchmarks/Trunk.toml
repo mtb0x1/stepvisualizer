@@ -1,0 +1,15 @@
+[build]
+target = "index.html"
+html_output = "index.html"
+release = true
+dist = "dist"
+public_url = "./"
+filehash = false
+inject_scripts = true
+
+[serve]
+addresses = ["127.0.0.1"]
+port = 8089
+open = false
+
+

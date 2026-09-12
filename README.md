@@ -182,6 +182,12 @@ Not all of them render correctly - this is intentional. They serve as a test bed
    - Alternative to Yew: less convoluted and more performant ?
    
 
+## Benchmarking & Performance Regression Testing
+
+An end-to-end hot-path benchmark suite is available in [`misc/benchmarks`](misc/benchmarks). It measures execution time and memory footprint (WASM linear memory and WebGPU buffer allocations) across the complete loading, parsing, tessellation, and rendering pipeline using `examples/l44mji.step` as baseline.
+
+For instructions on building and running the automated headless WebGPU benchmark, see [`misc/benchmarks/README.md`](misc/benchmarks/README.md).
+
 ## Screenshots
 ![Screenshot 1](screenshots/sc1.png)
 ![Screenshot 2](screenshots/sc2.png)
