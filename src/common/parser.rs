@@ -257,21 +257,11 @@ pub fn all_usable_sections(parsed: &Exchange) -> Result<Vec<&DataSection>, StepE
     }
 }
 
-/// Assembles the pre-tessellation metadata (header, entity count, bounding
-/// box, units) for a parsed STEP file, together with its content-hash id.
-/// The tessellated counts (vertices/triangles) are filled in later, once
-/// the geometry pass has produced them.
-///
-/// `units` should be pre-resolved from [`ExchangeIndex::resolved_unit`] in the hot path
-/// so that no additional AST scan is required.
-pub fn build_initial_metadata(
+/// Extracts the typed [`StepHeader`] and total entity count from a parsed STEP AST exchange structure.
+pub fn extract_header_and_count(
     fallback_name: &str,
     parsed: &Exchange,
-    step_tables: &[truck_stepio::r#in::Table],
-    text: &str,
-    units: Option<LengthUnit>,
-) -> Result<(Metadata, FileId), StepError> {
-    trace_span!("build_initial_metadata");
+) -> Result<(StepHeader, usize), StepError> {
     if parsed.header.len() < 3 {
         return Err(StepError::InvalidHeader(
             "Header section must contain at least 3 records".to_string(),
@@ -290,6 +280,25 @@ pub fn build_initial_metadata(
     if step_header.file_name.is_empty() {
         step_header.file_name = fallback_name.to_string();
     }
+    Ok((step_header, entity_count))
+}
+
+/// Assembles the pre-tessellation metadata (header, entity count, bounding
+/// box, units) for a parsed STEP file, together with its content-hash id.
+/// The tessellated counts (vertices/triangles) are filled in later, once
+/// the geometry pass has produced them.
+///
+/// `units` should be pre-resolved from [`ExchangeIndex::resolved_unit`] in the hot path
+/// so that no additional AST scan is required.
+pub fn build_initial_metadata(
+    fallback_name: &str,
+    parsed: &Exchange,
+    step_tables: &[truck_stepio::r#in::Table],
+    text: &str,
+    units: Option<LengthUnit>,
+) -> Result<(Metadata, FileId), StepError> {
+    trace_span!("build_initial_metadata");
+    let (step_header, entity_count) = extract_header_and_count(fallback_name, parsed)?;
 
     let meta = Metadata {
         header: step_header,

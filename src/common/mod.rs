@@ -25,7 +25,7 @@ pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};
 #[allow(unused_imports)]
 pub use parser::{
     StepSchema, all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header,
-    parse_units, probe_validate_step_buffer, validate_schema,
+    extract_header_and_count, parse_units, probe_validate_step_buffer, validate_schema,
 };
 pub use render::{
     GpuVertex, RenderablePart, TessellationOutput, extract_render_parts, visible_bounds,

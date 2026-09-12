@@ -5,8 +5,8 @@ use crate::common::constants::{
 use crate::common::utils::input_file;
 use crate::common::{
     ExchangeIndex, FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap,
-    all_usable_sections, build_initial_metadata, extract_render_parts, load_model,
-    probe_validate_step_buffer, save_model,
+    all_usable_sections, compute_bounding_box, extract_header_and_count, extract_render_parts,
+    hash_text_to_id, load_model, probe_validate_step_buffer, save_model,
 };
 use crate::error::StepError;
 use crate::trace_span;
@@ -50,12 +50,29 @@ pub(crate) fn parse_step_file_content(
     // Drop the index before building step tables to free intermediate HashMap memory.
     drop(index);
 
+    let (step_header, entity_count) = extract_header_and_count(name, &parsed)?;
+
     let sections = all_usable_sections(&parsed)?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()
         .map(truck_stepio::r#in::Table::from_data_section)
         .collect();
-    let (meta, id) = build_initial_metadata(name, &parsed, &step_tables, text, units)?;
+
+    // Drop the parsed AST immediately to release its large record and string allocations
+    // from WASM memory before computing bounding boxes and returning tables.
+    drop(parsed);
+
+    let meta = Metadata {
+        header: step_header,
+        entity_count,
+        bounding_box: compute_bounding_box(&step_tables),
+        units,
+        vertex_count: 0,
+        triangle_count: 0,
+        volume: None,
+        surface_area: None,
+    };
+    let id = hash_text_to_id(text);
     Ok((meta, id, step_tables, color_map, name_map))
 }
 

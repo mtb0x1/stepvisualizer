@@ -223,7 +223,7 @@ fn select_best_name<'a>(
 /// - CAD null/unspecified placeholders: "NONE", "None", "unspecified", "not specified", "null", "no_name", "default", "undefined"
 /// - Entity references such as "#602" or lone "#", "$", "*"
 pub fn is_valid_part_name(s: &str) -> bool {
-    let clean = clean_part_name(s);
+    let clean = clean_part_name_str(s);
     if clean.is_empty() {
         return false;
     }
@@ -234,32 +234,36 @@ pub fn is_valid_part_name(s: &str) -> bool {
     if clean == "#" || clean == "$" || clean == "*" {
         return false;
     }
-    let lower = clean.to_ascii_lowercase();
-    !(lower == "none"
-        || lower == "null"
-        || lower == "na"
-        || lower == "n/a"
-        || lower == "unspecified"
-        || lower == "not specified"
-        || lower == "no_name"
-        || lower == "no name"
-        || lower == "default"
-        || lower == "none/default"
-        || lower == "undefined"
-        || lower == "solid"
-        || lower == "part")
+    !(clean.eq_ignore_ascii_case("none")
+        || clean.eq_ignore_ascii_case("null")
+        || clean.eq_ignore_ascii_case("na")
+        || clean.eq_ignore_ascii_case("n/a")
+        || clean.eq_ignore_ascii_case("unspecified")
+        || clean.eq_ignore_ascii_case("not specified")
+        || clean.eq_ignore_ascii_case("no_name")
+        || clean.eq_ignore_ascii_case("no name")
+        || clean.eq_ignore_ascii_case("default")
+        || clean.eq_ignore_ascii_case("none/default")
+        || clean.eq_ignore_ascii_case("undefined")
+        || clean.eq_ignore_ascii_case("solid")
+        || clean.eq_ignore_ascii_case("part"))
+}
+
+/// Zero-allocation view of a cleaned part name, trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
+pub fn clean_part_name_str(s: &str) -> &str {
+    let trimmed = s.trim().trim_matches('\'').trim_matches('"').trim();
+    if let Some(stripped) = trimmed.strip_prefix("SHAPE FOR ") {
+        stripped.trim().trim_end_matches('.').trim()
+    } else if let Some(stripped) = trimmed.strip_prefix("shape for ") {
+        stripped.trim().trim_end_matches('.').trim()
+    } else {
+        trimmed
+    }
 }
 
 /// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
 pub fn clean_part_name(s: &str) -> String {
-    let trimmed = s.trim().trim_matches('\'').trim_matches('"').trim();
-    if let Some(stripped) = trimmed.strip_prefix("SHAPE FOR ") {
-        stripped.trim().trim_end_matches('.').trim().to_string()
-    } else if let Some(stripped) = trimmed.strip_prefix("shape for ") {
-        stripped.trim().trim_end_matches('.').trim().to_string()
-    } else {
-        trimmed.to_string()
-    }
+    clean_part_name_str(s).to_string()
 }
 
 #[cfg(test)]
