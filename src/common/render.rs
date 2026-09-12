@@ -224,6 +224,77 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
     }
 }
 
+// Fast Vertex Deduplication Helpers
+//
+// When turning STEP shapes into 3D meshes for WebGPU, each triangle corner has
+// two pieces of info:
+//   1. `pos`: where the point is in 3D space.
+//   2. `nor`: which direction that surface is pointing (surface normal).
+//
+// Why "pack" them into a single u64? (pack_vertex_key)
+//
+// Imagine you have two numbers: your House Number (`pos`) and your Apartment Number (`nor`).
+// Previously, Rust kept them as a tuple `(usize, Option<usize>)`. In WebAssembly (WASM),
+// an `Option<usize>` needs an extra tag byte plus memory alignment padding, making the whole
+// pair take up 16 bytes of memory! When looking up a point in our map, the CPU had to inspect
+// two separate memory slots and check if the apartment exists.
+//
+// But in 32-bit WASM, both numbers easily fit inside 32 bits (up to 4 billion, far more points
+// than any single face will ever have!).
+//
+// So instead of carrying two bulky boxes, we glue them into one single 64-bit number (`u64`):
+//   - Top 32 bits: House Number (`pos`) shifted left by 32 bits.
+//   - Bottom 32 bits: Apartment Number (`nor`), or `u32::MAX` if there is no normal.
+//
+// Now, checking if we already drew this exact point is just comparing a single number,
+// which takes a single CPU instruction!
+#[inline(always)]
+fn pack_vertex_key(pos: usize, nor: Option<usize>) -> u64 {
+    let nor_u32 = match nor {
+        Some(n) => n as u32,
+        None => u32::MAX,
+    };
+    ((pos as u64) << 32) | (nor_u32 as u64)
+}
+
+// Why FastU64Hasher instead of Rust's default SipHash?
+// By default, Rust's `HashMap` uses a cryptographic hasher called SipHash.
+//
+// But here, we aren't running an internet banking server; we're just welding 3D triangle
+// vertices together inside the user's web browser! We don't need a heavy armored tank,
+// we need a Formula 1 car.
+//
+// `FastU64Hasher` uses SplitMix64: just 3 fast multiplications and bit-shifts that scramble
+// our 64-bit number across hash buckets in ~3 CPU cycles instead of dozens of cycles.
+#[derive(Default, Clone)]
+struct FastU64Hasher(u64);
+
+impl std::hash::Hasher for FastU64Hasher {
+    #[inline(always)]
+    fn finish(&self) -> u64 {
+        self.0
+    }
+    #[inline(always)]
+    fn write_u64(&mut self, i: u64) {
+        // SplitMix64 bit mixer: spreads bits evenly across hash buckets
+        let mut z = i.wrapping_add(0x9e3779b97f4a7c15);
+        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
+        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
+        self.0 = z ^ (z >> 31);
+    }
+    #[inline(always)]
+    fn write(&mut self, bytes: &[u8]) {
+        for chunk in bytes.chunks(8) {
+            let mut buf = [0u8; 8];
+            buf[..chunk.len()].copy_from_slice(chunk);
+            self.write_u64(u64::from_ne_bytes(buf));
+        }
+    }
+}
+
+type FastBuildHasher = std::hash::BuildHasherDefault<FastU64Hasher>;
+type VertexMap = std::collections::HashMap<u64, u32, FastBuildHasher>;
+
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
 ///
 /// `orientation` is the shell face's orientation flag. Reversed faces get
@@ -234,7 +305,7 @@ fn append_face_geometry(
     orientation: bool,
     vertices: &mut Vec<GpuVertex>,
     indices: &mut Vec<u32>,
-    vertex_map: &mut std::collections::HashMap<(usize, Option<usize>), u32>,
+    vertex_map: &mut VertexMap,
 ) {
     if !orientation {
         mesh.invert();
@@ -275,7 +346,7 @@ fn append_face_geometry(
                     Some(p) => p,
                     None => continue,
                 };
-                let key = (v.pos, v.nor);
+                let key = pack_vertex_key(v.pos, v.nor);
                 let idx = *vertex_map.entry(key).or_insert_with(|| {
                     let normal = match v.nor.and_then(|idx| normals.get(idx)) {
                         Some(n) => Vec3::new(n.x as f32, n.y as f32, n.z as f32),
@@ -309,7 +380,7 @@ fn tessellate_table(
     shells.extend(table.shell.iter());
     shells.sort_by_key(|(k, _)| *k);
     let mut skipped: usize = 0;
-    let mut vertex_map = std::collections::HashMap::<(usize, Option<usize>), u32>::new();
+    let mut vertex_map = VertexMap::default();
     for (shell_index, (shell_key, shell)) in shells.into_iter().enumerate() {
         let model_matrix = Mat4::IDENTITY;
 
@@ -345,8 +416,9 @@ fn tessellate_table(
         let poly_shell = cshell.triangulation(tolerance);
         let triangulation_ms = now_ms() - tri_start;
 
-        let mut vertices = Vec::new();
-        let mut indices = Vec::new();
+        let estimated_faces = poly_shell.faces.len();
+        let mut vertices = Vec::with_capacity(estimated_faces * 3);
+        let mut indices = Vec::with_capacity(estimated_faces * 3);
 
         for face in poly_shell.faces {
             if let Some(mesh) = face.surface {
