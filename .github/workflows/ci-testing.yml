@@ -60,11 +60,11 @@ jobs:
           destination_dir: testing
           keep_files: true
 
-      - name: Deploy landing page to gh-pages root
-        uses: peaceiris/actions-gh-pages@v4
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./landing
-          publish_branch: gh-pages
-          destination_dir: .
-          keep_files: true
+      # - name: Deploy landing page to gh-pages root
+      #   uses: peaceiris/actions-gh-pages@v4
+      #   with:
+      #     github_token: ${{ secrets.GITHUB_TOKEN }}
+      #     publish_dir: ./landing
+      #     publish_branch: gh-pages
+      #     destination_dir: .
+      #     keep_files: true
