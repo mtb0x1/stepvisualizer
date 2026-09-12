@@ -33,8 +33,8 @@ impl CameraState {
         const MAX_ELEVATION: f64 = std::f64::consts::FRAC_PI_2 - 0.001;
         const CAMERA_SENSITIVITY: f64 = 0.01;
         Self {
-            azimuth: self.azimuth - delta_x * CAMERA_SENSITIVITY,
-            elevation: (self.elevation - delta_y * CAMERA_SENSITIVITY)
+            azimuth: self.azimuth + delta_x * CAMERA_SENSITIVITY,
+            elevation: (self.elevation + delta_y * CAMERA_SENSITIVITY)
                 .clamp(-MAX_ELEVATION, MAX_ELEVATION),
             distance: self.distance,
             target: self.target,
@@ -70,7 +70,7 @@ impl CameraState {
         let viewport_height = (canvas_size.height as f64).max(1.0);
         let factor = 2.0 * (FOV_Y * 0.5).tan() * self.distance / viewport_height;
 
-        let offset = (-right * delta_x + up * delta_y) * factor;
+        let offset = (right * delta_x - up * delta_y) * factor;
         Self {
             azimuth: self.azimuth,
             elevation: self.elevation,
@@ -182,8 +182,8 @@ mod tests {
     fn test_camera_orbit_and_zoom() {
         let camera = CameraState::default();
         let orbited = camera.orbit(10.0, 5.0);
-        assert_eq!(orbited.azimuth, 0.5 - 0.1);
-        assert_eq!(orbited.elevation, 0.5 - 0.05);
+        assert_eq!(orbited.azimuth, 0.5 + 0.1);
+        assert_eq!(orbited.elevation, 0.5 + 0.05);
 
         let zoomed = camera.zoom(2.0);
         assert_eq!(zoomed.distance, 6.0);
