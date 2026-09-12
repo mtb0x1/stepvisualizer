@@ -213,7 +213,11 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
         }
         visible_count += 1;
         for vertex in &part.vertices {
-            bbox.expand_point(vertex.position.as_dvec3());
+            let world_pos = part
+                .model_matrix
+                .transform_point3(vertex.position)
+                .as_dvec3();
+            bbox.expand_point(world_pos);
         }
     }
 
@@ -419,6 +423,7 @@ fn tessellate_table(
         let estimated_faces = poly_shell.faces.len();
         let mut vertices = Vec::with_capacity(estimated_faces * 3);
         let mut indices = Vec::with_capacity(estimated_faces * 3);
+        vertex_map.clear();
 
         for face in poly_shell.faces {
             if let Some(mesh) = face.surface {
@@ -678,5 +683,21 @@ mod tests {
         let bounds = visible_bounds(&parts, &visibility).expect("valid bounds");
         assert_eq!(bounds.min.x, 2.0);
         assert_eq!(bounds.max.x, 5.0);
+    }
+
+    /// Verifies that visible_bounds transforms vertex coordinates by each part's model_matrix.
+    #[wasm_bindgen_test]
+    fn visible_bounds_accounts_for_model_matrix_translation() {
+        let mut part = create_box_part(0.0, 2.0);
+        part.translate(DVec3::new(10.0, 20.0, 30.0));
+        let parts = vec![part];
+
+        let bounds = visible_bounds(&parts, &[]).expect("valid bounds");
+        approx::assert_relative_eq!(bounds.min.x, 10.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(bounds.max.x, 12.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(bounds.min.y, 20.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(bounds.max.y, 21.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(bounds.min.z, 30.0, epsilon = 1e-5);
+        approx::assert_relative_eq!(bounds.max.z, 31.0, epsilon = 1e-5);
     }
 }

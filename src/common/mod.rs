@@ -19,7 +19,7 @@ pub mod utils;
 pub use cache::LruCache;
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
 pub use exchange_index::ExchangeIndex;
-pub use glam::dcamera::rh::proj::opengl::perspective;
+pub use glam::dcamera::rh::proj::directx::perspective;
 pub use glam::dcamera::rh::view::look_at_mat4;
 pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};
 #[allow(unused_imports)]
