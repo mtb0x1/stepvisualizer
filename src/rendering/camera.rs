@@ -50,6 +50,52 @@ impl CameraState {
             target: self.target,
         }
     }
+
+    /// Pan the camera along its view plane by screen delta coordinates in pixels.
+    ///
+    /// Translates both eye and target so the object stays under the mouse cursor.
+    pub fn pan(
+        &self,
+        delta_x: f64,
+        delta_y: f64,
+        canvas_size: crate::common::types::ViewportSize,
+    ) -> Self {
+        let eye = self.eye_position();
+        let forward = (self.target - eye).normalize_or(DVec3::NEG_Z);
+        let right = forward.cross(DVec3::Y).normalize_or(DVec3::X);
+        let up = right.cross(forward).normalize_or(DVec3::Y);
+
+        // Vertical field-of-view matching the perspective projection in renderer.
+        const FOV_Y: f64 = std::f64::consts::FRAC_PI_3;
+        let viewport_height = (canvas_size.height as f64).max(1.0);
+        let factor = 2.0 * (FOV_Y * 0.5).tan() * self.distance / viewport_height;
+
+        let offset = (-right * delta_x + up * delta_y) * factor;
+        Self {
+            azimuth: self.azimuth,
+            elevation: self.elevation,
+            distance: self.distance,
+            target: self.target + offset,
+        }
+    }
+
+    /// Sets a new orbit target (pivot point) while preserving the current eye position in world space.
+    pub fn set_target(&self, new_target: DVec3) -> Self {
+        let eye = self.eye_position();
+        let diff = eye - new_target;
+        let new_distance = diff.length().max(0.01);
+        let dir = diff / new_distance;
+
+        let new_elevation = dir.y.clamp(-1.0, 1.0).asin();
+        let new_azimuth = dir.z.atan2(dir.x);
+
+        Self {
+            azimuth: new_azimuth,
+            elevation: new_elevation,
+            distance: new_distance,
+            target: new_target,
+        }
+    }
 }
 
 impl Default for CameraState {
@@ -141,5 +187,49 @@ mod tests {
 
         let zoomed = camera.zoom(2.0);
         assert_eq!(zoomed.distance, 6.0);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_camera_pan() {
+        let camera = CameraState::default();
+        let eye_before = camera.eye_position();
+        let target_before = camera.target;
+        let canvas_size = crate::common::types::ViewportSize::new(800, 600);
+        let panned = camera.pan(10.0, 20.0, canvas_size);
+        let eye_after = panned.eye_position();
+        let target_after = panned.target;
+
+        approx::assert_relative_eq!(
+            (eye_before - target_before).x,
+            (eye_after - target_after).x,
+            epsilon = 1e-6
+        );
+        approx::assert_relative_eq!(
+            (eye_before - target_before).y,
+            (eye_after - target_after).y,
+            epsilon = 1e-6
+        );
+        approx::assert_relative_eq!(
+            (eye_before - target_before).z,
+            (eye_after - target_after).z,
+            epsilon = 1e-6
+        );
+        assert_eq!(camera.distance, panned.distance);
+        assert_eq!(camera.azimuth, panned.azimuth);
+        assert_eq!(camera.elevation, panned.elevation);
+    }
+
+    #[wasm_bindgen_test]
+    fn test_camera_set_target() {
+        let camera = CameraState::default();
+        let eye_before = camera.eye_position();
+        let new_target = DVec3::new(1.0, 2.0, -1.0);
+        let retargeted = camera.set_target(new_target);
+        let eye_after = retargeted.eye_position();
+
+        approx::assert_relative_eq!(eye_before.x, eye_after.x, epsilon = 1e-5);
+        approx::assert_relative_eq!(eye_before.y, eye_after.y, epsilon = 1e-5);
+        approx::assert_relative_eq!(eye_before.z, eye_after.z, epsilon = 1e-5);
+        assert_eq!(retargeted.target, new_target);
     }
 }

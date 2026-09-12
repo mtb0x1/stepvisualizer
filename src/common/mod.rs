@@ -45,5 +45,6 @@ pub use utils::{
     build_svg_polyline_points, clean_unit_name, contains_ignore_ascii_case, extract_entity_refs,
     find_ignore_ascii_case, format_bbox_coordinates, format_list_or_na, format_or_na,
     geometric_normal, param_as_enum, param_as_list, param_as_real, param_as_ref, param_as_str,
+    ray_aabb_intersect, ray_triangle_intersect, raycast_parts, screen_point_to_ray,
     spherical_to_cartesian, triangle_area, triangle_signed_volume,
 };
