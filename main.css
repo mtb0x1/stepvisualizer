@@ -1,8 +1,69 @@
+:root {
+    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    --btn-bg: #f4f4f8;
+    --btn-border: #c0c4d6;
+    --btn-color: #3b3e4a;
+    --btn-hover-bg: #e2e6ff;
+    --btn-hover-border: #6677cc;
+    --btn-hover-color: #2233aa;
+    --btn-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    --btn-hover-shadow: 0 2px 4px rgba(102, 119, 204, 0.15);
+    --border-color: #ddd;
+    --hover-bg: #e8e8ee;
+    --text-secondary: #666;
+}
+
 html,
 body {
     overflow: hidden;
     margin: 0;
     padding: 0;
+    font-family: var(--font-family);
+    -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+select,
+textarea,
+optgroup {
+    font-family: var(--font-family);
+}
+
+button {
+    font-family: inherit;
+    font-size: 0.8em;
+    font-weight: 500;
+    color: var(--btn-color);
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 5px;
+    padding: 0.35em 0.85em;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
+    box-sizing: border-box;
+}
+
+button:hover:not(:disabled) {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
+}
+
+button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    background: #f4f4f5;
+    border-color: #e4e4e7;
+    color: #a1a1aa;
+    box-shadow: none;
+}
+
+label:not(.custom-file-upload) {
+    font-weight: bold;
+    color: #000000;
 }
 
 .app-container {
@@ -70,17 +131,23 @@ body {
 }
 
 .camera-button {
-    padding: 0.3em 0.8em;
-    border-radius: 6px;
-    border: 1px solid rgba(255, 255, 255, 0.4);
-    background: rgba(0, 0, 0, 0.4);
-    color: #fff;
+    padding: 0.35em 0.85em;
+    border-radius: 5px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-color);
     cursor: pointer;
     font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
 }
 
 .camera-button:hover {
-    background: rgba(0, 0, 0, 0.6);
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 .center-panel {
@@ -121,8 +188,8 @@ body {
 
 .quality-label {
     font-size: 0.82em;
-    color: #555;
-    font-weight: 500;
+    color: #000000;
+    font-weight: bold;
 }
 
 .quality-btn {
@@ -274,36 +341,38 @@ body {
     align-items: center;
     gap: 0.5em;
     font-size: 1rem;
-    font-weight: 600;
-    color: #09090a;
+    font-weight: bold;
+    color: #000000;
 }
 
 .panel-header-title .icon {
     font-size: 0.95em;
-    color: #555;
+    color: #000000;
 }
 
 .clear-history-button {
-    width: 36px;
-    height: 32px;
-    border: 1px solid #ddd;
-    background: #fff;
-    border-radius: 6px;
+    width: 32px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    border-radius: 5px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #555;
+    color: var(--btn-color);
     font-size: 13px;
     transition: all 0.15s ease;
     box-sizing: border-box;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--btn-shadow);
 }
 
 .clear-history-button:hover:not(:disabled) {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #dc2626;
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 .clear-history-button:disabled {
@@ -326,6 +395,8 @@ body {
 .left-panel-header {
     font-size: 1.1em;
     margin: 0 0 0.6em 0;
+    font-weight: bold;
+    color: #000000;
 }
 
 .empty-files-message {
@@ -354,15 +425,31 @@ body {
     flex: 1;
     min-width: 0;
     text-align: left;
-    border: 1px solid #ddd;
-    background: #fff;
-    padding: 0.5em 0.6em;
-    border-radius: 6px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    padding: 0.45em 0.7em;
+    border-radius: 5px;
     cursor: pointer;
+    color: var(--btn-color);
+    font-size: 0.8em;
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
+    box-sizing: border-box;
+}
+
+.file-item-button:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    box-shadow: var(--btn-hover-shadow);
+}
+
+.file-item-button:hover .file-item-details {
+    color: #666;
 }
 
 .file-item-name {
-    font-weight: 600;
+    font-weight: bold;
+    color: #000000;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -377,11 +464,12 @@ body {
 }
 
 .delete-button {
-    width: 36px;
+    width: 32px;
     align-self: stretch;
-    border: 1px solid #ddd;
-    background: #fff;
-    border-radius: 6px;
+    padding: 0;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    border-radius: 5px;
     cursor: pointer;
     display: flex;
     align-items: center;
@@ -389,19 +477,21 @@ body {
     line-height: 0;
     flex-shrink: 0;
     box-sizing: border-box;
-    color: #666;
+    color: var(--btn-color);
+    font-size: 13px;
     transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--btn-shadow);
 }
 
 .delete-button:hover {
-    background: #fee2e2;
-    border-color: #fca5a5;
-    color: #dc2626;
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 .delete-icon {
-    font-size: 14px;
+    font-size: 13px;
     display: inline-block;
     pointer-events: none;
 }
@@ -493,6 +583,7 @@ body {
 
 .detail-label {
     font-weight: bold;
+    color: #000000;
 }
 
 /* Meshes Panel */
@@ -507,6 +598,52 @@ body {
     gap: 8px;
     padding: 8px;
     border-bottom: 1px solid var(--border-color);
+}
+
+.btn,
+.mesh-controls button {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4em;
+    padding: 0.35em 0.85em;
+    border-radius: 5px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
+}
+
+.btn:hover,
+.mesh-controls button:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
+}
+
+.calculate-link {
+    display: inline-block;
+    padding: 0.25em 0.7em;
+    border-radius: 5px;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    cursor: pointer;
+    font-size: 0.8em;
+    font-weight: 500;
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
+}
+
+.calculate-link:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 .mesh-item {
@@ -527,7 +664,8 @@ body {
 }
 
 .mesh-name {
-    font-weight: 500;
+    font-weight: bold;
+    color: #000000;
 }
 
 .mesh-details {
@@ -556,25 +694,26 @@ body {
 }
 
 .back-button {
-    padding: 0.35em 0.7em;
-    background: #fff;
-    border: 1px solid #ddd;
-    border-radius: 6px;
+    padding: 0.35em 0.85em;
+    background: var(--btn-bg);
+    border: 1px solid var(--btn-border);
+    border-radius: 5px;
     cursor: pointer;
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
-    font-size: 0.85em;
+    font-size: 0.8em;
     font-weight: 500;
-    color: #3b3e4a;
+    color: var(--btn-color);
     transition: all 0.15s ease;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    box-shadow: var(--btn-shadow);
 }
 
 .back-button:hover {
-    background: #e2e6ff;
-    border-color: #6677cc;
-    color: #2233aa;
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 /* WebGPU-unavailable fallback page (replaces the whole app) */
@@ -654,8 +793,8 @@ body {
 .modal-title {
     margin: 0;
     font-size: 1.15rem;
-    font-weight: 600;
-    color: #18181b;
+    font-weight: bold;
+    color: #000000;
 }
 
 .modal-body p {
@@ -672,30 +811,46 @@ body {
 }
 
 .modal-btn {
-    padding: 0.5em 1em;
-    border-radius: 6px;
-    font-size: 0.9rem;
+    padding: 0.35em 0.85em;
+    border-radius: 5px;
+    font-size: 0.8em;
     font-weight: 500;
     cursor: pointer;
-    border: 1px solid transparent;
-    transition: background 0.15s ease, border-color 0.15s ease;
+    border: 1px solid var(--btn-border);
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    transition: all 0.15s ease;
+    box-shadow: var(--btn-shadow);
+}
+
+.modal-btn:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
+    box-shadow: var(--btn-hover-shadow);
 }
 
 .modal-btn-cancel {
-    background: #f4f4f5;
-    color: #3f3f46;
-    border-color: #e4e4e7;
+    background: var(--btn-bg);
+    color: var(--btn-color);
+    border-color: var(--btn-border);
 }
 
 .modal-btn-cancel:hover {
-    background: #e4e4e7;
+    background: var(--btn-hover-bg);
+    border-color: var(--btn-hover-border);
+    color: var(--btn-hover-color);
 }
 
 .modal-btn-danger {
     background: #dc2626;
+    border-color: #b91c1c;
     color: #ffffff;
 }
 
 .modal-btn-danger:hover {
     background: #b91c1c;
+    border-color: #991b1b;
+    color: #ffffff;
+    box-shadow: 0 2px 4px rgba(220, 38, 38, 0.25);
 }
