@@ -1,4 +1,5 @@
 use stepvisualizer::common::color::{Color, StepColorMap};
+use stepvisualizer::common::exchange_index::ExchangeIndex;
 use stepvisualizer::ruststep;
 use wasm_bindgen_test::*;
 
@@ -71,7 +72,9 @@ fn test_step_color_map_synthetic() {
                              ENDSEC;\n\
                              END-ISO-10303-21;";
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepColorMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepColorMap::from_index(&index);
     assert_eq!(map.len(), 1);
     let col = map.get(80).expect("shell 80 color resolved");
     assert_eq!(col, Color::rgb(1.0, 0.5, 0.0));
@@ -84,7 +87,9 @@ fn test_step_color_map_as1_tc_214() {
         "/samples/as1-tc-214.stp"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepColorMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepColorMap::from_index(&index);
     assert_eq!(map.len(), 5);
 
     // Shell #601 -> green
@@ -108,6 +113,8 @@ fn test_step_color_map_as1_tc_214() {
 fn test_step_color_map_part1_ap203_empty() {
     const STEP_TEXT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/Part1.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepColorMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepColorMap::from_index(&index);
     assert!(map.is_empty());
 }

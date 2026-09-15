@@ -1,4 +1,5 @@
 use stepvisualizer::common::step_names::{StepNameMap, clean_part_name, is_valid_part_name};
+use stepvisualizer::common::exchange_index::ExchangeIndex;
 use stepvisualizer::ruststep;
 use wasm_bindgen_test::*;
 
@@ -45,7 +46,9 @@ fn test_step_name_map_synthetic_and_nauo() {
                                   END-ISO-10303-21;";
 
     let parsed = ruststep::parser::parse(SYNTHETIC_STEP).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert_eq!(map.len(), 1);
     assert_eq!(map.get(10), Some("Bracket_Body"));
 
@@ -70,7 +73,9 @@ fn test_step_name_map_synthetic_and_nauo() {
                              END-ISO-10303-21;";
 
     let parsed_nauo = ruststep::parser::parse(NAUO_STEP).expect("parsed exchange");
-    let map_nauo = StepNameMap::from_exchange(&parsed_nauo);
+    let mut ex_nauo = parsed_nauo.clone();
+    let index_nauo = ExchangeIndex::build(&mut ex_nauo);
+    let map_nauo = StepNameMap::from_index(&index_nauo);
     assert_eq!(map_nauo.len(), 1);
     assert_eq!(map_nauo.get(10), Some("bolt_1"));
 }
@@ -82,7 +87,9 @@ fn test_step_name_map_as1_tc_214() {
         "/samples/as1-tc-214.stp"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert_eq!(map.len(), 5);
 
     assert_eq!(map.get(601), Some("l-bracket"));
@@ -96,7 +103,9 @@ fn test_step_name_map_as1_tc_214() {
 fn test_step_name_map_part1_ap203() {
     const STEP_TEXT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/Part1.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert_eq!(map.len(), 1);
     assert_eq!(map.get(51), Some("PartBody"));
 }
@@ -108,7 +117,9 @@ fn test_step_name_map_kxt_331_lhs() {
         "/samples/KXT_331_LHS.STEP"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert_eq!(map.len(), 4);
     assert_eq!(map.get(2543), Some("Pin 1"));
     assert_eq!(map.get(3932), Some("Pin 2"));
@@ -123,7 +134,9 @@ fn test_step_name_map_expansion_card() {
         "/samples/ExpansionCard_SelfTapping.stp"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert_eq!(map.len(), 3);
     assert_eq!(map.get(1671), Some("COMPOUND_1"));
     assert_eq!(map.get(8128), Some("FW_EXP_1USBC_FRAME_CLIP_BC_229_"));
@@ -137,6 +150,8 @@ fn test_step_name_map_io1_ca_214_fallback_empty() {
         "/samples/io1-ca-214.stp"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let map = StepNameMap::from_exchange(&parsed);
+    let mut ex = parsed.clone();
+    let index = ExchangeIndex::build(&mut ex);
+    let map = StepNameMap::from_index(&index);
     assert!(map.is_empty());
 }

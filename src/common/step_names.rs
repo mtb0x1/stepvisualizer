@@ -136,14 +136,7 @@ impl StepNameMap {
         Self { shell_names }
     }
 
-    /// Extracts part names and associates them with shells from a parsed STEP AST.
-    ///
-    /// In the hot path use [`ExchangeIndex::build`] + [`Self::from_index`] instead.
-    /// This wrapper clones the exchange so it can be used from tests that only have `&Exchange`.
-    pub fn from_exchange(exchange: &Exchange) -> Self {
-        let mut ex = exchange.clone();
-        Self::from_index(&ExchangeIndex::build(&mut ex))
-    }
+
 }
 
 /// Resolves the associated `PRODUCT_DEFINITION_SHAPE` for a representation,
