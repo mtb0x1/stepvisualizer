@@ -1,0 +1,59 @@
+name: "Toolchain and Environment Setup"
+description: "Sets up Rust, Trunk, wasm-opt, and caching for Wasm builds"
+inputs:
+  install-wasm-pack:
+    description: "Whether to install wasm-pack"
+    required: false
+    default: "false"
+runs:
+  using: "composite"
+  steps:
+    - name: Install Rust (nightly + wasm target)
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: nightly
+        target: wasm32-unknown-unknown
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: ${{ github.ref_name }}
+
+    - name: Cache Tools (Trunk & Wasm-opt)
+      id: cache-tools
+      uses: actions/cache@v4
+      with:
+        path: ~/.local/bin
+        key: ${{ runner.os }}-tools-trunk-v0.21.14-binaryen-v132
+
+    - name: Install trunk (prebuilt binary)
+      if: steps.cache-tools.outputs.cache-hit != 'true'
+      env:
+        TRUNK_VERSION: v0.21.14
+      shell: bash
+      run: |
+        curl -fsSL -o /tmp/trunk.tar.gz "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz"
+        curl -fsSL -o /tmp/trunk.tar.gz.sha256 "https://github.com/trunk-rs/trunk/releases/download/${TRUNK_VERSION}/trunk-x86_64-unknown-linux-gnu.tar.gz.sha256"
+        EXPECTED=$(cat /tmp/trunk.tar.gz.sha256)
+        ACTUAL=$(sha256sum /tmp/trunk.tar.gz)
+        test "$EXPECTED" = "${ACTUAL%% *}"
+        mkdir -p "${HOME}/.local/bin"
+        tar -xzf /tmp/trunk.tar.gz -C "${HOME}/.local/bin"
+
+    - name: Install wasm-opt
+      if: steps.cache-tools.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        curl -fsSL -o /tmp/binaryen.tar.gz "https://github.com/WebAssembly/binaryen/releases/download/version_132/binaryen-version_132-x86_64-linux.tar.gz"
+        tar -xzf /tmp/binaryen.tar.gz -C /tmp
+        mkdir -p "${HOME}/.local/bin"
+        cp /tmp/binaryen-version_132/bin/wasm-opt "${HOME}/.local/bin/"
+
+    - name: Add local bin to PATH
+      shell: bash
+      run: echo "${HOME}/.local/bin" >> "${GITHUB_PATH}"
+
+    - name: Install wasm-pack
+      if: inputs.install-wasm-pack == 'true'
+      shell: bash
+      run: curl https://wasm-bindgen.github.io/wasm-pack/installer/init.sh -sSf | sh
