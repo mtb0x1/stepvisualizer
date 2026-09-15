@@ -9,7 +9,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/7.0.1/css/all.min.css"
         integrity="sha512-2SwdPD6INVrV/lHTZbO2nodKhrnDdJK9/kg2XD1r9uGqPo1cUbujc+IYdlYdEErWNu69gVcYgdxlmVmzTWnetw=="
         crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="4" data-wasm-opt-params="--all-features" />
+    <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="4"
+        data-wasm-opt-params="--enable-simd --enable-bulk-memory-opt --enable-nontrapping-float-to-int" />
 </head>
 
 <body>
