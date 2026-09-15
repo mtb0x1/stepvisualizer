@@ -20,7 +20,7 @@ use glam::{DVec3, Mat4, Vec3};
 /// Interleaved GPU vertex: 3D position and surface normal.
 /// 24 bytes, 4-byte aligned. Matches WebGPU vertex buffer layout.
 #[repr(C)]
-#[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, PartialEq, Pod, Zeroable, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct GpuVertex {
     pub position: Vec3,
     pub normal: Vec3,
@@ -36,7 +36,7 @@ impl GpuVertex {
 /// One tessellated part (typically one shell): vertex/index buffers plus the
 /// per-part model matrix, color, and optional name. Serializable, so whole models round-trip
 /// through localStorage without re-tessellating.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct RenderablePart {
     pub vertices: Vec<GpuVertex>,
     pub indices: Vec<u32>,

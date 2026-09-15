@@ -9,7 +9,7 @@ use glam::DVec3;
 /// `repr(transparent)` ensures zero-cost runtime wrapping over `String`
 /// and transparent serde serialization (serialized as a flat string in JSON/localStorage).
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct FileId(pub String);
 
 impl FileId {
@@ -67,7 +67,7 @@ impl std::borrow::Borrow<str> for FileId {
 }
 
 /// Physical pixel dimensions of a rendering viewport or canvas.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct ViewportSize {
     pub width: u32,
     pub height: u32,
@@ -108,7 +108,7 @@ impl ViewportSize {
 }
 
 /// Standard length units parsed from STEP SI_UNIT and conversion factors to meters.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub enum LengthUnit {
     Millimetre,
     Centimetre,
@@ -174,7 +174,7 @@ impl std::fmt::Display for LengthUnit {
 }
 
 /// STEP header section (ISO 10303-21), shaped for display in the details panel.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct StepHeader {
     pub file_description: String,
     pub implementation_level: String,
@@ -191,7 +191,7 @@ pub struct StepHeader {
 /// Display metadata for a loaded file: header fields plus derived geometry
 /// stats. Persisted inside `StepModel`, so newly added fields need
 /// `#[serde(default)]` to stay load-compatible with previously saved models.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct Metadata {
     pub header: StepHeader,
     pub entity_count: usize,
@@ -211,7 +211,7 @@ pub struct Metadata {
 
 /// One entry of the recent-files history. `id` is the file's content hash,
 /// which doubles as the localStorage key of its persisted model.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct FileIndexItem {
     pub id: FileId,
     pub name: String,
@@ -222,7 +222,7 @@ pub struct FileIndexItem {
 }
 
 /// Axis-aligned bounds in 3D space.
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct BoundingBox {
     pub min: DVec3,
     pub max: DVec3,
@@ -298,7 +298,7 @@ impl BoundingBox {
 ///   and synchronized into the active `StepModel`.
 /// - `#[serde(default)]` ensures deserializing cached models without a `part_visibility`
 ///   field safely yields an empty vector which is hydrated to all-true on load.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct StepModel {
     pub id: FileId,
     pub metadata: Metadata,
@@ -311,6 +311,7 @@ pub struct StepModel {
     pub visibility_generation: u64,
     /// Cached bounding box for the current visibility generation (skipped during serialization).
     #[serde(skip)]
+    #[rkyv(with = rkyv::with::Skip)]
     pub cached_bounds: Option<(u64, BoundingBox)>,
     #[serde(default)]
     pub audit: AuditMetadata,
@@ -342,7 +343,7 @@ impl StepModel {
 }
 
 /// Standard audit fields applied to database records.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
 pub struct AuditMetadata {
     #[serde(default = "default_timestamp")]
     pub created_on: f64,
