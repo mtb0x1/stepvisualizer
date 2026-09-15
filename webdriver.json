@@ -1,0 +1,12 @@
+{
+  "moz:firefoxOptions": {
+    "args": [
+      "-headless"
+    ],
+    "prefs": {
+      "gfx.webrender.all": true,
+      "gfx.webrender.enabled": true,
+      "layers.acceleration.force-enabled": true
+    }
+  }
+}

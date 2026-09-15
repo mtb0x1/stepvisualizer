@@ -88,7 +88,7 @@ impl StateHandles {
 }
 
 /// Constructs a [`StepModel`], computing totals and visible bounds.
-pub(crate) fn build_step_model(
+pub fn build_step_model(
     id: FileId,
     metadata: Metadata,
     render_parts: Vec<RenderablePart>,

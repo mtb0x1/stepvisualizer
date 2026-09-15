@@ -20,7 +20,7 @@ use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
 /// Parses STEP text into metadata, a content-based FileId, and entity tables.
-pub(crate) fn parse_step_file_content(
+pub fn parse_step_file_content(
     name: &str,
     text: &str,
 ) -> Result<

@@ -41,7 +41,7 @@ jobs:
           cargo clippy --target wasm32-unknown-unknown -- -D warnings
 
       - name: Cargo Test
-        run: wasm-pack test --headless --firefox
+        run: wasm-pack test --headless --firefox --release
 
       # Build to catch any trunk/wasm compilation failures early.
       # Output is discarded — no artifact upload, no deploy.

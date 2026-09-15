@@ -1,3 +1,10 @@
+# Important :
+# Do not activate relaxed-simd ... unless
+# Your setup (hardware and browser) support it
+# check https://caniuse.com/?search=simd
+# As of 15/09/2026, firefox 140.X does not support it
+# same for safari, so to be on safe side we don't use it for now
+
 [build]
 target = "wasm32-unknown-unknown"
-rustflags = ["-C", "target-feature=+simd128,+relaxed-simd"]
+rustflags = ["-C", "target-feature=+simd128,-relaxed-simd"]

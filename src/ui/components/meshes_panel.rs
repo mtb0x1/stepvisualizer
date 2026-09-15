@@ -126,33 +126,3 @@ pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
         </div>
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use wasm_bindgen_test::*;
-
-    wasm_bindgen_test_configure!(run_in_browser);
-
-    fn resolve_mesh_display_name(name: Option<&str>, index: usize) -> String {
-        name.filter(|s| !s.trim().is_empty())
-            .map(String::from)
-            .unwrap_or_else(|| format!("Mesh {}", index + 1))
-    }
-
-    #[wasm_bindgen_test]
-    fn test_mesh_display_name_with_custom_name() {
-        assert_eq!(resolve_mesh_display_name(Some("Housing"), 0), "Housing");
-        assert_eq!(
-            resolve_mesh_display_name(Some("l-bracket_1"), 2),
-            "l-bracket_1"
-        );
-    }
-
-    #[wasm_bindgen_test]
-    fn test_mesh_display_name_fallback_empty_or_none() {
-        assert_eq!(resolve_mesh_display_name(None, 0), "Mesh 1");
-        assert_eq!(resolve_mesh_display_name(None, 5), "Mesh 6");
-        assert_eq!(resolve_mesh_display_name(Some(""), 0), "Mesh 1");
-        assert_eq!(resolve_mesh_display_name(Some("   "), 3), "Mesh 4");
-    }
-}
