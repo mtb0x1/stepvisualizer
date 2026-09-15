@@ -2,6 +2,7 @@
 //! and the effect that renders a frame whenever inputs change.
 use super::components::fps_graph::FpsGraph;
 use crate::common::logger;
+use crate::rendering::camera::PresetType;
 use crate::{
     common::fps_meter::FpsMeter,
     common::render::visible_bounds,
@@ -288,7 +289,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                             BoundingBox::new(DVec3::splat(-1.0), DVec3::splat(1.0)),
                         );
                         let max_size = bounds.max_extent().max(0.1);
-                        if preset.label == "Reset" {
+                        if preset.label == PresetType::Reset {
                             (bounds.center(), max_size)
                         } else {
                             (camera_state.target, max_size)
@@ -304,7 +305,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                     };
                     camera_state.set(new_camera);
                 })}
-            >{ preset.label }</button>
+            >{ preset.label.to_string() }</button>
         }
     };
 

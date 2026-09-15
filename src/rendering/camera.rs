@@ -1,6 +1,6 @@
-use glam::DVec3;
-
 pub use crate::common::utils::spherical_to_cartesian;
+use glam::DVec3;
+use std::fmt::Display;
 
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
 /// point. Dragging mutates the angles, zooming the distance; the target is
@@ -105,9 +105,29 @@ impl Default for CameraState {
 }
 
 /// Named view preset for the viewer toolbar.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PresetType {
+    Reset,
+    Iso,
+    Top,
+    Front,
+}
+
+impl Display for PresetType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PresetType::Reset => write!(f, "Reset"),
+            PresetType::Iso => write!(f, "Iso"),
+            PresetType::Top => write!(f, "Top"),
+            PresetType::Front => write!(f, "Front"),
+        }
+    }
+}
+
+/// Named view preset for the viewer toolbar.
 #[derive(Clone, Copy)]
 pub struct CameraPreset {
-    pub label: &'static str,
+    pub label: PresetType,
     pub azimuth: f64,
     pub elevation: f64,
     pub distance: f64,
@@ -116,25 +136,25 @@ pub struct CameraPreset {
 /// Toolbar presets, in display order.
 pub const CAMERA_PRESETS: [CameraPreset; 4] = [
     CameraPreset {
-        label: "Reset",
+        label: PresetType::Reset,
         azimuth: CameraState::DEFAULT.azimuth,
         elevation: CameraState::DEFAULT.elevation,
         distance: CameraState::DEFAULT.distance,
     },
     CameraPreset {
-        label: "Iso",
+        label: PresetType::Iso,
         azimuth: 0.8,
         elevation: 0.9,
         distance: 3.0,
     },
     CameraPreset {
-        label: "Top",
+        label: PresetType::Top,
         azimuth: 0.0,
         elevation: 1.3,
         distance: 2.5,
     },
     CameraPreset {
-        label: "Front",
+        label: PresetType::Front,
         azimuth: 0.0,
         elevation: 0.0,
         distance: 3.0,
