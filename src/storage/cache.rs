@@ -1,6 +1,5 @@
 //! LRU cache over parsed `StepModel`s (backed by persistence storage).
-use hashbrown::HashMap;
-use std::collections::VecDeque;
+use smallvec::SmallVec;
 use std::rc::Rc;
 
 use crate::common::types::{FileId, StepModel};
@@ -9,8 +8,7 @@ use crate::common::types::{FileId, StepModel};
 /// cheap reference-count clone instead of a full deep-copy of geometry data.
 pub struct LruCache {
     capacity: usize,
-    order: VecDeque<FileId>,
-    map: HashMap<FileId, Rc<StepModel>>,
+    entries: SmallVec<[(FileId, Rc<StepModel>); 5]>,
 }
 
 impl LruCache {
@@ -20,48 +18,38 @@ impl LruCache {
     pub fn new(capacity: usize) -> Self {
         Self {
             capacity,
-            order: VecDeque::new(),
-            map: HashMap::new(),
+            entries: SmallVec::new(),
         }
     }
 
     /// Number of items currently stored in cache.
     #[inline]
     pub fn len(&self) -> usize {
-        self.map.len()
+        self.entries.len()
     }
 
     /// Whether the cache contains no items.
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.map.is_empty()
+        self.entries.is_empty()
     }
 
-    // Capacity is tiny (CACHE_SIZE = 5), so a linear scan here is cheaper than
-    // the pointer bookkeeping a true O(1) linked-list LRU would require.
-    fn remove_from_order(&mut self, id: &str) -> Option<FileId> {
-        if let Some(pos) = self.order.iter().position(|k| k.as_str() == id) {
-            self.order.remove(pos)
-        } else {
-            None
+    fn touch_index(&mut self, index: usize) {
+        if index > 0 && index < self.entries.len() {
+            let entry = self.entries.remove(index);
+            self.entries.insert(0, entry);
         }
-    }
-
-    fn touch(&mut self, id: &str) {
-        let file_id = self
-            .remove_from_order(id)
-            .unwrap_or_else(|| FileId::from(id));
-        self.order.push_front(file_id);
     }
 
     /// Returns a shared reference to the model under `id`, promoting it to
     /// most-recently-used. No geometry data is copied on a cache hit.
     pub fn get(&mut self, id: &str) -> Option<Rc<StepModel>> {
-        let model = self.map.get(id).cloned();
-        if model.is_some() {
-            self.touch(id);
+        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
+            self.touch_index(pos);
+            Some(self.entries[0].1.clone())
+        } else {
+            None
         }
-        model
     }
 
     /// Memory cache hit, else persistence backend, else `None`.
@@ -96,30 +84,29 @@ impl LruCache {
         if self.capacity == 0 {
             return;
         }
-        self.remove_from_order(id.as_str());
-        self.order.push_front(id.clone());
-        self.map.insert(id, model);
-        // `>` (not `==`) so any map/order desync self-heals on the next
-        // insertion instead of growing past capacity forever.
-        while self.map.len() > self.capacity {
-            match self.order.pop_back() {
-                Some(least) => {
-                    self.map.remove(&least);
-                }
-                None => break,
-            }
+        if let Some(pos) = self
+            .entries
+            .iter()
+            .position(|(k, _)| k.as_str() == id.as_str())
+        {
+            self.entries.remove(pos);
+        }
+        self.entries.insert(0, (id, model));
+
+        while self.entries.len() > self.capacity {
+            self.entries.pop();
         }
     }
 
     /// Drop a model from the cache (the persisted copy, if any, remains).
     pub fn remove(&mut self, id: &str) {
-        self.remove_from_order(id);
-        self.map.remove(id);
+        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
+            self.entries.remove(pos);
+        }
     }
 
     /// Drop everything (persisted copies, if any, remain).
     pub fn clear(&mut self) {
-        self.order.clear();
-        self.map.clear();
+        self.entries.clear();
     }
 }

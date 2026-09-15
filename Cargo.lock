@@ -77,6 +77,9 @@ name = "arrayvec"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "ash"
@@ -2053,6 +2056,7 @@ dependencies = [
  "rancor",
  "rend",
  "rkyv_derive",
+ "smallvec",
  "tinyvec",
  "uuid",
 ]
@@ -2288,6 +2292,9 @@ name = "smallvec"
 version = "1.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "67b1b7a3b5fe4f1376887184045fcf45c69e92af734b7aaddc05fb777b6fbd03"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "spade"
@@ -2321,6 +2328,7 @@ name = "stepvisualizer"
 version = "0.0.1"
 dependencies = [
  "approx 0.5.1",
+ "arrayvec",
  "bytemuck",
  "csscolorparser",
  "glam",
@@ -2333,6 +2341,7 @@ dependencies = [
  "ruststep",
  "serde",
  "serde_json",
+ "smallvec",
  "time",
  "tracing",
  "tracing-subscriber",

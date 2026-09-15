@@ -10,12 +10,14 @@
 //! extracted, so the intermediate [`FastU64Map`]s are freed before tessellation begins.
 
 use phf::phf_map;
+use smallvec::SmallVec;
 
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
 use crate::common::types::LengthUnit;
 use crate::common::utils::{
-    extract_entity_refs, param_as_enum, param_as_list, param_as_ref, param_as_str,
+    extract_entity_refs, extract_entity_refs_with_capacity, extract_smallvec_refs, param_as_enum,
+    param_as_list, param_as_ref, param_as_str,
 };
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 
@@ -97,13 +99,13 @@ pub struct ExchangeIndex {
     /// Direct entity-id → Color for COLOUR_RGB / PRE_DEFINED_COLOUR entities.
     pub direct_colors: FastU64Map<Color>,
     /// entity-id → list of child style entity ids (style graph edges).
-    pub style_edges: FastU64Map<Vec<u64>>,
+    pub style_edges: FastU64Map<SmallVec<[u64; 2]>>,
     /// CLOSED/OPEN_SHELL id → list of face entity ids.
     pub shell_to_faces: FastU64Map<Vec<u64>>,
     /// face entity id → CLOSED/OPEN_SHELL id.
     pub face_to_shell: FastU64Map<u64>,
     /// (style_refs, target_id) pairs from STYLED_ITEM / OVER_RIDING_STYLED_ITEM.
-    pub styled_items: Vec<(Vec<u64>, u64)>,
+    pub styled_items: Vec<(SmallVec<[u64; 4]>, u64)>,
 
     // ---- shared data (StepColorMap, StepNameMap) ---------------------------
     /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS / SHELL_BASED_SURFACE_MODEL id → outer SHELL id.
@@ -113,13 +115,13 @@ pub struct ExchangeIndex {
     /// CLOSED/OPEN_SHELL id → cleaned direct name (from the shell record itself).
     pub shell_direct_names: FastU64Map<String>,
     /// SHELL id → list of solid/surface-model entity ids that reference it.
-    pub shell_to_solids: FastU64Map<Vec<u64>>,
+    pub shell_to_solids: FastU64Map<SmallVec<[u64; 2]>>,
     /// solid entity id → cleaned name.
     pub solid_names: FastU64Map<String>,
     /// SHAPE_REPRESENTATION-family id → list of item entity ids.
-    pub rep_items: FastU64Map<Vec<u64>>,
+    pub rep_items: FastU64Map<SmallVec<[u64; 5]>>,
     /// item entity id (shell or solid) → list of SHAPE_REPRESENTATION entity ids containing it.
-    pub item_to_reps: FastU64Map<Vec<u64>>,
+    pub item_to_reps: FastU64Map<SmallVec<[u64; 4]>>,
     /// SHAPE_REPRESENTATION-family id → cleaned name.
     pub rep_names: FastU64Map<String>,
     /// (rep1_id, rep2_id) pairs from REPRESENTATION_RELATIONSHIP entities.
@@ -204,7 +206,7 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::ColorStyle) => {
-                                let refs = extract_entity_refs(&record.parameter);
+                                let refs = extract_smallvec_refs(&record.parameter);
                                 if !refs.is_empty() {
                                     idx.style_edges.insert(entity_id, refs);
                                 }
@@ -321,7 +323,7 @@ impl ExchangeIndex {
         };
         let target = params.get(2).and_then(param_as_ref);
         if let (Some(styles_param), Some(target_id)) = (params.get(1), target) {
-            let style_refs = extract_entity_refs(styles_param);
+            let style_refs = extract_smallvec_refs(styles_param);
             self.styled_items.push((style_refs, target_id));
         }
     }
@@ -337,7 +339,8 @@ impl ExchangeIndex {
 
         // Color: build face → shell and shell → faces maps
         if let Some(faces_param) = params.get(1) {
-            let face_refs = extract_entity_refs(faces_param);
+            // Default init the vec with 5000 (to avoid regrowing so often). Max observed faces in complex step files is ~4328.
+            let face_refs = extract_entity_refs_with_capacity(faces_param, 5000);
             for &face_id in &face_refs {
                 self.face_to_shell.insert(face_id, entity_id);
             }
@@ -424,7 +427,7 @@ impl ExchangeIndex {
             );
         }
         if let Some(items_param) = params.get(1) {
-            let refs = extract_entity_refs(items_param);
+            let refs = extract_smallvec_refs(items_param);
             for &item_id in &refs {
                 self.item_to_reps
                     .entry(item_id)

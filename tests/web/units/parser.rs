@@ -41,8 +41,11 @@ fn header_valid_records() {
     assert_eq!(header.implementation_level, "2;1");
     assert_eq!(header.file_name, "test_model.step");
     assert_eq!(header.time_stamp, "2026-09-01T12:00:00");
-    assert_eq!(header.author, vec!["Author Name".to_string()]);
-    assert_eq!(header.organization, vec!["Organization Name".to_string()]);
+    assert_eq!(header.author.as_slice(), &["Author Name".to_string()]);
+    assert_eq!(
+        header.organization.as_slice(),
+        &["Organization Name".to_string()]
+    );
     assert_eq!(header.preprocessor_version, "Preprocessor 1.0");
     assert_eq!(header.originating_system, "Originating Sys");
     assert_eq!(header.authorization, "Auth");

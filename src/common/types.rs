@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use super::render::RenderablePart;
 use crate::common::utils::clean_unit_name;
@@ -230,8 +231,8 @@ pub struct StepHeader {
     pub implementation_level: String,
     pub file_name: String,
     pub time_stamp: String,
-    pub author: Vec<String>,
-    pub organization: Vec<String>,
+    pub author: SmallVec<[String; 2]>,
+    pub organization: SmallVec<[String; 2]>,
     pub preprocessor_version: String,
     pub originating_system: String,
     pub authorization: String,

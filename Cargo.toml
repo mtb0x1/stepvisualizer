@@ -61,9 +61,14 @@ glam = { version = "0.33.6", features = [
 truck-geometry = "0.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rexie = "0.6"
+smallvec = { version = "1.15.1", default-features = false, features = [
+    "serde",
+] }
+arrayvec = { version = "0.7.6", default-features = false, features = ["serde"] }
 rkyv = { version = "0.8.18", default-features = false, features = [
     "std",
     "bytecheck",
+    "smallvec-1",
 ] }
 csscolorparser = { version = "0.8.4", default-features = false, features = [
     "named-colors",

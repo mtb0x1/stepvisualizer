@@ -303,7 +303,7 @@ impl StepColorMap {
 /// breaking any cyclic references safely using a call-stack vector.
 fn resolve_style_color(
     style_id: u64,
-    style_edges: &FastU64Map<Vec<u64>>,
+    style_edges: &FastU64Map<smallvec::SmallVec<[u64; 2]>>,
     resolved: &mut FastU64Map<Color>,
     visiting: &mut Vec<u64>,
 ) -> Option<Color> {
