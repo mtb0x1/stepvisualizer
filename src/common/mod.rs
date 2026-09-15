@@ -34,12 +34,12 @@ pub use render::{
 pub use step_names::StepNameMap;
 #[allow(unused_imports)]
 pub use storage::{
-    clear_all_storage, delete_model, hash_text_to_id, load_index_async, save_index,
-    save_model,
+    clear_all_storage, delete_model, hash_text_to_id, load_index_async, save_index_item,
+    delete_index_item, save_model,
 };
 #[allow(unused_imports)]
 pub use types::{
-    BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel, ViewportSize,
+    AuditMetadata, BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel, ViewportSize,
 };
 #[allow(unused_imports)]
 pub use utils::{

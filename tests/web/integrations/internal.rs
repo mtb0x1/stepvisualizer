@@ -57,6 +57,7 @@ fn step_pipeline_e2e_real_model() {
         part_visibility: vec![true; part_count],
         visibility_generation: 0,
         cached_bounds: None,
+        audit: stepvisualizer::common::AuditMetadata::default(),
     };
 
     model.metadata.vertex_count = model.total_vertices();
@@ -116,6 +117,7 @@ fn step_pipeline_e2e_nasty_cheese() {
         visibility_generation: 0,
         cached_bounds: None,
         render_parts,
+        audit: stepvisualizer::common::AuditMetadata::default(),
     };
 
     model.metadata.vertex_count = model.total_vertices();

@@ -1,6 +1,6 @@
 //! History management, localStorage/IndexedDB persistence helpers, and confirmation workflows.
 use crate::common::{
-    FileId, FileIndexItem, LruCache, clear_all_storage, delete_model, save_index,
+    FileId, FileIndexItem, LruCache, clear_all_storage, delete_model, save_index_item, delete_index_item,
 };
 use crate::workspace::ConfirmAction;
 use crate::workspace::state::StateHandles;
@@ -8,40 +8,34 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use yew::prelude::*;
 
-/// Mutates the history file index in state and persists it to localStorage.
-pub(crate) fn update_and_persist_index(
-    files_index: &UseStateHandle<Vec<FileIndexItem>>,
-    update: impl FnOnce(&mut Vec<FileIndexItem>),
-) {
-    let mut list = (**files_index).clone();
-    update(&mut list);
-    files_index.set(list.clone());
-    save_index(&list);
-}
-
 /// Moves an existing file item to the top of the history index.
 pub(crate) fn promote_in_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, id: &FileId) {
-    update_and_persist_index(files_index, |list| {
-        if let Some(pos) = list.iter().position(|i| &i.id == id) {
-            let item = list.remove(pos);
-            list.insert(0, item);
-        }
-    });
+    let mut list = (**files_index).clone();
+    if let Some(pos) = list.iter().position(|i| &i.id == id) {
+        let mut item = list.remove(pos);
+        item.audit.mark_updated();
+        list.insert(0, item.clone());
+        files_index.set(list);
+        save_index_item(&item);
+    }
 }
 
 /// Prepends or updates a file in the history index.
-pub(crate) fn add_to_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, item: FileIndexItem) {
-    update_and_persist_index(files_index, |list| {
-        list.retain(|i| i.id != item.id);
-        list.insert(0, item);
-    });
+pub(crate) fn add_to_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, mut item: FileIndexItem) {
+    let mut list = (**files_index).clone();
+    list.retain(|i| i.id != item.id);
+    item.audit.mark_updated();
+    list.insert(0, item.clone());
+    files_index.set(list);
+    save_index_item(&item);
 }
 
 /// Removes a file from the history index.
 pub(crate) fn remove_from_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, id: &FileId) {
-    update_and_persist_index(files_index, |list| {
-        list.retain(|i| &i.id != id);
-    });
+    let mut list = (**files_index).clone();
+    list.retain(|i| &i.id != id);
+    files_index.set(list);
+    delete_index_item(id.as_str());
 }
 
 /// History-management callbacks consumed by [`StepWorkspace`].

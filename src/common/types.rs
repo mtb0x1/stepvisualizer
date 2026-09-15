@@ -217,6 +217,8 @@ pub struct FileIndexItem {
     pub name: String,
     pub entity_count: usize,
     pub time_stamp: String,
+    #[serde(default)]
+    pub audit: AuditMetadata,
 }
 
 /// Axis-aligned bounds in 3D space.
@@ -310,6 +312,8 @@ pub struct StepModel {
     /// Cached bounding box for the current visibility generation (skipped during serialization).
     #[serde(skip)]
     pub cached_bounds: Option<(u64, BoundingBox)>,
+    #[serde(default)]
+    pub audit: AuditMetadata,
 }
 
 impl StepModel {
@@ -334,5 +338,46 @@ impl StepModel {
             .iter()
             .map(|p| p.calculate_surface_area())
             .sum()
+    }
+}
+
+/// Standard audit fields applied to database records.
+#[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct AuditMetadata {
+    #[serde(default = "default_timestamp")]
+    pub created_on: f64,
+    #[serde(default = "default_timestamp")]
+    pub updated_on: f64,
+    #[serde(default = "default_user")]
+    pub created_by: String,
+    #[serde(default = "default_user")]
+    pub updated_by: String,
+}
+
+impl Default for AuditMetadata {
+    fn default() -> Self {
+        let now = default_timestamp();
+        let user = default_user();
+        Self {
+            created_on: now,
+            updated_on: now,
+            created_by: user.clone(),
+            updated_by: user,
+        }
+    }
+}
+
+fn default_timestamp() -> f64 {
+    js_sys::Date::now()
+}
+
+fn default_user() -> String {
+    "admin".to_string()
+}
+
+impl AuditMetadata {
+    pub fn mark_updated(&mut self) {
+        self.updated_on = default_timestamp();
+        self.updated_by = default_user();
     }
 }

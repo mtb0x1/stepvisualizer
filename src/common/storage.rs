@@ -13,29 +13,43 @@ use crate::trace_span;
 use wasm_bindgen_futures::spawn_local;
 
 use super::db_schema::{
-    clear_index_in_db, clear_models_in_db, delete_model_from_db, load_index_from_db,
-    load_model_from_db, open_db_versioned, save_index_to_db, save_model_json_to_db,
+    clear_index_in_db, clear_models_in_db, delete_index_item_from_db, delete_model_from_db,
+    load_index_from_db, load_model_from_db, open_db_versioned, save_index_item_to_db,
+    save_model_json_to_db,
 };
 use super::types::{FileId, FileIndexItem, StepModel};
 
-// ---------------------------------------------------------------------------
-// Index (IndexedDB)
-// ---------------------------------------------------------------------------
-
-/// Persist the recent-files index to IndexedDB (fire-and-forget).
+/// Persist a single recent-files index item to IndexedDB (fire-and-forget).
 /// The write is async; the in-memory state in Yew is already updated by the caller.
-pub fn save_index(index: &[FileIndexItem]) {
-    trace_span!("save_index");
-    // Clone so it can be moved into the async block.
-    let index_owned = index.to_vec();
+pub fn save_index_item(item: &FileIndexItem) {
+    trace_span!("save_index_item");
+    let item_owned = item.clone();
     spawn_local(async move {
         match open_db_versioned().await {
             Ok(db) => {
-                if let Err(e) = save_index_to_db(&db, &index_owned).await {
-                    logger::warn(&format!("Failed to save file index to IndexedDB: {e}"));
+                if let Err(e) = save_index_item_to_db(&db, &item_owned).await {
+                    logger::warn(&format!("Failed to save file index item to IndexedDB: {e}"));
                 }
             }
-            Err(e) => logger::warn(&format!("Failed to open DB for index save: {e}")),
+            Err(e) => logger::warn(&format!("Failed to open DB for index item save: {e}")),
+        }
+    });
+}
+
+/// Remove a single recent-files index item from IndexedDB (fire-and-forget).
+pub fn delete_index_item(id: &str) {
+    trace_span!("delete_index_item");
+    let id_string = id.to_string();
+    spawn_local(async move {
+        match open_db_versioned().await {
+            Ok(db) => {
+                if let Err(e) = delete_index_item_from_db(&db, &id_string).await {
+                    logger::warn(&format!(
+                        "Failed to delete file index item from IndexedDB: {e}"
+                    ));
+                }
+            }
+            Err(e) => logger::warn(&format!("Failed to open DB for index item delete: {e}")),
         }
     });
 }
@@ -54,10 +68,6 @@ pub async fn load_index_async() -> Vec<FileIndexItem> {
         }
     }
 }
-
-// ---------------------------------------------------------------------------
-// Models (IndexedDB)
-// ---------------------------------------------------------------------------
 
 /// Persist a serialized model JSON blob asynchronously to IndexedDB.
 pub async fn save_model_json_indexeddb(id: &str, json: &str) -> Result<(), String> {

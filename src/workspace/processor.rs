@@ -173,6 +173,7 @@ pub(crate) fn spawn_tessellation(
                 name: model.metadata.header.file_name.clone(),
                 entity_count: model.metadata.entity_count,
                 time_stamp: model.metadata.header.time_stamp.clone(),
+                audit: crate::common::types::AuditMetadata::default(),
             },
         );
 

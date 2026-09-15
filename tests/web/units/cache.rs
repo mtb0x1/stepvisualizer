@@ -32,6 +32,7 @@ fn create_mock_model(id: &str) -> StepModel {
         part_visibility: vec![],
         visibility_generation: 0,
         cached_bounds: None,
+        audit: stepvisualizer::common::AuditMetadata::default(),
     }
 }
 

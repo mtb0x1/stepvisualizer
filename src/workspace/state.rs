@@ -102,6 +102,7 @@ pub fn build_step_model(
         part_visibility: part_visibility.clone(),
         visibility_generation: 0,
         cached_bounds: None,
+        audit: crate::common::types::AuditMetadata::default(),
     };
     model.metadata.vertex_count = model.total_vertices();
     model.metadata.triangle_count = model.total_triangles();
