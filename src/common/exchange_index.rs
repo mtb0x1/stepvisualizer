@@ -19,6 +19,7 @@ use crate::common::utils::{
 };
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 
+// TODO : double check kinds against specs.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum StepEntityKind {
     ColourRgb,
