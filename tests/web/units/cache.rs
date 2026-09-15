@@ -40,7 +40,7 @@ fn create_mock_model(id: &str) -> StepModel {
 /// Verifies inserting a model into the cache allows retrieval with matching metadata and ID.
 #[wasm_bindgen_test]
 fn cache_insert_and_hit() {
-    let mut cache = LruCache::new(5);
+    let mut cache = LruCache::new(50000);
     let id = FileId::from("model_1");
     let model = create_mock_model("model_1");
 
@@ -56,7 +56,7 @@ fn cache_insert_and_hit() {
 /// same underlying heap allocation without performing deep clones.
 #[wasm_bindgen_test]
 fn cache_rc_pointer_equality() {
-    let mut cache = LruCache::new(5);
+    let mut cache = LruCache::new(50000);
     let id = FileId::from("model_1");
     cache.insert(id, create_mock_model("model_1"));
 
@@ -69,7 +69,8 @@ fn cache_rc_pointer_equality() {
 /// Verifies capacity-based LRU eviction and access-based promotion.
 #[wasm_bindgen_test]
 fn cache_eviction_and_lru_promotion() {
-    let mut cache = LruCache::new(2);
+    // 7000 bytes limit fits two 3000-byte mock models, evicting on the third.
+    let mut cache = LruCache::new(7000);
     cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
     cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
 
@@ -88,7 +89,8 @@ fn cache_eviction_and_lru_promotion() {
 /// Verifies re-inserting an existing key updates payload without changing capacity or order.
 #[wasm_bindgen_test]
 fn cache_reinsert_existing_key() {
-    let mut cache = LruCache::new(2);
+    // 7000 bytes limit fits two 3000-byte mock models.
+    let mut cache = LruCache::new(7000);
     cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
     cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
 
@@ -105,7 +107,7 @@ fn cache_reinsert_existing_key() {
 /// Verifies get_or_load invokes loader once on miss, caches result, and serves future calls from memory.
 #[wasm_bindgen_test]
 fn get_or_load_lifecycle() {
-    let mut cache = LruCache::new(5);
+    let mut cache = LruCache::new(50000);
     let load_count = Cell::new(0);
 
     let res1 = cache.get_or_load("model_A", |id| {

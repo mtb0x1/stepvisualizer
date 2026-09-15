@@ -4,7 +4,7 @@
 
 /// Parsed [`StepModel`](super::types::StepModel)s kept in the in-memory LRU
 /// per session.
-pub const CACHE_SIZE: usize = 5;
+pub const CACHE_MAX_MEMORY_BYTES: usize = 512 * 1024 * 1024; // 512 MB
 /// Upload guard: STEP is a text format, so this caps both memory and parse time.
 /// Stored as `f64` because `web_sys::File::size()` returns `f64`. 20MB fits perfectly
 /// within the contiguous integer range of `f64` (up to 2^53), so there is no precision loss.

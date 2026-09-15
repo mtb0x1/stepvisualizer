@@ -7,17 +7,25 @@ use crate::common::types::{FileId, StepModel};
 /// LRU over parsed models. Stores `Rc<StepModel>` so cache hits return a
 /// cheap reference-count clone instead of a full deep-copy of geometry data.
 pub struct LruCache {
-    capacity: usize,
+    max_memory_bytes: usize,
+    current_memory_bytes: usize,
     entries: SmallVec<[(FileId, Rc<StepModel>); 5]>,
 }
 
+#[inline]
+fn estimate_model_size(model: &StepModel) -> usize {
+    // 24 bytes per GpuVertex + 4 bytes per index (3 indices per triangle)
+    model.metadata.vertex_count * 24 + model.metadata.triangle_count * 12
+}
+
 impl LruCache {
-    /// New cache holding at most `capacity` models. `capacity == 0` caches
+    /// New cache holding up to `max_memory_bytes` of models. `max_memory_bytes == 0` caches
     /// nothing: [`get_or_load`](Self::get_or_load) then falls through to the
     /// backend on every call.
-    pub fn new(capacity: usize) -> Self {
+    pub fn new(max_memory_bytes: usize) -> Self {
         Self {
-            capacity,
+            max_memory_bytes,
+            current_memory_bytes: 0,
             entries: SmallVec::new(),
         }
     }
@@ -77,36 +85,50 @@ impl LruCache {
         self.insert_rc(id, Rc::new(model));
     }
 
-    /// Insert a pre-wrapped `Rc<StepModel>`, then evict beyond capacity.
+    /// Insert a pre-wrapped `Rc<StepModel>`, then evict beyond memory limit.
     pub fn insert_rc(&mut self, id: FileId, model: Rc<StepModel>) {
-        // Capacity 0 means "cache nothing": get_or_load then simply falls
+        // Limit 0 means "cache nothing": get_or_load then simply falls
         // through to the persistence backend on every call.
-        if self.capacity == 0 {
+        if self.max_memory_bytes == 0 {
             return;
         }
+        let size = estimate_model_size(&model);
+
         if let Some(pos) = self
             .entries
             .iter()
             .position(|(k, _)| k.as_str() == id.as_str())
         {
-            self.entries.remove(pos);
+            let (_, old_model) = self.entries.remove(pos);
+            self.current_memory_bytes = self
+                .current_memory_bytes
+                .saturating_sub(estimate_model_size(&old_model));
         }
         self.entries.insert(0, (id, model));
+        self.current_memory_bytes += size;
 
-        while self.entries.len() > self.capacity {
-            self.entries.pop();
+        while self.current_memory_bytes > self.max_memory_bytes && self.entries.len() > 1 {
+            if let Some((_, evicted)) = self.entries.pop() {
+                self.current_memory_bytes = self
+                    .current_memory_bytes
+                    .saturating_sub(estimate_model_size(&evicted));
+            }
         }
     }
 
     /// Drop a model from the cache (the persisted copy, if any, remains).
     pub fn remove(&mut self, id: &str) {
         if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
-            self.entries.remove(pos);
+            let (_, removed) = self.entries.remove(pos);
+            self.current_memory_bytes = self
+                .current_memory_bytes
+                .saturating_sub(estimate_model_size(&removed));
         }
     }
 
     /// Drop everything (persisted copies, if any, remain).
     pub fn clear(&mut self) {
         self.entries.clear();
+        self.current_memory_bytes = 0;
     }
 }

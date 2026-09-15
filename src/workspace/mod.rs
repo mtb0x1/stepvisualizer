@@ -7,7 +7,7 @@ mod history;
 mod processor;
 mod state;
 
-use crate::common::constants::{CACHE_SIZE, QualityPreset};
+use crate::common::constants::{CACHE_MAX_MEMORY_BYTES, QualityPreset};
 use crate::common::{FileId, FileIndexItem, Metadata, StepModel};
 use crate::storage::{LruCache, load_index_async};
 use crate::trace_span;
@@ -68,7 +68,7 @@ pub struct StepWorkspace {
 fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<LruCache>>) {
     // Start empty; load asynchronously from IndexedDB on mount.
     let files_index = use_state(Vec::new);
-    let cache = use_mut_ref(|| LruCache::new(CACHE_SIZE));
+    let cache = use_mut_ref(|| LruCache::new(CACHE_MAX_MEMORY_BYTES));
 
     {
         let files_index = files_index.clone();
