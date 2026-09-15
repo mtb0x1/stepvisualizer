@@ -20,7 +20,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const REPO_ROOT = path.resolve(__dirname, '../..');
 const DIST_DIR = path.resolve(__dirname, 'dist');
-const EXAMPLES_DIR = path.resolve(REPO_ROOT, 'examples');
+const samples_DIR = path.resolve(REPO_ROOT, 'samples');
 const BASELINE_FILE = path.resolve(__dirname, 'baseline.json');
 const LAST_RUN_FILE = path.resolve(__dirname, 'last_run.json');
 
@@ -50,7 +50,7 @@ const hasFlag = (flag) => args.includes(flag);
 
 const runs = parseInt(getArg('--runs', '5'), 10);
 const warmup = parseInt(getArg('--warmup', '1'), 10);
-const targetFile = getArg('--file', 'examples/l44mji.step');
+const targetFile = getArg('--file', 'samples/l44mji.step');
 const port = parseInt(getArg('--port', '8099'), 10);
 const updateBaseline = hasFlag('--update-baseline');
 const chromiumPath = getArg('--chromium-path', '/usr/bin/chromium');
@@ -83,7 +83,7 @@ function startServer() {
       let reqPath = decodeURI(req.url.split('?')[0]);
       let filePath;
 
-      if (reqPath.startsWith('/examples/')) {
+      if (reqPath.startsWith('/samples/')) {
         filePath = path.join(REPO_ROOT, reqPath);
       } else {
         if (reqPath === '/' || reqPath === '') reqPath = '/index.html';
@@ -358,7 +358,7 @@ function printComparison(currentReport, baselineReport) {
   console.log(`\n${colors.bold}Regression Analysis & SLA Gates:${colors.reset}`);
   console.log(` • Time Ratio:        ${(timeRatio).toFixed(4)} (weight: ${TIME_WEIGHT * 100}%)`);
   console.log(` • Memory Ratio:      ${(memRatio).toFixed(4)} (weight: ${MEM_WEIGHT * 100}%)`);
-  
+
   let scoreColor = colors.green;
   if (compositeScore > SCORE_FAIL_THRESHOLD) scoreColor = colors.red;
   else if (compositeScore > SCORE_WARN_THRESHOLD) scoreColor = colors.yellow;

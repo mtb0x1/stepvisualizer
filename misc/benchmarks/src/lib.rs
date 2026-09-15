@@ -175,11 +175,7 @@ fn set_window_benchmark_result(report: &BenchmarkReport) {
     if let Some(win) = window() {
         if let Ok(json_str) = serde_json::to_string(report) {
             let js_val = js_sys::JSON::parse(&json_str).unwrap_or(JsValue::NULL);
-            let _ = js_sys::Reflect::set(
-                &win,
-                &JsValue::from_str("__BENCHMARK_RESULT__"),
-                &js_val,
-            );
+            let _ = js_sys::Reflect::set(&win, &JsValue::from_str("__BENCHMARK_RESULT__"), &js_val);
             let _ = js_sys::Reflect::set(
                 &win,
                 &JsValue::from_str("__BENCHMARK_STATUS__"),
@@ -223,7 +219,7 @@ fn get_url_param(param: &str) -> Option<String> {
 #[wasm_bindgen(start)]
 pub async fn start() -> Result<(), JsValue> {
     // Read query parameters: ?file=...&runs=...&warmup=...
-    let file_url = get_url_param("file").unwrap_or_else(|| "examples/l44mji.step".to_string());
+    let file_url = get_url_param("file").unwrap_or_else(|| "samples/l44mji.step".to_string());
     let runs_count: usize = get_url_param("runs")
         .and_then(|r| r.parse().ok())
         .unwrap_or(5);
@@ -299,11 +295,7 @@ async fn execute_benchmark(
         let iter_label = if is_warmup {
             format!("Warm-up iteration {}/{}", iter + 1, warmup_count)
         } else {
-            format!(
-                "Measured run {}/{}",
-                iter + 1 - warmup_count,
-                runs_count
-            )
+            format!("Measured run {}/{}", iter + 1 - warmup_count, runs_count)
         };
 
         update_dom(&format!("Running {iter_label}..."), None);
@@ -329,8 +321,8 @@ async fn execute_benchmark(
         let (_header, _count) = extract_header_and_count("benchmark_model.step", &parsed)
             .map_err(|e| format!("Header extraction failed: {e}"))?;
 
-        let sections = all_usable_sections(&parsed)
-            .map_err(|e| format!("Section extraction failed: {e}"))?;
+        let sections =
+            all_usable_sections(&parsed).map_err(|e| format!("Section extraction failed: {e}"))?;
 
         let step_tables: Vec<truck_stepio::r#in::Table> = sections
             .into_iter()
@@ -346,12 +338,8 @@ async fn execute_benchmark(
         let base_tolerance = compute_adaptive_tolerance(bbox.as_ref());
         let tolerance = base_tolerance.clamp(MIN_TOLERANCE, MAX_TOLERANCE);
 
-        let tess_output = extract_render_parts(
-            &step_tables,
-            Some(&color_map),
-            Some(&name_map),
-            tolerance,
-        );
+        let tess_output =
+            extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
         let parts = tess_output.parts;
         let skipped_shells = tess_output.skipped_shells;
         let tessellation_ms = now_ms() - t_tess_start;
@@ -377,11 +365,8 @@ async fn execute_benchmark(
         sync_gpu_queue(&wgpu_state).await?;
         let gpu_render_sync_ms = now_ms() - t_sync_start;
 
-        let total_hotpath_ms = parse_ast_ms
-            + index_tables_ms
-            + tessellation_ms
-            + gpu_upload_ms
-            + gpu_render_sync_ms;
+        let total_hotpath_ms =
+            parse_ast_ms + index_tables_ms + tessellation_ms + gpu_upload_ms + gpu_render_sync_ms;
 
         let total_wallclock_ms = (now_ms() - t_run_start) + ingestion_duration_ms;
 
@@ -501,8 +486,8 @@ async fn execute_benchmark(
         status: "SUCCESS".to_string(),
     };
 
-    let json_output = serde_json::to_string(&report)
-        .map_err(|e| format!("Failed to serialize report: {e}"))?;
+    let json_output =
+        serde_json::to_string(&report).map_err(|e| format!("Failed to serialize report: {e}"))?;
 
     // Output with distinct delimiters for automated scraping on a single console line
     web_sys::console::log_1(&JsValue::from_str(&format!(

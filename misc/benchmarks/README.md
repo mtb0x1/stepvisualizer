@@ -2,7 +2,7 @@
 
 Deterministic end-to-end hot-path performance and memory benchmark harness for **StepVisualizer**.
 
-This crate measures the critical path from file loading to WebGPU render completion using `examples/l44mji.step` as the baseline. It enforces strict regression protection with **execution time** (Priority 1) and **memory footprint** (Priority 2).
+This crate measures the critical path from file loading to WebGPU render completion using `samples/l44mji.step` as the baseline. It enforces strict regression protection with **execution time** (Priority 1) and **memory footprint** (Priority 2).
 
 ---
 
@@ -83,7 +83,7 @@ node runner.mjs --update-baseline
 
 | Flag | Default | Description |
 |---|---|---|
-| `--file <path>` | `examples/l44mji.step` | Target STEP file relative to repository root |
+| `--file <path>` | `samples/l44mji.step` | Target STEP file relative to repository root |
 | `--runs <N>` | `5` | Number of measured iterations to run |
 | `--warmup <N>` | `1` | Number of unmeasured warm-up iterations |
 | `--update-baseline` | `false` | Save the current run as `baseline.json` |
@@ -95,5 +95,5 @@ node runner.mjs --update-baseline
 
 ## Artifacts
 
-- [`baseline.json`](./baseline.json): Authoritative committed benchmark baseline for `examples/l44mji.step`.
+- [`baseline.json`](./baseline.json): Authoritative committed benchmark baseline for `samples/l44mji.step`.
 - `last_run.json`: Output from the most recent benchmark run (ignored in git).
