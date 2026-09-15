@@ -18,6 +18,9 @@ jobs:
       - name: Cargo Check
         run: cargo check --target wasm32-unknown-unknown
 
+      - name: Cargo fmt
+        run: cargo fmt --check
+
       - name: Cargo Clippy
         run: |
           rustup component add clippy
