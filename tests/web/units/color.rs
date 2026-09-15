@@ -16,7 +16,6 @@ fn test_color_css_rgba() {
     assert_eq!(css, "rgba(255, 0, 128, 0.750)");
 }
 
-
 #[wasm_bindgen_test]
 fn test_pod_zeroable_bytemuck() {
     let c = Color::new(1.0, 2.0, 3.0, 4.0);

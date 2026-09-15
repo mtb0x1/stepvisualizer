@@ -151,9 +151,9 @@ impl Color {
     /// Parses standard CSS color names, RGB/RGBA strings, and Hex strings.
     pub fn parse(text: &str) -> Option<Self> {
         let clean = text.trim().trim_matches('\'').trim_matches('"');
-        csscolorparser::parse(clean).ok().map(|c| {
-            Self::new(c.r as f32, c.g as f32, c.b as f32, c.a as f32)
-        })
+        csscolorparser::parse(clean)
+            .ok()
+            .map(|c| Self::new(c.r, c.g, c.b, c.a))
     }
 
     /// Formats the color as a CSS `rgba(r, g, b, a)` string.
@@ -167,7 +167,6 @@ impl Color {
         let _ = write!(out, "rgba({r}, {g}, {b}, {a:.3})");
         out
     }
-
 
     /// Parses a color from a `COLOUR_RGB` STEP record.
     pub fn from_rgb_record(record: &Record) -> Option<Self> {
