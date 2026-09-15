@@ -4,6 +4,7 @@
 pub mod cache;
 pub mod color;
 pub mod constants;
+pub mod db_schema;
 pub mod error;
 pub mod exchange_index;
 pub mod fps_meter;
@@ -33,7 +34,7 @@ pub use render::{
 pub use step_names::StepNameMap;
 #[allow(unused_imports)]
 pub use storage::{
-    clear_all_storage, delete_model, hash_text_to_id, load_index, load_model, save_index,
+    clear_all_storage, delete_model, hash_text_to_id, load_index_async, save_index,
     save_model,
 };
 #[allow(unused_imports)]
@@ -45,6 +46,7 @@ pub use utils::{
     build_svg_polyline_points, clean_unit_name, contains_ignore_ascii_case, extract_entity_refs,
     find_ignore_ascii_case, format_bbox_coordinates, format_list_or_na, format_or_na,
     geometric_normal, param_as_enum, param_as_list, param_as_real, param_as_ref, param_as_str,
-    ray_aabb_intersect, ray_triangle_intersect, raycast_parts, screen_point_to_ray,
-    spherical_to_cartesian, triangle_area, triangle_signed_volume,
+    ray_aabb_intersect, ray_triangle_intersect, raycast_parts, sanitize_host_for_db_name,
+    screen_point_to_ray, spherical_to_cartesian, storage_prefix, triangle_area,
+    triangle_signed_volume,
 };

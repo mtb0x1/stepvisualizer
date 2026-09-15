@@ -16,56 +16,21 @@ pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file .
 /// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
 ///
 /// The result is computed once per page load and cached in a thread-local.
-use crate::common::utils::detect_env_prefix;
+use crate::common::utils::{sanitize_host_for_db_name, storage_prefix};
 
-/// Returns the per-environment storage prefix (cached after first call).
-pub fn env_prefix() -> &'static str {
-    std::thread_local! {
-        static CACHE: std::cell::OnceCell<&'static str> = const { std::cell::OnceCell::new() };
-    }
-    CACHE.with(|c| *c.get_or_init(detect_env_prefix))
-}
-
-/// localStorage key for the recent-files index (`Vec<FileIndexItem>`),
-/// namespaced by deployment environment.
+/// IndexedDB database name, namespaced by host (including port) and deployment environment.
+/// `.` and `:` in the host are replaced with `_` so the name is a safe identifier.
 ///
-/// Examples: `"stepvisualizer:index"` (dev), `"testing:stepvisualizer:index"`, `"production:stepvisualizer:index"`.
-pub fn ls_index_key() -> std::borrow::Cow<'static, str> {
-    let prefix = env_prefix();
-    if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepvisualizer:index")
-    } else {
-        std::borrow::Cow::Owned(format!("{prefix}stepvisualizer:index"))
-    }
-}
-
-/// Prefix for per-model localStorage keys, namespaced by deployment environment.
-///
-/// Full key format: `<env_prefix>stepvisualizer:model:<id>`.
-/// Examples: `"stepvisualizer:model:"` (dev), `"testing:stepvisualizer:model:"`, `"production:stepvisualizer:model:"`.
-pub fn ls_model_key_prefix() -> std::borrow::Cow<'static, str> {
-    let prefix = env_prefix();
-    if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepvisualizer:model:")
-    } else {
-        std::borrow::Cow::Owned(format!("{prefix}stepvisualizer:model:"))
-    }
-}
-
-/// IndexedDB database name, namespaced by deployment environment.
-///
-/// Examples: `"stepvisualizer_db"` (dev), `"stepvisualizer_db_testing"`, `"stepvisualizer_db_production"`.
+/// Examples:
+/// - local dev:   `"stepvisualizer_db_localhost_8080"`
+/// - testing:     `"stepvisualizer_db_localhost_8080_testing"`
+/// - production:  `"stepvisualizer_db_myapp_example_com_production"`
 pub fn db_name() -> std::borrow::Cow<'static, str> {
-    let prefix = env_prefix();
-    if prefix.is_empty() {
-        std::borrow::Cow::Borrowed("stepvisualizer_db")
-    } else {
-        // Strip trailing ":" from prefix ("testing:" → "stepvisualizer_db_testing")
-        std::borrow::Cow::Owned(format!(
-            "stepvisualizer_db_{}",
-            prefix.trim_end_matches(':')
-        ))
-    }
+    // storage_prefix() = "{host}:{env_prefix}" e.g. "localhost:8080:testing:"
+    // Sanitise the whole prefix (dots and colons → underscores), then trim trailing "_".
+    let prefix = storage_prefix();
+    let sanitized = sanitize_host_for_db_name(prefix.trim_end_matches(':'));
+    std::borrow::Cow::Owned(format!("stepvisualizer_db_{sanitized}"))
 }
 /// Placeholder shown for missing metadata fields in the UI.
 pub const NA: &str = "N/A";

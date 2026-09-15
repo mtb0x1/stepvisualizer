@@ -8,7 +8,8 @@ mod processor;
 mod state;
 
 use crate::common::constants::{CACHE_SIZE, QualityPreset};
-use crate::common::{FileId, FileIndexItem, LruCache, Metadata, StepModel, load_index};
+use crate::common::{FileId, FileIndexItem, LruCache, Metadata, StepModel};
+use crate::common::storage::load_index_async;
 use crate::trace_span;
 use actions::use_model_actions;
 use history::use_workspace_management;
@@ -64,9 +65,21 @@ pub struct StepWorkspace {
 
 #[hook]
 fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<LruCache>>) {
-    // Initialized synchronously from localStorage on mount.
-    let files_index = use_state(load_index);
+    // Start empty; load asynchronously from IndexedDB on mount.
+    let files_index = use_state(Vec::new);
     let cache = use_mut_ref(|| LruCache::new(CACHE_SIZE));
+
+    {
+        let files_index = files_index.clone();
+        use_effect(move || {
+            wasm_bindgen_futures::spawn_local(async move {
+                let index = load_index_async().await;
+                files_index.set(index);
+            });
+            || () // no cleanup needed
+        });
+    }
+
     (files_index, cache)
 }
 

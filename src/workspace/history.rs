@@ -1,6 +1,6 @@
 //! History management, localStorage/IndexedDB persistence helpers, and confirmation workflows.
 use crate::common::{
-    FileId, FileIndexItem, LruCache, clear_all_storage, delete_model, load_model, save_index,
+    FileId, FileIndexItem, LruCache, clear_all_storage, delete_model, save_index,
 };
 use crate::workspace::ConfirmAction;
 use crate::workspace::state::StateHandles;
@@ -67,7 +67,8 @@ pub(crate) fn use_workspace_management(
         Callback::from(move |id: FileId| {
             let next_gen = states.bump_generation();
 
-            let maybe_model = cache.borrow_mut().get_or_load(&id, load_model);
+            // Check in-memory LRU cache only (no sync localStorage fallback).
+            let maybe_model = cache.borrow_mut().get_or_load(&id, |_| None);
 
             match maybe_model {
                 Some(model_rc) => {

@@ -6,7 +6,7 @@ use crate::common::utils::input_file;
 use crate::common::{
     ExchangeIndex, FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap,
     all_usable_sections, compute_bounding_box, extract_header_and_count, extract_render_parts,
-    hash_text_to_id, load_model, probe_validate_step_buffer, save_model,
+    hash_text_to_id, probe_validate_step_buffer, save_model,
 };
 use crate::error::StepError;
 use crate::trace_span;
@@ -248,8 +248,8 @@ pub(crate) fn use_file_processor(
 
             let id = crate::common::storage::hash_text_to_id(&text);
 
-            // Fast-path 1: Check synchronous in-memory LruCache / localStorage
-            if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, load_model) {
+            // Fast-path 1: in-memory LRU cache only (no sync localStorage fallback).
+            if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, |_| None) {
                 states_for_reader.set_loaded_model(model_rc, id.clone(), "Loaded from cache");
                 promote_in_index(&files_index, &id);
                 return;

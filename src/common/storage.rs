@@ -1,69 +1,68 @@
-//! Hybrid persistence: recent-files index in localStorage, full models in IndexedDB.
-//! Persistence is best-effort — failures are logged as warnings and the app keeps running.
+//! Persistence layer: all data stored in IndexedDB only.
+//!
+//! - [`FileIndexItem`] recent-files index → [`STORE_INDEX`] in IndexedDB
+//! - [`StepModel`] blobs → [`STORE_MODELS`] in IndexedDB
+//!
+//! There is no localStorage usage. Pre-refactor `localStorage` keys are silently
+//! abandoned (they will remain in the browser until the user clears site data).
+//!
+//! Persistence is best-effort — failures are logged as warnings and the app
+//! continues running with whatever state it already has in memory.
 use super::logger;
 use crate::trace_span;
-use gloo_storage::{LocalStorage, Storage, errors::StorageError};
-use rexie::{ObjectStore, Rexie, TransactionMode};
 use wasm_bindgen_futures::spawn_local;
 
+use super::db_schema::{
+    clear_index_in_db, clear_models_in_db, delete_model_from_db, load_index_from_db,
+    load_model_from_db, open_db_versioned, save_index_to_db, save_model_json_to_db,
+};
 use super::types::{FileId, FileIndexItem, StepModel};
-use crate::common::constants::{db_name, ls_index_key, ls_model_key_prefix};
 
-const STORE_MODELS: &str = "models";
+// ---------------------------------------------------------------------------
+// Index (IndexedDB)
+// ---------------------------------------------------------------------------
 
-/// Open or initialize the IndexedDB database instance.
-pub async fn open_db() -> Result<Rexie, rexie::Error> {
-    let name = db_name();
-    Rexie::builder(&name)
-        .version(1)
-        .add_object_store(ObjectStore::new(STORE_MODELS))
-        .build()
-        .await
-}
-
-/// Persist the recent-files index. Failure is logged, not propagated.
+/// Persist the recent-files index to IndexedDB (fire-and-forget).
+/// The write is async; the in-memory state in Yew is already updated by the caller.
 pub fn save_index(index: &[FileIndexItem]) {
     trace_span!("save_index");
-    if let Err(err) = LocalStorage::set(ls_index_key(), index) {
-        logger::warn(&format!("Failed to save file index to localStorage: {err}"));
-    }
+    // Clone so it can be moved into the async block.
+    let index_owned = index.to_vec();
+    spawn_local(async move {
+        match open_db_versioned().await {
+            Ok(db) => {
+                if let Err(e) = save_index_to_db(&db, &index_owned).await {
+                    logger::warn(&format!("Failed to save file index to IndexedDB: {e}"));
+                }
+            }
+            Err(e) => logger::warn(&format!("Failed to open DB for index save: {e}")),
+        }
+    });
 }
 
-/// Load the recent-files index; an empty history on first visit or on any storage failure.
-pub fn load_index() -> Vec<FileIndexItem> {
-    trace_span!("load_index");
-    match LocalStorage::get(ls_index_key()) {
-        Ok(index) => index,
-        // A missing index is the normal first-visit case, not a failure.
-        Err(StorageError::KeyNotFound(_)) => vec![],
-        Err(err) => {
+/// Load the recent-files index from IndexedDB asynchronously.
+/// Returns an empty vec on first visit or on any storage failure.
+pub async fn load_index_async() -> Vec<FileIndexItem> {
+    trace_span!("load_index_async");
+    match open_db_versioned().await {
+        Ok(db) => load_index_from_db(&db).await,
+        Err(e) => {
             logger::warn(&format!(
-                "Failed to load file index from localStorage, starting with an empty history: {err}"
+                "Failed to open DB for index load, starting with empty history: {e}"
             ));
             vec![]
         }
     }
 }
 
-fn model_key(id: &str) -> String {
-    format!("{}{}", ls_model_key_prefix(), id)
-}
+// ---------------------------------------------------------------------------
+// Models (IndexedDB)
+// ---------------------------------------------------------------------------
 
-/// Persist a serialized model JSON asynchronously to IndexedDB under its id.
+/// Persist a serialized model JSON blob asynchronously to IndexedDB.
 pub async fn save_model_json_indexeddb(id: &str, json: &str) -> Result<(), String> {
-    let db = open_db().await.map_err(|e| e.to_string())?;
-    let transaction = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
-    let store = transaction.store(STORE_MODELS).map_err(|e| e.to_string())?;
-    let key = wasm_bindgen::JsValue::from_str(id);
-    let val = wasm_bindgen::JsValue::from_str(json);
-    store
-        .put(&val, Some(&key))
-        .await
-        .map_err(|e| e.to_string())?;
-    transaction.commit().await.map_err(|e| e.to_string())?;
-    Ok(())
+    let db = open_db_versioned().await.map_err(|e| e.to_string())?;
+    save_model_json_to_db(&db, id, json).await
 }
 
 /// Persist a whole model asynchronously to IndexedDB.
@@ -75,48 +74,25 @@ pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
 
 /// Load a model asynchronously from IndexedDB.
 pub async fn load_model_indexeddb(id: &str) -> Option<StepModel> {
-    let db = open_db().await.ok()?;
-    let transaction = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadOnly)
-        .ok()?;
-    let store = transaction.store(STORE_MODELS).ok()?;
-    let key = wasm_bindgen::JsValue::from_str(id);
-    let val = store.get(key).await.ok()??;
-    let json = val.as_string()?;
-    serde_json::from_str(&json).ok()
+    let db = open_db_versioned().await.ok()?;
+    load_model_from_db(&db, &FileId::from(id)).await
 }
 
 /// Remove a model from IndexedDB.
 pub async fn delete_model_indexeddb(id: &str) -> Result<(), String> {
-    let db = open_db().await.map_err(|e| e.to_string())?;
-    let transaction = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
-    let store = transaction.store(STORE_MODELS).map_err(|e| e.to_string())?;
-    let key = wasm_bindgen::JsValue::from_str(id);
-    store.delete(key).await.map_err(|e| e.to_string())?;
-    transaction.commit().await.map_err(|e| e.to_string())?;
-    Ok(())
+    let db = open_db_versioned().await.map_err(|e| e.to_string())?;
+    delete_model_from_db(&db, id).await
 }
 
 /// Clear all models from IndexedDB.
 pub async fn clear_indexeddb() -> Result<(), String> {
-    let db = open_db().await.map_err(|e| e.to_string())?;
-    let transaction = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
-    let store = transaction.store(STORE_MODELS).map_err(|e| e.to_string())?;
-    store.clear().await.map_err(|e| e.to_string())?;
-    transaction.commit().await.map_err(|e| e.to_string())?;
-    Ok(())
+    let db = open_db_versioned().await.map_err(|e| e.to_string())?;
+    clear_models_in_db(&db).await
 }
 
-/// Persist a whole model under its id. Spawns async IndexedDB write and writes to localStorage if small.
+/// Persist a whole model (fire-and-forget async IndexedDB write).
 pub fn save_model(model: &StepModel) {
     trace_span!("save_model");
-    let key = model_key(&model.id);
-    let _ = LocalStorage::set(&key, model);
-
     let id = model.id.clone();
     let json = match serde_json::to_string(model) {
         Ok(j) => j,
@@ -132,55 +108,30 @@ pub fn save_model(model: &StepModel) {
     });
 }
 
-/// Load a previously saved model from localStorage (sync fallback).
-pub fn load_model(id: &str) -> Option<StepModel> {
-    trace_span!("load_model");
-    let key = model_key(id);
-    LocalStorage::get::<StepModel>(key).ok()
-}
-
-/// Remove a model's persisted copy from both IndexedDB and localStorage.
+/// Remove a model's persisted copy from IndexedDB (fire-and-forget).
 pub fn delete_model(id: &str) {
     trace_span!("delete_model");
     let id_string = id.to_string();
     spawn_local(async move {
         let _ = delete_model_indexeddb(&id_string).await;
     });
-    let key = model_key(id);
-    LocalStorage::delete(key);
 }
 
-/// Remove all persisted models and the file index from localStorage and IndexedDB.
-pub fn clear_all_storage(items: &[FileIndexItem]) {
+/// Remove all persisted models and the file index from IndexedDB (fire-and-forget).
+pub fn clear_all_storage(_items: &[FileIndexItem]) {
     trace_span!("clear_all_storage");
     spawn_local(async move {
-        let _ = clear_indexeddb().await;
-    });
-
-    if let Some(storage) = web_sys::window().and_then(|w| w.local_storage().ok().flatten()) {
-        let count = storage.length().unwrap_or(0);
-        let mut keys_to_delete = Vec::with_capacity(count as usize);
-        let model_prefix = ls_model_key_prefix();
-        let index_key = ls_index_key();
-        for i in 0..count {
-            if let Ok(Some(key)) = storage.key(i)
-                && (key.starts_with(model_prefix.as_ref()) || key == index_key.as_ref())
-            {
-                keys_to_delete.push(key);
+        match open_db_versioned().await {
+            Ok(db) => {
+                let _ = clear_models_in_db(&db).await;
+                let _ = clear_index_in_db(&db).await;
             }
+            Err(e) => logger::warn(&format!("Failed to open DB for clear: {e}")),
         }
-        for key in keys_to_delete {
-            LocalStorage::delete(key);
-        }
-    } else {
-        for item in items {
-            delete_model(&item.id);
-        }
-        save_index(&[]);
-    }
+    });
 }
 
-/// Content-based model identity (16 hex chars) used as the localStorage key.
+/// Content-based model identity (16 hex chars) used as the IndexedDB key.
 pub fn hash_text_to_id(text: &str) -> FileId {
     FileId::from_content(text)
 }
