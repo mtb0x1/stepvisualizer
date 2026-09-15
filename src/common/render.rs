@@ -285,43 +285,9 @@ fn pack_vertex_key(pos: usize, nor: Option<usize>) -> u64 {
     ((pos as u64) << 32) | (nor_u32 as u64)
 }
 
-// Why FastU64Hasher instead of Rust's default SipHash?
-// By default, Rust's `HashMap` uses a cryptographic hasher called SipHash.
-//
-// But here, we aren't running an internet banking server; we're just welding 3D triangle
-// vertices together inside the user's web browser! We don't need a heavy armored tank,
-// we need a Formula 1 car.
-//
-// `FastU64Hasher` uses SplitMix64: just 3 fast multiplications and bit-shifts that scramble
-// our 64-bit number across hash buckets in ~3 CPU cycles instead of dozens of cycles.
-#[derive(Default, Clone)]
-struct FastU64Hasher(u64);
-
-impl std::hash::Hasher for FastU64Hasher {
-    #[inline(always)]
-    fn finish(&self) -> u64 {
-        self.0
-    }
-    #[inline(always)]
-    fn write_u64(&mut self, i: u64) {
-        // SplitMix64 bit mixer: spreads bits evenly across hash buckets
-        let mut z = i.wrapping_add(0x9e3779b97f4a7c15);
-        z = (z ^ (z >> 30)).wrapping_mul(0xbf58476d1ce4e5b9);
-        z = (z ^ (z >> 27)).wrapping_mul(0x94d049bb133111eb);
-        self.0 = z ^ (z >> 31);
-    }
-    #[inline(always)]
-    fn write(&mut self, bytes: &[u8]) {
-        for chunk in bytes.chunks(8) {
-            let mut buf = [0u8; 8];
-            buf[..chunk.len()].copy_from_slice(chunk);
-            self.write_u64(u64::from_ne_bytes(buf));
-        }
-    }
-}
-
-type FastBuildHasher = std::hash::BuildHasherDefault<FastU64Hasher>;
-type VertexMap = std::collections::HashMap<u64, u32, FastBuildHasher>;
+// Vertex welding hash map using SplitMix64 FastU64Hasher (see fast_hash.rs)
+use crate::common::fast_hash::FastU64Map;
+type VertexMap = FastU64Map<u32>;
 
 /// Append one tessellated face's mesh to the part's vertex/index buffers.
 ///

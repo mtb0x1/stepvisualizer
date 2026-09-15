@@ -7,16 +7,78 @@
 //! - Resolving the file's [`crate::common::LengthUnit`] (previously `parse_units`).
 //!
 //! The index is cheap to drop: call [`std::mem::drop`] once color map, name map, and units are
-//! extracted, so the intermediate [`HashMap`]s are freed before tessellation begins.
+//! extracted, so the intermediate [`FastU64Map`]s are freed before tessellation begins.
 
-use std::collections::HashMap;
+use phf::phf_map;
 
 use crate::common::color::Color;
+use crate::common::fast_hash::FastU64Map;
 use crate::common::types::LengthUnit;
 use crate::common::utils::{
     extract_entity_refs, param_as_enum, param_as_list, param_as_ref, param_as_str,
 };
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum StepEntityKind {
+    ColourRgb,
+    PreDefinedColour,
+    ColorStyle,
+    StyledItem,
+    ClosedShell,
+    OpenShell,
+    ManifoldSolidBrep,
+    BrepWithVoids,
+    FacetedBrep,
+    ShellBasedSurfaceModel,
+    ShapeRepresentation,
+    RepRelationship,
+    IdAttribute,
+    ShapeDefinitionRepresentation,
+    ProductDefinitionShape,
+    ProductDefinition,
+    ProductDefinitionFormation,
+    Product,
+    NextAssemblyUsageOccurrence,
+}
+
+static STEP_ENTITY_KINDS: phf::Map<&'static str, StepEntityKind> = phf_map! {
+    "COLOUR_RGB" => StepEntityKind::ColourRgb,
+    "DRAUGHTING_PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
+    "PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
+    "FILL_AREA_STYLE_COLOUR" => StepEntityKind::ColorStyle,
+    "FILL_AREA_STYLE" => StepEntityKind::ColorStyle,
+    "SURFACE_STYLE_FILL_AREA" => StepEntityKind::ColorStyle,
+    "SURFACE_SIDE_STYLE" => StepEntityKind::ColorStyle,
+    "SURFACE_STYLE_USAGE" => StepEntityKind::ColorStyle,
+    "PRESENTATION_STYLE_ASSIGNMENT" => StepEntityKind::ColorStyle,
+    "CURVE_STYLE" => StepEntityKind::ColorStyle,
+    "SYMBOL_STYLE" => StepEntityKind::ColorStyle,
+    "SYMBOL_COLOUR" => StepEntityKind::ColorStyle,
+    "STYLED_ITEM" => StepEntityKind::StyledItem,
+    "OVER_RIDING_STYLED_ITEM" => StepEntityKind::StyledItem,
+    "CLOSED_SHELL" => StepEntityKind::ClosedShell,
+    "OPEN_SHELL" => StepEntityKind::OpenShell,
+    "MANIFOLD_SOLID_BREP" => StepEntityKind::ManifoldSolidBrep,
+    "BREP_WITH_VOIDS" => StepEntityKind::BrepWithVoids,
+    "FACETED_BREP" => StepEntityKind::FacetedBrep,
+    "SHELL_BASED_SURFACE_MODEL" => StepEntityKind::ShellBasedSurfaceModel,
+    "ADVANCED_BREP_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "MANIFOLD_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
+    "SHAPE_REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
+    "ID_ATTRIBUTE" => StepEntityKind::IdAttribute,
+    "SHAPE_DEFINITION_REPRESENTATION" => StepEntityKind::ShapeDefinitionRepresentation,
+    "PRODUCT_DEFINITION_SHAPE" => StepEntityKind::ProductDefinitionShape,
+    "PRODUCT_DEFINITION" => StepEntityKind::ProductDefinition,
+    "PRODUCT_DEFINITION_FORMATION" => StepEntityKind::ProductDefinitionFormation,
+    "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE" => StepEntityKind::ProductDefinitionFormation,
+    "PRODUCT" => StepEntityKind::Product,
+    "NEXT_ASSEMBLY_USAGE_OCCURRENCE" => StepEntityKind::NextAssemblyUsageOccurrence,
+};
 
 // ---------------------------------------------------------------------------
 // Public index type
@@ -32,51 +94,51 @@ use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 pub struct ExchangeIndex {
     // ---- color data (StepColorMap) -----------------------------------------
     /// Direct entity-id → Color for COLOUR_RGB / PRE_DEFINED_COLOUR entities.
-    pub direct_colors: HashMap<u64, Color>,
+    pub direct_colors: FastU64Map<Color>,
     /// entity-id → list of child style entity ids (style graph edges).
-    pub style_edges: HashMap<u64, Vec<u64>>,
+    pub style_edges: FastU64Map<Vec<u64>>,
     /// CLOSED/OPEN_SHELL id → list of face entity ids.
-    pub shell_to_faces: HashMap<u64, Vec<u64>>,
+    pub shell_to_faces: FastU64Map<Vec<u64>>,
     /// face entity id → CLOSED/OPEN_SHELL id.
-    pub face_to_shell: HashMap<u64, u64>,
+    pub face_to_shell: FastU64Map<u64>,
     /// (style_refs, target_id) pairs from STYLED_ITEM / OVER_RIDING_STYLED_ITEM.
     pub styled_items: Vec<(Vec<u64>, u64)>,
 
     // ---- shared data (StepColorMap, StepNameMap) ---------------------------
     /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS / SHELL_BASED_SURFACE_MODEL id → outer SHELL id.
-    pub solid_to_shell: HashMap<u64, u64>,
+    pub solid_to_shell: FastU64Map<u64>,
 
     // ---- name data (StepNameMap) -------------------------------------------
     /// CLOSED/OPEN_SHELL id → cleaned direct name (from the shell record itself).
-    pub shell_direct_names: HashMap<u64, String>,
+    pub shell_direct_names: FastU64Map<String>,
     /// SHELL id → list of solid/surface-model entity ids that reference it.
-    pub shell_to_solids: HashMap<u64, Vec<u64>>,
+    pub shell_to_solids: FastU64Map<Vec<u64>>,
     /// solid entity id → cleaned name.
-    pub solid_names: HashMap<u64, String>,
+    pub solid_names: FastU64Map<String>,
     /// SHAPE_REPRESENTATION-family id → list of item entity ids.
-    pub rep_items: HashMap<u64, Vec<u64>>,
+    pub rep_items: FastU64Map<Vec<u64>>,
     /// item entity id (shell or solid) → list of SHAPE_REPRESENTATION entity ids containing it.
-    pub item_to_reps: HashMap<u64, Vec<u64>>,
+    pub item_to_reps: FastU64Map<Vec<u64>>,
     /// SHAPE_REPRESENTATION-family id → cleaned name.
-    pub rep_names: HashMap<u64, String>,
+    pub rep_names: FastU64Map<String>,
     /// (rep1_id, rep2_id) pairs from REPRESENTATION_RELATIONSHIP entities.
     pub rep_links: Vec<(u64, u64)>,
     /// SHAPE_REPRESENTATION id → PRODUCT_DEFINITION_SHAPE id (from SHAPE_DEFINITION_REPRESENTATION).
-    pub shape_rep_to_pds: HashMap<u64, u64>,
+    pub shape_rep_to_pds: FastU64Map<u64>,
     /// PRODUCT_DEFINITION_SHAPE id → cleaned name.
-    pub pds_names: HashMap<u64, String>,
+    pub pds_names: FastU64Map<String>,
     /// PRODUCT_DEFINITION_SHAPE id → PRODUCT_DEFINITION id.
-    pub pds_to_pd: HashMap<u64, u64>,
+    pub pds_to_pd: FastU64Map<u64>,
     /// PRODUCT_DEFINITION id → cleaned name.
-    pub pd_names: HashMap<u64, String>,
+    pub pd_names: FastU64Map<String>,
     /// PRODUCT_DEFINITION id → PRODUCT_DEFINITION_FORMATION id.
-    pub pd_to_pdf: HashMap<u64, u64>,
+    pub pd_to_pdf: FastU64Map<u64>,
     /// PRODUCT_DEFINITION_FORMATION id → PRODUCT id.
-    pub pdf_to_prod: HashMap<u64, u64>,
+    pub pdf_to_prod: FastU64Map<u64>,
     /// PRODUCT id → cleaned name.
-    pub prod_names: HashMap<u64, String>,
+    pub prod_names: FastU64Map<String>,
     /// PRODUCT_DEFINITION id → name from NEXT_ASSEMBLY_USAGE_OCCURRENCE.
-    pub nauo_names: HashMap<u64, String>,
+    pub nauo_names: FastU64Map<String>,
 
     // ---- unit data ---------------------------------------------------------
     /// Definitive length unit (from a Complex entity tagged LENGTH_UNIT). Preferred over fallback.
@@ -119,81 +181,95 @@ impl ExchangeIndex {
 
                         let name = record.name.as_str();
 
-                        // -- Color entities --------------------------------------------------
-                        if name.eq_ignore_ascii_case("COLOUR_RGB") {
-                            if let Some(color) = Color::from_rgb_record(record) {
-                                idx.direct_colors.insert(entity_id, color);
+                        // O(1) minimal perfect hash lookup (fallback to uppercase if non-conformant case)
+                        let kind = STEP_ENTITY_KINDS.get(name).copied().or_else(|| {
+                            if name.bytes().any(|b| b.is_ascii_lowercase()) {
+                                let upper = name.to_ascii_uppercase();
+                                STEP_ENTITY_KINDS.get(upper.as_str()).copied()
+                            } else {
+                                None
                             }
-                        } else if name.eq_ignore_ascii_case("DRAUGHTING_PRE_DEFINED_COLOUR")
-                            || name.eq_ignore_ascii_case("PRE_DEFINED_COLOUR")
-                        {
-                            if let Some(color) = Color::from_predefined_record(record) {
-                                idx.direct_colors.insert(entity_id, color);
-                            }
-                        } else if is_color_style_entity(name) {
-                            let refs = extract_entity_refs(&record.parameter);
-                            if !refs.is_empty() {
-                                idx.style_edges.insert(entity_id, refs);
-                            }
-                        } else if name.eq_ignore_ascii_case("STYLED_ITEM")
-                            || name.eq_ignore_ascii_case("OVER_RIDING_STYLED_ITEM")
-                        {
-                            idx.collect_styled_item(record);
+                        });
 
-                        // -- Shell / solid: shared by color AND name --------------------------
-                        } else if name.eq_ignore_ascii_case("CLOSED_SHELL")
-                            || name.eq_ignore_ascii_case("OPEN_SHELL")
-                        {
-                            idx.collect_shell(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("MANIFOLD_SOLID_BREP")
-                            || name.eq_ignore_ascii_case("BREP_WITH_VOIDS")
-                            || name.eq_ignore_ascii_case("FACETED_BREP")
-                        {
-                            idx.collect_brep_solid(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("SHELL_BASED_SURFACE_MODEL") {
-                            idx.collect_shell_based_surface_model(entity_id, record);
-
-                        // -- Name-only entities -----------------------------------------------
-                        } else if name.eq_ignore_ascii_case("ADVANCED_BREP_SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case("SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case("MANIFOLD_SURFACE_SHAPE_REPRESENTATION")
-                            || name.eq_ignore_ascii_case(
-                                "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION",
-                            )
-                            || name.eq_ignore_ascii_case("REPRESENTATION")
-                        {
-                            idx.collect_shape_representation(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("REPRESENTATION_RELATIONSHIP")
-                            || name.eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
-                        {
-                            let refs = extract_entity_refs(&record.parameter);
-                            if refs.len() >= 2 {
-                                idx.rep_links.push((refs[0], refs[1]));
+                        match kind {
+                            Some(StepEntityKind::ColourRgb) => {
+                                if let Some(color) = Color::from_rgb_record(record) {
+                                    idx.direct_colors.insert(entity_id, color);
+                                }
                             }
-                        } else if name.eq_ignore_ascii_case("ID_ATTRIBUTE") {
-                            idx.collect_id_attribute(record);
-                        } else if name.eq_ignore_ascii_case("SHAPE_DEFINITION_REPRESENTATION") {
-                            idx.collect_shape_def_rep(record);
-                        } else if name.eq_ignore_ascii_case("PRODUCT_DEFINITION_SHAPE") {
-                            idx.collect_product_definition_shape(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("PRODUCT_DEFINITION") {
-                            idx.collect_product_definition(entity_id, record);
-                        } else if name.starts_with("PRODUCT_DEFINITION_FORMATION") {
-                            let refs = extract_entity_refs(&record.parameter);
-                            if let Some(&prod_id) = refs.first() {
-                                idx.pdf_to_prod.insert(entity_id, prod_id);
+                            Some(StepEntityKind::PreDefinedColour) => {
+                                if let Some(color) = Color::from_predefined_record(record) {
+                                    idx.direct_colors.insert(entity_id, color);
+                                }
                             }
-                        } else if name.eq_ignore_ascii_case("PRODUCT") {
-                            idx.collect_product(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("NEXT_ASSEMBLY_USAGE_OCCURRENCE") {
-                            idx.collect_nauo(record);
-
-                        // -- Unit entities ----------------------------------------------------
-                        } else if idx.length_unit.is_none()
-                            && let Some(unit) = unit_from_record(record)
-                            && idx.unit_fallback.is_none()
-                        {
-                            idx.unit_fallback = Some(unit);
+                            Some(StepEntityKind::ColorStyle) => {
+                                let refs = extract_entity_refs(&record.parameter);
+                                if !refs.is_empty() {
+                                    idx.style_edges.insert(entity_id, refs);
+                                }
+                            }
+                            Some(StepEntityKind::StyledItem) => {
+                                idx.collect_styled_item(record);
+                            }
+                            Some(StepEntityKind::ClosedShell | StepEntityKind::OpenShell) => {
+                                idx.collect_shell(entity_id, record);
+                            }
+                            Some(
+                                StepEntityKind::ManifoldSolidBrep
+                                | StepEntityKind::BrepWithVoids
+                                | StepEntityKind::FacetedBrep,
+                            ) => {
+                                idx.collect_brep_solid(entity_id, record);
+                            }
+                            Some(StepEntityKind::ShellBasedSurfaceModel) => {
+                                idx.collect_shell_based_surface_model(entity_id, record);
+                            }
+                            Some(StepEntityKind::ShapeRepresentation) => {
+                                idx.collect_shape_representation(entity_id, record);
+                            }
+                            Some(StepEntityKind::RepRelationship) => {
+                                let refs = extract_entity_refs(&record.parameter);
+                                if refs.len() >= 2 {
+                                    idx.rep_links.push((refs[0], refs[1]));
+                                }
+                            }
+                            Some(StepEntityKind::IdAttribute) => {
+                                idx.collect_id_attribute(record);
+                            }
+                            Some(StepEntityKind::ShapeDefinitionRepresentation) => {
+                                idx.collect_shape_def_rep(record);
+                            }
+                            Some(StepEntityKind::ProductDefinitionShape) => {
+                                idx.collect_product_definition_shape(entity_id, record);
+                            }
+                            Some(StepEntityKind::ProductDefinition) => {
+                                idx.collect_product_definition(entity_id, record);
+                            }
+                            Some(StepEntityKind::ProductDefinitionFormation) => {
+                                let refs = extract_entity_refs(&record.parameter);
+                                if let Some(&prod_id) = refs.first() {
+                                    idx.pdf_to_prod.insert(entity_id, prod_id);
+                                }
+                            }
+                            Some(StepEntityKind::Product) => {
+                                idx.collect_product(entity_id, record);
+                            }
+                            Some(StepEntityKind::NextAssemblyUsageOccurrence) => {
+                                idx.collect_nauo(record);
+                            }
+                            None => {
+                                if name.starts_with("PRODUCT_DEFINITION_FORMATION") {
+                                    let refs = extract_entity_refs(&record.parameter);
+                                    if let Some(&prod_id) = refs.first() {
+                                        idx.pdf_to_prod.insert(entity_id, prod_id);
+                                    }
+                                } else if idx.length_unit.is_none()
+                                    && let Some(unit) = unit_from_record(record)
+                                    && idx.unit_fallback.is_none()
+                                {
+                                    idx.unit_fallback = Some(unit);
+                                }
+                            }
                         }
                     }
 
@@ -481,21 +557,4 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
         return LengthUnit::from_name(name);
     }
     None
-}
-
-// ---------------------------------------------------------------------------
-// Color helpers
-// ---------------------------------------------------------------------------
-
-#[inline]
-fn is_color_style_entity(name: &str) -> bool {
-    name.eq_ignore_ascii_case("FILL_AREA_STYLE_COLOUR")
-        || name.eq_ignore_ascii_case("FILL_AREA_STYLE")
-        || name.eq_ignore_ascii_case("SURFACE_STYLE_FILL_AREA")
-        || name.eq_ignore_ascii_case("SURFACE_SIDE_STYLE")
-        || name.eq_ignore_ascii_case("SURFACE_STYLE_USAGE")
-        || name.eq_ignore_ascii_case("PRESENTATION_STYLE_ASSIGNMENT")
-        || name.eq_ignore_ascii_case("CURVE_STYLE")
-        || name.eq_ignore_ascii_case("SYMBOL_STYLE")
-        || name.eq_ignore_ascii_case("SYMBOL_COLOUR")
 }

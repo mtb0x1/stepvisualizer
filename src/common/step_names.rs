@@ -1,7 +1,7 @@
 //! STEP ISO 10303 part and mesh name extraction across solids, products,
 //! representations, and assembly occurrences.
 
-use std::collections::HashMap;
+use crate::common::fast_hash::FastU64Map;
 
 use crate::common::exchange_index::ExchangeIndex;
 
@@ -9,7 +9,7 @@ use crate::common::exchange_index::ExchangeIndex;
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StepNameMap {
     /// Maps STEP entity ID (typically `CLOSED_SHELL` or `OPEN_SHELL`) to a cleaned part name.
-    pub shell_names: HashMap<u64, String>,
+    pub shell_names: FastU64Map<String>,
 }
 
 impl StepNameMap {
@@ -33,13 +33,19 @@ impl StepNameMap {
 
     /// Extracts part names and associates them with shells from a pre-built [`ExchangeIndex`].
     pub fn from_index(index: &ExchangeIndex) -> Self {
-        // Gather all shell IDs found in the file
-        let mut all_shells = std::collections::HashSet::new();
+        // Gather all shell IDs found in the file and deduplicate in contiguous memory
+        let mut all_shells = Vec::with_capacity(
+            index.shell_direct_names.len()
+                + index.solid_to_shell.len()
+                + index.shell_to_solids.len(),
+        );
         all_shells.extend(index.shell_direct_names.keys().copied());
         all_shells.extend(index.solid_to_shell.values().copied());
         all_shells.extend(index.shell_to_solids.keys().copied());
+        all_shells.sort_unstable();
+        all_shells.dedup();
 
-        let mut shell_names = HashMap::new();
+        let mut shell_names = FastU64Map::default();
 
         for shell_id in all_shells {
             let solids = index.shell_to_solids.get(&shell_id);
@@ -140,7 +146,7 @@ impl StepNameMap {
 /// checking both direct mapping and representation relationships.
 fn resolve_pds_for_rep(
     rep_id: u64,
-    shape_rep_to_pds: &HashMap<u64, u64>,
+    shape_rep_to_pds: &FastU64Map<u64>,
     rep_links: &[(u64, u64)],
 ) -> Option<u64> {
     if let Some(&pds) = shape_rep_to_pds.get(&rep_id) {

@@ -51,12 +51,31 @@ truck-modeling = "0.6.0"
 truck-meshalgo = "0.4.0"
 truck-topology = "0.6.0"
 bytemuck = "1.18.0"
-glam = { version = "0.33.6", features = ["bytemuck", "serde", "fast-math", "rkyv", "bytecheck"] }
+glam = { version = "0.33.6", features = [
+    "bytemuck",
+    "serde",
+    "fast-math",
+    "rkyv",
+    "bytecheck",
+] }
 truck-geometry = "0.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rexie = "0.6"
-rkyv = { version = "0.8.18", default-features = false, features = ["std", "bytecheck"] }
-csscolorparser = { version = "0.8.4", default-features = false, features = ["named-colors"] }
+rkyv = { version = "0.8.18", default-features = false, features = [
+    "std",
+    "bytecheck",
+] }
+csscolorparser = { version = "0.8.4", default-features = false, features = [
+    "named-colors",
+] }
+# Pinned to 0.17 to match transitive version required by wgpu 30 / naga.
+# Do NOT upgrade or change version independently to avoid duplicate crate compilation in WASM.
+hashbrown = { version = "0.17", default-features = false, features = [
+    "default-hasher",
+] }
+# Pinned to 0.13 to match transitive version required by csscolorparser.
+# Do NOT upgrade or change version independently to avoid duplicate crate compilation in WASM.
+phf = { version = "0.13", default-features = false, features = ["macros"] }
 
 
 [profile.release]

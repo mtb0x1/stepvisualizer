@@ -48,7 +48,7 @@ pub fn parse_step_file_content(
     let color_map = StepColorMap::from_index(&index);
     let name_map = StepNameMap::from_index(&index);
     let units = index.resolved_unit();
-    // Drop the index before building step tables to free intermediate HashMap memory.
+    // Drop the index before building step tables to free intermediate FastU64Map memory.
     drop(index);
 
     let (step_header, entity_count) = extract_header_and_count(name, &parsed)?;

@@ -5,6 +5,7 @@ pub mod color;
 pub mod constants;
 pub mod error;
 pub mod exchange_index;
+pub mod fast_hash;
 pub mod fps_meter;
 pub mod logger;
 pub mod parser;
@@ -16,6 +17,7 @@ pub mod utils;
 
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
 pub use exchange_index::ExchangeIndex;
+pub use fast_hash::{FastBuildHasher, FastU64Hasher, FastU64Map, FastU64Set};
 pub use glam::dcamera::rh::proj::directx::perspective;
 pub use glam::dcamera::rh::view::look_at_mat4;
 pub use glam::{DMat4, DVec3, Mat4, Vec3, Vec4};

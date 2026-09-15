@@ -1,5 +1,6 @@
 //! LRU cache over parsed `StepModel`s (backed by persistence storage).
-use std::collections::{HashMap, VecDeque};
+use hashbrown::HashMap;
+use std::collections::VecDeque;
 use std::rc::Rc;
 
 use crate::common::types::{FileId, StepModel};

@@ -1,6 +1,6 @@
 //! Color domain model, STEP ISO 10303-46 presentation color extraction, and palette helpers.
 
-use std::collections::HashMap;
+use crate::common::fast_hash::FastU64Map;
 use std::fmt::Write;
 use std::ops::Deref;
 
@@ -233,7 +233,7 @@ pub const fn part_color(index: usize) -> Color {
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StepColorMap {
     /// Maps STEP entity ID (typically `CLOSED_SHELL` or `OPEN_SHELL`) to resolved `Color`.
-    pub shell_colors: HashMap<u64, Color>,
+    pub shell_colors: FastU64Map<Color>,
 }
 
 impl StepColorMap {
@@ -258,8 +258,8 @@ impl StepColorMap {
     /// Extracts colors and connects presentation styles to shells from a pre-built [`ExchangeIndex`].
     pub fn from_index(index: &ExchangeIndex) -> Self {
         // Resolve presentation styles recursively to Color via memoized DFS
-        let mut resolved_styles: HashMap<u64, Color> = index.direct_colors.clone();
-        let mut visiting = std::collections::HashSet::new();
+        let mut resolved_styles: FastU64Map<Color> = index.direct_colors.clone();
+        let mut visiting: Vec<u64> = Vec::with_capacity(8);
         for &style_id in index.style_edges.keys() {
             resolve_style_color(
                 style_id,
@@ -270,7 +270,7 @@ impl StepColorMap {
         }
 
         // Map styled items to shells
-        let mut shell_colors = HashMap::new();
+        let mut shell_colors = FastU64Map::default();
         for (styles, target) in &index.styled_items {
             let mut resolved_color = None;
             for style_id in styles {
@@ -300,29 +300,30 @@ impl StepColorMap {
 }
 
 /// Recursively resolves a presentation style entity to its terminal [`Color`] via memoized DFS,
-/// breaking any cyclic references safely.
+/// breaking any cyclic references safely using a call-stack vector.
 fn resolve_style_color(
     style_id: u64,
-    style_edges: &HashMap<u64, Vec<u64>>,
-    resolved: &mut HashMap<u64, Color>,
-    visiting: &mut std::collections::HashSet<u64>,
+    style_edges: &FastU64Map<Vec<u64>>,
+    resolved: &mut FastU64Map<Color>,
+    visiting: &mut Vec<u64>,
 ) -> Option<Color> {
     if let Some(&color) = resolved.get(&style_id) {
         return Some(color);
     }
-    if !visiting.insert(style_id) {
+    if visiting.contains(&style_id) {
         // Cycle detected; abort this branch
         return None;
     }
+    visiting.push(style_id);
     if let Some(children) = style_edges.get(&style_id) {
         for &child in children {
             if let Some(c) = resolve_style_color(child, style_edges, resolved, visiting) {
                 resolved.insert(style_id, c);
-                visiting.remove(&style_id);
+                visiting.pop();
                 return Some(c);
             }
         }
     }
-    visiting.remove(&style_id);
+    visiting.pop();
     None
 }
