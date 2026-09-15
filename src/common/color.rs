@@ -17,7 +17,19 @@ use crate::ruststep::ast::Exchange;
 /// - Zero-cost binary compatibility with WebGPU uniform buffers (`Pod`, `Zeroable`).
 /// - Clean serialization format identical to `glam::Vec4` for backward-compatible cache storage.
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize, Pod, Zeroable, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    Pod,
+    Zeroable,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 #[serde(transparent)]
 pub struct Color(pub Vec4);
 

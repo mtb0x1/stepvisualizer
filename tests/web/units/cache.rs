@@ -139,9 +139,8 @@ fn step_model_rkyv_binary_roundtrip() {
     aligned.resize(len, 0);
     uint8.copy_to(&mut aligned[..]);
 
-    let deserialized: StepModel =
-        rkyv::from_bytes::<StepModel, rkyv::rancor::Error>(&aligned)
-            .expect("rkyv deserialization succeeds");
+    let deserialized: StepModel = rkyv::from_bytes::<StepModel, rkyv::rancor::Error>(&aligned)
+        .expect("rkyv deserialization succeeds");
 
     assert_eq!(deserialized.id, model.id);
     assert_eq!(deserialized.metadata.header.file_name, "model_rkyv.step");
@@ -151,4 +150,3 @@ fn step_model_rkyv_binary_roundtrip() {
     assert_eq!(deserialized.part_visibility, model.part_visibility);
     assert_eq!(deserialized.audit.created_by, model.audit.created_by);
 }
-

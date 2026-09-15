@@ -152,13 +152,11 @@ pub async fn load_index_from_db(db: &Rexie) -> Vec<crate::common::types::FileInd
 
     let mut items = Vec::new();
     for key_js in keys {
-        if let Ok(Some(val)) = store.get(key_js).await {
-            if let Some(json) = val.as_string() {
-                if let Ok(item) = serde_json::from_str::<crate::common::types::FileIndexItem>(&json)
-                {
-                    items.push(item);
-                }
-            }
+        if let Ok(Some(val)) = store.get(key_js).await
+            && let Some(json) = val.as_string()
+            && let Ok(item) = serde_json::from_str::<crate::common::types::FileIndexItem>(&json)
+        {
+            items.push(item);
         }
     }
 

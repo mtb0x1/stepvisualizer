@@ -23,7 +23,10 @@ pub(crate) fn promote_in_index(files_index: &UseStateHandle<Vec<FileIndexItem>>,
 }
 
 /// Prepends or updates a file in the history index.
-pub(crate) fn add_to_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, mut item: FileIndexItem) {
+pub(crate) fn add_to_index(
+    files_index: &UseStateHandle<Vec<FileIndexItem>>,
+    mut item: FileIndexItem,
+) {
     let mut list = (**files_index).clone();
     list.retain(|i| i.id != item.id);
     item.audit.mark_updated();
@@ -78,9 +81,7 @@ pub(crate) fn use_workspace_management(
                     let files_index = files_index.clone();
                     let file_id = id.clone();
                     wasm_bindgen_futures::spawn_local(async move {
-                        if let Some(model) =
-                            load_model_indexeddb(&file_id).await
-                        {
+                        if let Some(model) = load_model_indexeddb(&file_id).await {
                             if states.is_superseded(next_gen) {
                                 return;
                             }

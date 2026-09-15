@@ -4,12 +4,12 @@ use crate::common::constants::{
 };
 use crate::common::utils::input_file;
 use crate::common::{
-    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap,
-    all_usable_sections, compute_bounding_box, extract_header_and_count, extract_render_parts,
+    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, all_usable_sections,
+    compute_bounding_box, extract_header_and_count, extract_render_parts,
     probe_validate_step_buffer,
 };
-use crate::storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model};
 use crate::error::StepError;
+use crate::storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model};
 use crate::trace_span;
 use crate::workspace::history::{add_to_index, promote_in_index};
 use crate::workspace::state::{StateHandles, build_step_model};

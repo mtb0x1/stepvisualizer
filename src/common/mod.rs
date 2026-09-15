@@ -30,7 +30,8 @@ pub use render::{
 pub use step_names::StepNameMap;
 #[allow(unused_imports)]
 pub use types::{
-    AuditMetadata, BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel, ViewportSize,
+    AuditMetadata, BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel,
+    ViewportSize,
 };
 #[allow(unused_imports)]
 pub use utils::{
