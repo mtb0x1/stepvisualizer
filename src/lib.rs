@@ -40,7 +40,7 @@ use workspace::{ConfirmAction, use_step_workspace};
 /// `on_gpu_unavailable` callback.
 #[function_component(App)]
 fn app() -> Html {
-    trace_span!("app");
+    trace_span!("StepVisualizer");
     // Single hook, called unconditionally before the early return, so hook
     // order is stable across renders.
     let gpu_unavailable =
@@ -145,10 +145,13 @@ fn main_app(props: &MainAppProps) -> Html {
                     on_render_error={render_error_callback}
                     on_gpu_unavailable={props.on_gpu_unavailable.clone()}
                 />
-                <div class="result-message" style="display: flex; gap: 10px;">
-                    <span>
-                        { format!("version({})", option_env!("GIT_HASH").unwrap_or("unknown")) }
-                    </span>
+                <div class="result-message">
+                    <div>
+                        <label for="version">{ "version:"}</label>
+                        <span id="version">
+                            { option_env!("GIT_HASH").unwrap_or("?") }
+                        </span>
+                    </div>
                     <span class={if *workspace.result_is_error { "result-error" } else { "result-success" }}>
                         { workspace.result.as_ref().map(|msg| msg.as_str()).unwrap_or("") }
                     </span>
