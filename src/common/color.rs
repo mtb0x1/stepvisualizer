@@ -9,7 +9,8 @@ use glam::Vec4;
 use serde::{Deserialize, Serialize};
 
 use crate::common::exchange_index::ExchangeIndex;
-use crate::ruststep::ast::Exchange;
+use crate::common::utils::{param_as_list, param_as_real, param_as_str};
+use crate::ruststep::ast::{Parameter, Record};
 
 /// RGBA color representation backed by `glam::Vec4`.
 ///
@@ -221,6 +222,32 @@ impl Color {
     pub fn parse_flexible(text: &str) -> Option<Self> {
         Self::from_draughting_name(text).or_else(|| Self::from_hex(text))
     }
+
+    /// Parses a color from a `COLOUR_RGB` STEP record.
+    pub fn from_rgb_record(record: &Record) -> Option<Self> {
+        let params = param_as_list(&record.parameter)?;
+        if params.len() < 4 {
+            return None;
+        }
+        let r = param_as_real(&params[1]).unwrap_or(0.0) as f32;
+        let g = param_as_real(&params[2]).unwrap_or(0.0) as f32;
+        let b = param_as_real(&params[3]).unwrap_or(0.0) as f32;
+        Some(Self::rgb(
+            r.clamp(0.0, 1.0),
+            g.clamp(0.0, 1.0),
+            b.clamp(0.0, 1.0),
+        ))
+    }
+
+    /// Parses a color from a `PRE_DEFINED_COLOUR` or `DRAUGHTING_PRE_DEFINED_COLOUR` STEP record.
+    pub fn from_predefined_record(record: &Record) -> Option<Self> {
+        let col_name = match &record.parameter {
+            Parameter::String(s) | Parameter::Enumeration(s) => Some(s.as_str()),
+            Parameter::List(l) => l.first().and_then(param_as_str),
+            _ => None,
+        };
+        col_name.and_then(Self::parse_flexible)
+    }
 }
 
 impl Default for Color {
@@ -312,7 +339,7 @@ impl StepColorMap {
             };
 
             // Resolve target geometry to a shell ID
-            if let Some(&shell_id) = index.solid_to_shell_color.get(target) {
+            if let Some(&shell_id) = index.solid_to_shell.get(target) {
                 shell_colors.insert(shell_id, color);
             } else if index.shell_to_faces.contains_key(target) {
                 shell_colors.insert(*target, color);
@@ -325,8 +352,6 @@ impl StepColorMap {
 
         Self { shell_colors }
     }
-
-
 }
 
 /// Recursively resolves a presentation style entity to its terminal [`Color`] via memoized DFS,

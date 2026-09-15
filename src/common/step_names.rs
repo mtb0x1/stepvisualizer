@@ -4,7 +4,6 @@
 use std::collections::HashMap;
 
 use crate::common::exchange_index::ExchangeIndex;
-use crate::ruststep::ast::Exchange;
 
 /// Extracted mapping of STEP shell entity IDs to resolved, human-readable part names.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -37,7 +36,7 @@ impl StepNameMap {
         // Gather all shell IDs found in the file
         let mut all_shells = std::collections::HashSet::new();
         all_shells.extend(index.shell_direct_names.keys().copied());
-        all_shells.extend(index.solid_to_shell_names.values().copied());
+        all_shells.extend(index.solid_to_shell.values().copied());
         all_shells.extend(index.shell_to_solids.keys().copied());
 
         let mut shell_names = HashMap::new();
@@ -135,8 +134,6 @@ impl StepNameMap {
 
         Self { shell_names }
     }
-
-
 }
 
 /// Resolves the associated `PRODUCT_DEFINITION_SHAPE` for a representation,

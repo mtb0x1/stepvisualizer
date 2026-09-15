@@ -1,5 +1,5 @@
-use stepvisualizer::common::step_names::{StepNameMap, clean_part_name, is_valid_part_name};
 use stepvisualizer::common::exchange_index::ExchangeIndex;
+use stepvisualizer::common::step_names::{StepNameMap, clean_part_name, is_valid_part_name};
 use stepvisualizer::ruststep;
 use wasm_bindgen_test::*;
 

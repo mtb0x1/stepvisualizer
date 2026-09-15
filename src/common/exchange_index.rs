@@ -14,9 +14,9 @@ use std::collections::HashMap;
 use crate::common::color::Color;
 use crate::common::types::LengthUnit;
 use crate::common::utils::{
-    extract_entity_refs, param_as_enum, param_as_list, param_as_real, param_as_ref, param_as_str,
+    extract_entity_refs, param_as_enum, param_as_list, param_as_ref, param_as_str,
 };
-use crate::ruststep::ast::{EntityInstance, Exchange, Parameter, Record};
+use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 
 // ---------------------------------------------------------------------------
 // Public index type
@@ -35,8 +35,6 @@ pub struct ExchangeIndex {
     pub direct_colors: HashMap<u64, Color>,
     /// entity-id → list of child style entity ids (style graph edges).
     pub style_edges: HashMap<u64, Vec<u64>>,
-    /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS id → outer SHELL id.
-    pub solid_to_shell_color: HashMap<u64, u64>,
     /// CLOSED/OPEN_SHELL id → list of face entity ids.
     pub shell_to_faces: HashMap<u64, Vec<u64>>,
     /// face entity id → CLOSED/OPEN_SHELL id.
@@ -44,11 +42,13 @@ pub struct ExchangeIndex {
     /// (style_refs, target_id) pairs from STYLED_ITEM / OVER_RIDING_STYLED_ITEM.
     pub styled_items: Vec<(Vec<u64>, u64)>,
 
+    // ---- shared data (StepColorMap, StepNameMap) ---------------------------
+    /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS / SHELL_BASED_SURFACE_MODEL id → outer SHELL id.
+    pub solid_to_shell: HashMap<u64, u64>,
+
     // ---- name data (StepNameMap) -------------------------------------------
     /// CLOSED/OPEN_SHELL id → cleaned direct name (from the shell record itself).
     pub shell_direct_names: HashMap<u64, String>,
-    /// MANIFOLD_SOLID_BREP / BREP_WITH_VOIDS / FACETED_BREP / SHELL_BASED_SURFACE_MODEL id → SHELL id.
-    pub solid_to_shell_names: HashMap<u64, u64>,
     /// SHELL id → list of solid/surface-model entity ids that reference it.
     pub shell_to_solids: HashMap<u64, Vec<u64>>,
     /// solid entity id → cleaned name.
@@ -121,21 +121,16 @@ impl ExchangeIndex {
 
                         // -- Color entities --------------------------------------------------
                         if name.eq_ignore_ascii_case("COLOUR_RGB") {
-                            idx.collect_colour_rgb(entity_id, record);
+                            if let Some(color) = Color::from_rgb_record(record) {
+                                idx.direct_colors.insert(entity_id, color);
+                            }
                         } else if name.eq_ignore_ascii_case("DRAUGHTING_PRE_DEFINED_COLOUR")
                             || name.eq_ignore_ascii_case("PRE_DEFINED_COLOUR")
                         {
-                            idx.collect_predefined_colour(entity_id, record);
-                        } else if name.eq_ignore_ascii_case("FILL_AREA_STYLE_COLOUR")
-                            || name.eq_ignore_ascii_case("FILL_AREA_STYLE")
-                            || name.eq_ignore_ascii_case("SURFACE_STYLE_FILL_AREA")
-                            || name.eq_ignore_ascii_case("SURFACE_SIDE_STYLE")
-                            || name.eq_ignore_ascii_case("SURFACE_STYLE_USAGE")
-                            || name.eq_ignore_ascii_case("PRESENTATION_STYLE_ASSIGNMENT")
-                            || name.eq_ignore_ascii_case("CURVE_STYLE")
-                            || name.eq_ignore_ascii_case("SYMBOL_STYLE")
-                            || name.eq_ignore_ascii_case("SYMBOL_COLOUR")
-                        {
+                            if let Some(color) = Color::from_predefined_record(record) {
+                                idx.direct_colors.insert(entity_id, color);
+                            }
+                        } else if is_color_style_entity(name) {
                             let refs = extract_entity_refs(&record.parameter);
                             if !refs.is_empty() {
                                 idx.style_edges.insert(entity_id, refs);
@@ -243,29 +238,6 @@ impl ExchangeIndex {
     // Private helpers — color
     // -----------------------------------------------------------------------
 
-    fn collect_colour_rgb(&mut self, entity_id: u64, record: &Record) {
-        if let Some(params) = param_as_list(&record.parameter).filter(|p| p.len() >= 4) {
-            let r = param_as_real(&params[1]).unwrap_or(0.0) as f32;
-            let g = param_as_real(&params[2]).unwrap_or(0.0) as f32;
-            let b = param_as_real(&params[3]).unwrap_or(0.0) as f32;
-            self.direct_colors.insert(
-                entity_id,
-                Color::rgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0)),
-            );
-        }
-    }
-
-    fn collect_predefined_colour(&mut self, entity_id: u64, record: &Record) {
-        let col_name = match &record.parameter {
-            Parameter::String(s) | Parameter::Enumeration(s) => Some(s.as_str()),
-            Parameter::List(l) => l.first().and_then(param_as_str),
-            _ => None,
-        };
-        if let Some(color) = col_name.and_then(Color::parse_flexible) {
-            self.direct_colors.insert(entity_id, color);
-        }
-    }
-
     fn collect_styled_item(&mut self, record: &Record) {
         let Some(params) = param_as_list(&record.parameter) else {
             return;
@@ -323,8 +295,7 @@ impl ExchangeIndex {
 
         // Color + name: solid → shell link (param 1)
         if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
-            self.solid_to_shell_color.insert(entity_id, shell_id);
-            self.solid_to_shell_names.insert(entity_id, shell_id);
+            self.solid_to_shell.insert(entity_id, shell_id);
             self.shell_to_solids
                 .entry(shell_id)
                 .or_default()
@@ -350,7 +321,7 @@ impl ExchangeIndex {
         // Name: model → shells (param 1, a list of refs)
         if let Some(shells_param) = params.get(1) {
             for shell_id in extract_entity_refs(shells_param) {
-                self.solid_to_shell_names.insert(entity_id, shell_id);
+                self.solid_to_shell.insert(entity_id, shell_id);
                 self.shell_to_solids
                     .entry(shell_id)
                     .or_default()
@@ -510,4 +481,21 @@ fn unit_from_record(record: &Record) -> Option<LengthUnit> {
         return LengthUnit::from_name(name);
     }
     None
+}
+
+// ---------------------------------------------------------------------------
+// Color helpers
+// ---------------------------------------------------------------------------
+
+#[inline]
+fn is_color_style_entity(name: &str) -> bool {
+    name.eq_ignore_ascii_case("FILL_AREA_STYLE_COLOUR")
+        || name.eq_ignore_ascii_case("FILL_AREA_STYLE")
+        || name.eq_ignore_ascii_case("SURFACE_STYLE_FILL_AREA")
+        || name.eq_ignore_ascii_case("SURFACE_SIDE_STYLE")
+        || name.eq_ignore_ascii_case("SURFACE_STYLE_USAGE")
+        || name.eq_ignore_ascii_case("PRESENTATION_STYLE_ASSIGNMENT")
+        || name.eq_ignore_ascii_case("CURVE_STYLE")
+        || name.eq_ignore_ascii_case("SYMBOL_STYLE")
+        || name.eq_ignore_ascii_case("SYMBOL_COLOUR")
 }
