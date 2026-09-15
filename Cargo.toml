@@ -69,7 +69,9 @@ rkyv = { version = "0.8.18", default-features = false, features = [
     "std",
     "bytecheck",
     "smallvec-1",
+    "smol_str-0_3",
 ] }
+smol_str = { version = "0.3.2", default-features = false, features = ["serde"] }
 csscolorparser = { version = "0.8.4", default-features = false, features = [
     "named-colors",
 ] }

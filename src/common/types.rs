@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
+use smol_str::{SmolStr, format_smolstr};
 
 use super::render::RenderablePart;
 use crate::common::utils::clean_unit_name;
@@ -24,11 +25,11 @@ use glam::DVec3;
     rkyv::Serialize,
     rkyv::Deserialize,
 )]
-pub struct FileId(pub String);
+pub struct FileId(pub SmolStr);
 
 impl FileId {
     #[inline]
-    pub const fn as_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         self.0.as_str()
     }
 }
@@ -42,23 +43,27 @@ impl std::fmt::Display for FileId {
 impl FileId {
     /// Content-based model identity (16 hex chars) computed via stable XXH3-64 hash.
     pub fn from_content(text: &str) -> Self {
-        use std::fmt::Write;
         let hash = xxhash_rust::xxh3::xxh3_64(text.as_bytes());
-        let mut s = String::with_capacity(16);
-        let _ = write!(s, "{:016x}", hash);
-        Self(s)
+        // 16 hex chars fit perfectly within SmolStr's 23-byte inline capacity
+        Self(format_smolstr!("{:016x}", hash))
     }
 }
 
 impl From<String> for FileId {
     fn from(s: String) -> Self {
+        Self(SmolStr::new(s))
+    }
+}
+
+impl From<SmolStr> for FileId {
+    fn from(s: SmolStr) -> Self {
         Self(s)
     }
 }
 
 impl From<&str> for FileId {
     fn from(s: &str) -> Self {
-        Self(s.to_string())
+        Self(SmolStr::new(s))
     }
 }
 
@@ -227,16 +232,16 @@ impl std::fmt::Display for LengthUnit {
     rkyv::Deserialize,
 )]
 pub struct StepHeader {
-    pub file_description: String,
-    pub implementation_level: String,
-    pub file_name: String,
-    pub time_stamp: String,
-    pub author: SmallVec<[String; 2]>,
-    pub organization: SmallVec<[String; 2]>,
-    pub preprocessor_version: String,
-    pub originating_system: String,
-    pub authorization: String,
-    pub file_schema: String,
+    pub file_description: SmolStr,
+    pub implementation_level: SmolStr,
+    pub file_name: SmolStr,
+    pub time_stamp: SmolStr,
+    pub author: SmallVec<[SmolStr; 2]>,
+    pub organization: SmallVec<[SmolStr; 2]>,
+    pub preprocessor_version: SmolStr,
+    pub originating_system: SmolStr,
+    pub authorization: SmolStr,
+    pub file_schema: SmolStr,
 }
 
 /// Display metadata for a loaded file: header fields plus derived geometry
@@ -283,9 +288,9 @@ pub struct Metadata {
 )]
 pub struct FileIndexItem {
     pub id: FileId,
-    pub name: String,
+    pub name: SmolStr,
     pub entity_count: usize,
-    pub time_stamp: String,
+    pub time_stamp: SmolStr,
     #[serde(default)]
     pub audit: AuditMetadata,
 }
@@ -457,9 +462,9 @@ pub struct AuditMetadata {
     #[serde(default = "default_timestamp")]
     pub updated_on: f64,
     #[serde(default = "default_user")]
-    pub created_by: String,
+    pub created_by: SmolStr,
     #[serde(default = "default_user")]
-    pub updated_by: String,
+    pub updated_by: SmolStr,
 }
 
 impl Default for AuditMetadata {
@@ -479,8 +484,8 @@ fn default_timestamp() -> f64 {
     crate::common::utils::now_ms()
 }
 
-fn default_user() -> String {
-    "admin".to_string()
+fn default_user() -> SmolStr {
+    SmolStr::new("admin")
 }
 
 impl AuditMetadata {

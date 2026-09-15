@@ -1,6 +1,7 @@
 //! Part list of the loaded model with per-part visibility toggles.
 use crate::common::Color;
 use crate::trace_span;
+use smol_str::{SmolStr, format_smolstr};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
 
@@ -8,7 +9,7 @@ use yew::prelude::*;
 pub struct MeshItemProps {
     pub index: usize,
     #[prop_or_default]
-    pub name: Option<String>,
+    pub name: Option<SmolStr>,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,
@@ -32,8 +33,8 @@ fn mesh_item(props: &MeshItemProps) -> Html {
         .name
         .as_deref()
         .filter(|s| !s.trim().is_empty())
-        .map(String::from)
-        .unwrap_or_else(|| format!("Mesh {}", props.index + 1));
+        .map(SmolStr::new)
+        .unwrap_or_else(|| format_smolstr!("Mesh {}", props.index + 1));
 
     html! {
         <div class="mesh-item">
@@ -49,7 +50,7 @@ fn mesh_item(props: &MeshItemProps) -> Html {
                     style={format!("background-color: {};", props.color.to_css_rgba())}
                     title={props.color.to_hex()}
                 />
-                <span class="mesh-name">{ display_name }</span>
+                <span class="mesh-name">{ display_name.as_str() }</span>
             </div>
             <div class="mesh-details">
                 <span class="mesh-stats">
@@ -71,7 +72,7 @@ pub struct MeshesPanelProps {
 #[derive(Clone, Debug, PartialEq, Properties)]
 pub struct MeshData {
     pub index: usize,
-    pub name: Option<String>,
+    pub name: Option<SmolStr>,
     pub triangle_count: usize,
     pub vertex_count: usize,
     pub visible: bool,

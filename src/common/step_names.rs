@@ -1,15 +1,15 @@
 //! STEP ISO 10303 part and mesh name extraction across solids, products,
 //! representations, and assembly occurrences.
 
-use crate::common::fast_hash::FastU64Map;
-
 use crate::common::exchange_index::ExchangeIndex;
+use crate::common::fast_hash::FastU64Map;
+use smol_str::SmolStr;
 
 /// Extracted mapping of STEP shell entity IDs to resolved, human-readable part names.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct StepNameMap {
     /// Maps STEP entity ID (typically `CLOSED_SHELL` or `OPEN_SHELL`) to a cleaned part name.
-    pub shell_names: FastU64Map<String>,
+    pub shell_names: FastU64Map<SmolStr>,
 }
 
 impl StepNameMap {
@@ -134,7 +134,7 @@ impl StepNameMap {
             );
 
             if let Some(name) = chosen {
-                shell_names.insert(shell_id, name.to_string());
+                shell_names.insert(shell_id, SmolStr::new(name));
             }
         }
 
@@ -261,6 +261,6 @@ pub fn clean_part_name_str(s: &str) -> &str {
 
 /// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
 #[inline]
-pub fn clean_part_name(s: &str) -> String {
-    clean_part_name_str(s).to_string()
+pub fn clean_part_name(s: &str) -> SmolStr {
+    SmolStr::new(clean_part_name_str(s))
 }

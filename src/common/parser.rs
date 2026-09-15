@@ -152,16 +152,21 @@ pub fn probe_validate_step_buffer(text: &str) -> Result<StepSchema, StepError> {
 /// Helper to convert a typed [`Header`] into a display-oriented [`StepHeader`].
 pub fn convert_header_from_ast(header: &Header) -> StepHeader {
     StepHeader {
-        file_description: header.file_description.description.join("; "),
-        implementation_level: header.file_description.implementation_level.clone(),
-        file_name: header.file_name.name.clone(),
-        time_stamp: header.file_name.time_stamp.clone(),
-        author: header.file_name.author.clone().into(),
-        organization: header.file_name.organization.clone().into(),
-        preprocessor_version: header.file_name.preprocessor_version.clone(),
-        originating_system: header.file_name.originating_system.clone(),
-        authorization: header.file_name.authorization.clone(),
-        file_schema: header.file_schema.schema.join(", "),
+        file_description: header.file_description.description.join("; ").into(),
+        implementation_level: header.file_description.implementation_level.clone().into(),
+        file_name: header.file_name.name.clone().into(),
+        time_stamp: header.file_name.time_stamp.clone().into(),
+        author: header.file_name.author.iter().map(|s| s.into()).collect(),
+        organization: header
+            .file_name
+            .organization
+            .iter()
+            .map(|s| s.into())
+            .collect(),
+        preprocessor_version: header.file_name.preprocessor_version.clone().into(),
+        originating_system: header.file_name.originating_system.clone().into(),
+        authorization: header.file_name.authorization.clone().into(),
+        file_schema: header.file_schema.schema.join(", ").into(),
     }
 }
 
@@ -278,7 +283,7 @@ pub fn extract_header_and_count(
         .sum();
     let mut step_header = convert_header_from_ast(&header_obj);
     if step_header.file_name.is_empty() {
-        step_header.file_name = fallback_name.to_string();
+        step_header.file_name = fallback_name.into();
     }
     Ok((step_header, entity_count))
 }

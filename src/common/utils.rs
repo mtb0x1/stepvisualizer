@@ -3,6 +3,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 
 use glam::{DMat4, DVec3, DVec4, Vec2};
+use smol_str::SmolStr;
 
 use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, NA};
 use crate::common::render::{RenderablePart, visible_bounds};
@@ -54,7 +55,7 @@ pub const fn format_or_na(val: &str) -> &str {
 
 /// Formats a list of strings joined by `", "`, returning `NA` ("N/A") if empty or all strings are empty.
 #[inline]
-pub fn format_list_or_na(list: &[String]) -> Cow<'_, str> {
+pub fn format_list_or_na(list: &[SmolStr]) -> Cow<'_, str> {
     if list.is_empty() || list.iter().all(|s| s.is_empty()) {
         Cow::Borrowed(NA)
     } else {

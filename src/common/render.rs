@@ -16,6 +16,7 @@ use crate::common::utils::{
     compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
 };
 use glam::{DVec3, Mat4, Vec3};
+use smol_str::SmolStr;
 
 /// Interleaved GPU vertex: 3D position and surface normal.
 /// 24 bytes, 4-byte aligned. Matches WebGPU vertex buffer layout.
@@ -64,7 +65,7 @@ pub struct RenderablePart {
     pub model_matrix: Mat4,
     pub color: Color,
     #[serde(default)]
-    pub name: Option<String>,
+    pub name: Option<SmolStr>,
 }
 
 impl Default for RenderablePart {
@@ -431,7 +432,7 @@ fn tessellate_table(
             let color = colors
                 .and_then(|c| c.get(*shell_key))
                 .unwrap_or_else(|| part_color(parts_to_render.len()));
-            let name = names.and_then(|n| n.get(*shell_key)).map(String::from);
+            let name = names.and_then(|n| n.get(*shell_key)).map(SmolStr::new);
 
             parts_to_render.push(RenderablePart {
                 vertices,

@@ -14,6 +14,7 @@ use crate::trace_span;
 use actions::use_model_actions;
 use history::use_workspace_management;
 use processor::use_file_processor;
+use smol_str::SmolStr;
 use state::StateHandles;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
@@ -49,7 +50,7 @@ pub struct WorkspaceActions {
 /// internal `use_state` handles, so `set` calls from anywhere re-render the
 /// components that read them.
 pub struct StepWorkspace {
-    pub result: UseStateHandle<Option<String>>,
+    pub result: UseStateHandle<Option<SmolStr>>,
     /// `true` when the current `result` message is an error (drives CSS class).
     pub result_is_error: UseStateHandle<bool>,
     pub metadata: UseStateHandle<Option<Metadata>>,
@@ -90,7 +91,7 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
 pub fn use_step_workspace() -> StepWorkspace {
     trace_span!("use_step_workspace");
     let states = StateHandles {
-        result: use_state(|| None::<String>),
+        result: use_state(|| None::<SmolStr>),
         result_is_error: use_state(|| false),
         metadata: use_state(|| None::<Metadata>),
         file_reader: Rc::new(RefCell::new(None)),

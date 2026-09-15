@@ -19,6 +19,7 @@ use crate::{
     },
     trace_span,
 };
+use smol_str::{SmolStr, format_smolstr};
 use wasm_bindgen::JsCast;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen_futures::spawn_local;
@@ -33,10 +34,10 @@ pub struct MainPanelProps {
     pub metadata: Option<Metadata>,
     pub part_visibility: Vec<bool>,
     /// Transient per-frame errors, surfaced in the app's result message.
-    pub on_render_error: Callback<String>,
+    pub on_render_error: Callback<SmolStr>,
     /// Fatal GPU init errors: the app cannot render at all, so the whole
     /// shell is replaced by the WebGPU-unavailable page.
-    pub on_gpu_unavailable: Callback<String>,
+    pub on_gpu_unavailable: Callback<SmolStr>,
 }
 
 /// Drag mode for viewport pointer interaction.
@@ -120,7 +121,8 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                             // feature dead-ends at the renderer), so it goes
                             // to the dedicated channel rather than the
                             // transient per-frame error message.
-                            gpu_unavailable_cb.emit(format!("{}: {e}", WEBGPU_INIT_FAILED_MSG));
+                            gpu_unavailable_cb
+                                .emit(format_smolstr!("{}: {e}", WEBGPU_INIT_FAILED_MSG));
                         }
                     }
                 });
@@ -238,7 +240,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                             .await;
                             *is_rendering.borrow_mut() = false;
                             if let Err(e) = res {
-                                error_cb.emit(format!("Render error: {e}"));
+                                error_cb.emit(format_smolstr!("Render error: {e}"));
                             }
                             while *pending_render.borrow() {
                                 *pending_render.borrow_mut() = false;

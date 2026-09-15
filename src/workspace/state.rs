@@ -2,6 +2,7 @@
 use crate::common::constants::QualityPreset;
 use crate::common::{FileId, Metadata, RenderablePart, StepModel, visible_bounds};
 use gloo::file::callbacks::FileReader;
+use smol_str::{SmolStr, format_smolstr};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use yew::prelude::*;
@@ -16,7 +17,7 @@ use super::ConfirmAction;
 /// avoid phantom UI re-renders and stale closure snapshots.
 #[derive(Clone)]
 pub(crate) struct StateHandles {
-    pub result: UseStateHandle<Option<String>>,
+    pub result: UseStateHandle<Option<SmolStr>>,
     pub result_is_error: UseStateHandle<bool>,
     pub metadata: UseStateHandle<Option<Metadata>>,
     pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
@@ -51,7 +52,7 @@ impl StateHandles {
     /// metadata, and drops the processing flag.
     pub fn fail_load(&self, err: impl std::fmt::Display) {
         self.result_is_error.set(true);
-        self.result.set(Some(err.to_string()));
+        self.result.set(Some(format_smolstr!("{err}")));
         self.metadata.set(None);
         self.is_processing.set(false);
     }
@@ -62,11 +63,11 @@ impl StateHandles {
         self.selected_file.set(None);
         self.metadata.set(None);
         self.step_model.set(None);
-        self.part_visibility.set(Vec::new());
+        self.part_visibility.set(vec![]);
     }
 
     /// Updates status message and error flag.
-    pub fn set_result(&self, msg: impl Into<String>, is_error: bool) {
+    pub fn set_result(&self, msg: impl Into<SmolStr>, is_error: bool) {
         self.result_is_error.set(is_error);
         self.result.set(Some(msg.into()));
     }

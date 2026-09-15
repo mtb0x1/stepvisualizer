@@ -11,6 +11,7 @@
 
 use phf::phf_map;
 use smallvec::SmallVec;
+use smol_str::SmolStr;
 
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
@@ -113,35 +114,35 @@ pub struct ExchangeIndex {
 
     // ---- name data (StepNameMap) -------------------------------------------
     /// CLOSED/OPEN_SHELL id → cleaned direct name (from the shell record itself).
-    pub shell_direct_names: FastU64Map<String>,
+    pub shell_direct_names: FastU64Map<SmolStr>,
     /// SHELL id → list of solid/surface-model entity ids that reference it.
     pub shell_to_solids: FastU64Map<SmallVec<[u64; 2]>>,
     /// solid entity id → cleaned name.
-    pub solid_names: FastU64Map<String>,
+    pub solid_names: FastU64Map<SmolStr>,
     /// SHAPE_REPRESENTATION-family id → list of item entity ids.
     pub rep_items: FastU64Map<SmallVec<[u64; 5]>>,
     /// item entity id (shell or solid) → list of SHAPE_REPRESENTATION entity ids containing it.
     pub item_to_reps: FastU64Map<SmallVec<[u64; 4]>>,
     /// SHAPE_REPRESENTATION-family id → cleaned name.
-    pub rep_names: FastU64Map<String>,
+    pub rep_names: FastU64Map<SmolStr>,
     /// (rep1_id, rep2_id) pairs from REPRESENTATION_RELATIONSHIP entities.
     pub rep_links: Vec<(u64, u64)>,
     /// SHAPE_REPRESENTATION id → PRODUCT_DEFINITION_SHAPE id (from SHAPE_DEFINITION_REPRESENTATION).
     pub shape_rep_to_pds: FastU64Map<u64>,
     /// PRODUCT_DEFINITION_SHAPE id → cleaned name.
-    pub pds_names: FastU64Map<String>,
+    pub pds_names: FastU64Map<SmolStr>,
     /// PRODUCT_DEFINITION_SHAPE id → PRODUCT_DEFINITION id.
     pub pds_to_pd: FastU64Map<u64>,
     /// PRODUCT_DEFINITION id → cleaned name.
-    pub pd_names: FastU64Map<String>,
+    pub pd_names: FastU64Map<SmolStr>,
     /// PRODUCT_DEFINITION id → PRODUCT_DEFINITION_FORMATION id.
     pub pd_to_pdf: FastU64Map<u64>,
     /// PRODUCT_DEFINITION_FORMATION id → PRODUCT id.
     pub pdf_to_prod: FastU64Map<u64>,
     /// PRODUCT id → cleaned name.
-    pub prod_names: FastU64Map<String>,
+    pub prod_names: FastU64Map<SmolStr>,
     /// PRODUCT_DEFINITION id → name from NEXT_ASSEMBLY_USAGE_OCCURRENCE.
-    pub nauo_names: FastU64Map<String>,
+    pub nauo_names: FastU64Map<SmolStr>,
 
     // ---- unit data ---------------------------------------------------------
     /// Definitive length unit (from a Complex entity tagged LENGTH_UNIT). Preferred over fallback.

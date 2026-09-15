@@ -25,6 +25,7 @@ pub mod workspace;
 use common::constants::NO_WEBGPU_MSG;
 use common::logger;
 use rendering::wgpu_state::browser_has_webgpu;
+use smol_str::SmolStr;
 use ui::{
     AppStepVisualizer, ConfirmModal, LeftPanel, RightPanel as MetadataPanel, UploadBar,
     WebGpuUnavailable,
@@ -52,7 +53,9 @@ fn app() -> Html {
 
     let on_gpu_unavailable = {
         let gpu_unavailable = gpu_unavailable.clone();
-        Callback::from(move |reason: String| gpu_unavailable.set(Some(AttrValue::from(reason))))
+        Callback::from(move |reason: SmolStr| {
+            gpu_unavailable.set(Some(AttrValue::from(reason.to_string())))
+        })
     };
 
     html! { <MainApp {on_gpu_unavailable} /> }
@@ -61,7 +64,7 @@ fn app() -> Html {
 #[derive(Properties, PartialEq)]
 struct MainAppProps {
     /// Fatal GPU failure channel from the viewport (init_wgpu errors).
-    on_gpu_unavailable: Callback<String>,
+    on_gpu_unavailable: Callback<SmolStr>,
 }
 
 /// The application shell: workspace hook + sidebars, viewport.
@@ -73,7 +76,7 @@ fn main_app(props: &MainAppProps) -> Html {
     let render_error_callback = {
         let result = workspace.result.clone();
         let result_is_error = workspace.result_is_error.clone();
-        Callback::from(move |msg: String| {
+        Callback::from(move |msg: SmolStr| {
             result_is_error.set(true);
             result.set(Some(msg));
         })
