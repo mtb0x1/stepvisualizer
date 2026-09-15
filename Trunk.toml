@@ -1,5 +1,5 @@
 [build]
-target = "index.html"       # The index HTML file to drive the bundling process.
+target = "src/ui/static/index.html" # The index HTML file to drive the bundling process.
 html_output = "index.html"  # The name of the output HTML file.
 release = false             # Build in release mode.
 dist = "dist"               # The output dir for all final assets.
