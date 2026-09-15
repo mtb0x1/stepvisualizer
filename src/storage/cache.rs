@@ -2,7 +2,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 
-use super::types::{FileId, StepModel};
+use crate::common::types::{FileId, StepModel};
 
 /// LRU over parsed models. Stores `Rc<StepModel>` so cache hits return a
 /// cheap reference-count clone instead of a full deep-copy of geometry data.

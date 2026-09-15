@@ -4,10 +4,11 @@ use crate::common::constants::{
 };
 use crate::common::utils::input_file;
 use crate::common::{
-    ExchangeIndex, FileId, FileIndexItem, LruCache, Metadata, StepColorMap, StepNameMap,
+    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap,
     all_usable_sections, compute_bounding_box, extract_header_and_count, extract_render_parts,
-    hash_text_to_id, probe_validate_step_buffer, save_model,
+    probe_validate_step_buffer,
 };
+use crate::storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model};
 use crate::error::StepError;
 use crate::trace_span;
 use crate::workspace::history::{add_to_index, promote_in_index};
@@ -247,7 +248,7 @@ pub(crate) fn use_file_processor(
                 Err(e) => return fail(StepError::FileRead(e.to_string())),
             };
 
-            let id = crate::common::storage::hash_text_to_id(&text);
+            let id = hash_text_to_id(&text);
 
             // Fast-path 1: in-memory LRU cache only (no sync localStorage fallback).
             if let Some(model_rc) = cache.borrow_mut().get_or_load(&id, |_| None) {
@@ -262,7 +263,7 @@ pub(crate) fn use_file_processor(
             let files_index_async = files_index.clone();
             let file_id = id.clone();
             wasm_bindgen_futures::spawn_local(async move {
-                if let Some(model) = crate::common::storage::load_model_indexeddb(&file_id).await {
+                if let Some(model) = load_model_indexeddb(&file_id).await {
                     if states_async.is_superseded(next_gen) {
                         return;
                     }

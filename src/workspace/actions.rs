@@ -1,5 +1,5 @@
-//! Model interaction callbacks: visibility toggling and geometric metrics calculation.
-use crate::common::{LruCache, Metadata, StepModel, save_model};
+use crate::common::{Metadata, StepModel};
+use crate::storage::{LruCache, save_model};
 use crate::workspace::state::StateHandles;
 use std::cell::RefCell;
 use std::rc::Rc;

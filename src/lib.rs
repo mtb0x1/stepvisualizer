@@ -19,6 +19,7 @@ use yew::prelude::*;
 pub mod common;
 pub use common::error;
 pub mod rendering;
+pub mod storage;
 mod ui;
 pub mod workspace;
 use common::constants::NO_WEBGPU_MSG;

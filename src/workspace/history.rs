@@ -1,6 +1,8 @@
 //! History management, localStorage/IndexedDB persistence helpers, and confirmation workflows.
-use crate::common::{
-    FileId, FileIndexItem, LruCache, clear_all_storage, delete_model, save_index_item, delete_index_item,
+use crate::common::{FileId, FileIndexItem};
+use crate::storage::{
+    LruCache, clear_all_storage, delete_index_item, delete_model, load_model_indexeddb,
+    save_index_item,
 };
 use crate::workspace::ConfirmAction;
 use crate::workspace::state::StateHandles;
@@ -77,7 +79,7 @@ pub(crate) fn use_workspace_management(
                     let file_id = id.clone();
                     wasm_bindgen_futures::spawn_local(async move {
                         if let Some(model) =
-                            crate::common::storage::load_model_indexeddb(&file_id).await
+                            load_model_indexeddb(&file_id).await
                         {
                             if states.is_superseded(next_gen) {
                                 return;

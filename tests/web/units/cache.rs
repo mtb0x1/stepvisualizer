@@ -1,7 +1,8 @@
 use std::cell::Cell;
 use std::rc::Rc;
 use stepvisualizer::common::types::{LengthUnit, Metadata, StepHeader};
-use stepvisualizer::common::{FileId, LruCache, StepModel};
+use stepvisualizer::common::{FileId, StepModel};
+use stepvisualizer::storage::LruCache;
 use wasm_bindgen_test::*;
 
 fn create_mock_model(id: &str) -> StepModel {

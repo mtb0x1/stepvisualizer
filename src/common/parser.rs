@@ -1,7 +1,7 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 use super::logger;
 use crate::common::exchange_index::ExchangeIndex;
-use crate::common::storage::hash_text_to_id;
+use crate::storage::hash_text_to_id;
 use crate::common::utils::find_ignore_ascii_case;
 use crate::error::StepError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};

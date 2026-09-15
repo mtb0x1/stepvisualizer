@@ -1,10 +1,8 @@
 //! Domain types and pure logic shared across the app: STEP parsing,
 //! tessellation, persistence, caching, and matrix math. No Yew code lives
 //! here, so most of it is unit-testable on the host target as well.
-pub mod cache;
 pub mod color;
 pub mod constants;
-pub mod db_schema;
 pub mod error;
 pub mod exchange_index;
 pub mod fps_meter;
@@ -12,12 +10,10 @@ pub mod logger;
 pub mod parser;
 pub mod render;
 pub mod step_names;
-pub mod storage;
 pub mod time;
 pub mod types;
 pub mod utils;
 
-pub use cache::LruCache;
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
 pub use exchange_index::ExchangeIndex;
 pub use glam::dcamera::rh::proj::directx::perspective;
@@ -32,11 +28,6 @@ pub use render::{
     GpuVertex, RenderablePart, TessellationOutput, extract_render_parts, visible_bounds,
 };
 pub use step_names::StepNameMap;
-#[allow(unused_imports)]
-pub use storage::{
-    clear_all_storage, delete_model, hash_text_to_id, load_index_async, save_index_item,
-    delete_index_item, save_model,
-};
 #[allow(unused_imports)]
 pub use types::{
     AuditMetadata, BoundingBox, FileId, FileIndexItem, LengthUnit, Metadata, StepModel, ViewportSize,

@@ -8,8 +8,8 @@ mod processor;
 mod state;
 
 use crate::common::constants::{CACHE_SIZE, QualityPreset};
-use crate::common::{FileId, FileIndexItem, LruCache, Metadata, StepModel};
-use crate::common::storage::load_index_async;
+use crate::common::{FileId, FileIndexItem, Metadata, StepModel};
+use crate::storage::{LruCache, load_index_async};
 use crate::trace_span;
 use actions::use_model_actions;
 use history::use_workspace_management;

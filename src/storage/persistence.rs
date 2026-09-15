@@ -8,7 +8,7 @@
 //!
 //! Persistence is best-effort — failures are logged as warnings and the app
 //! continues running with whatever state it already has in memory.
-use super::logger;
+use crate::common::logger;
 use crate::trace_span;
 use wasm_bindgen_futures::spawn_local;
 
@@ -17,7 +17,7 @@ use super::db_schema::{
     load_index_from_db, load_model_from_db, open_db_versioned, save_index_item_to_db,
     save_model_json_to_db,
 };
-use super::types::{FileId, FileIndexItem, StepModel};
+use crate::common::types::{FileId, FileIndexItem, StepModel};
 
 /// Persist a single recent-files index item to IndexedDB (fire-and-forget).
 /// The write is async; the in-memory state in Yew is already updated by the caller.
