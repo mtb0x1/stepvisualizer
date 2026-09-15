@@ -60,16 +60,19 @@ impl Default for RenderablePart {
 
 impl RenderablePart {
     /// Returns the number of triangles in this part.
+    #[inline]
     pub const fn triangle_count(&self) -> usize {
         self.indices.len() / 3
     }
 
     /// Returns the number of vertices in this part.
+    #[inline]
     pub const fn vertex_count(&self) -> usize {
         self.vertices.len()
     }
 
     /// Translates the part's model matrix by `offset`.
+    #[inline]
     pub fn translate(&mut self, offset: DVec3) {
         self.model_matrix.w_axis += offset.as_vec3().extend(0.0);
     }

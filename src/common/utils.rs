@@ -10,6 +10,7 @@ use crate::common::types::{BoundingBox, ViewportSize};
 use crate::ruststep::ast::Parameter;
 
 /// Case-insensitive ASCII substring offset search without heap allocations.
+#[inline]
 pub const fn find_ignore_ascii_case(haystack: &str, needle: &str) -> Option<usize> {
     let h = haystack.as_bytes();
     let n = needle.as_bytes();
@@ -40,6 +41,7 @@ pub const fn find_ignore_ascii_case(haystack: &str, needle: &str) -> Option<usiz
 }
 
 /// Case-insensitive ASCII substring search without heap allocations.
+#[inline]
 pub const fn contains_ignore_ascii_case(haystack: &str, needle: &str) -> bool {
     find_ignore_ascii_case(haystack, needle).is_some()
 }
@@ -51,6 +53,7 @@ pub const fn format_or_na(val: &str) -> &str {
 }
 
 /// Formats a list of strings joined by `", "`, returning `NA` ("N/A") if empty or all strings are empty.
+#[inline]
 pub fn format_list_or_na(list: &[String]) -> Cow<'_, str> {
     if list.is_empty() || list.iter().all(|s| s.is_empty()) {
         Cow::Borrowed(NA)
@@ -86,6 +89,7 @@ pub fn spherical_to_cartesian(azimuth: f64, elevation: f64, distance: f64, targe
 }
 
 /// Compute adaptive scale-aware tessellation tolerance based on model bounding box extent.
+#[inline]
 pub fn compute_adaptive_tolerance(bbox: Option<&BoundingBox>) -> f64 {
     if let Some(bbox) = bbox {
         let extent = bbox.max_extent();
@@ -97,6 +101,7 @@ pub fn compute_adaptive_tolerance(bbox: Option<&BoundingBox>) -> f64 {
 }
 
 /// Bounding-box center across all parts; `DVec3::ZERO` when there is no geometry.
+#[inline]
 pub fn compute_parts_center(parts: &[RenderablePart]) -> DVec3 {
     visible_bounds(parts, &[])
         .map(|b| b.center())
@@ -112,6 +117,7 @@ pub fn geometric_normal(p0: DVec3, p1: DVec3, p2: DVec3) -> DVec3 {
 /// Unprojects a 2D screen coordinate (pixels from canvas top-left) into a 3D world-space ray `(origin, direction)`.
 ///
 /// Assumes WebGPU NDC clip-space conventions: X in `[-1, 1]`, Y in `[-1, 1]` (upwards), Z in `[0, 1]`.
+#[inline]
 pub fn screen_point_to_ray(
     screen_x: f64,
     screen_y: f64,
@@ -142,6 +148,7 @@ pub fn screen_point_to_ray(
 ///
 /// Returns the distance `t` along the ray `origin + dir * t` if the ray intersects
 /// the triangle `(v0, v1, v2)`, or `None` if it misses or is parallel.
+#[inline]
 pub fn ray_triangle_intersect(
     origin: DVec3,
     dir: DVec3,
@@ -173,35 +180,37 @@ pub fn ray_triangle_intersect(
 }
 
 /// Ray-AABB slab intersection test.
+#[inline]
 pub fn ray_aabb_intersect(origin: DVec3, dir: DVec3, bbox: &BoundingBox) -> bool {
     let mut tmin = f64::NEG_INFINITY;
     let mut tmax = f64::INFINITY;
 
-    for i in 0..3 {
-        let (o, d, min_v, max_v) = match i {
-            0 => (origin.x, dir.x, bbox.min.x, bbox.max.x),
-            1 => (origin.y, dir.y, bbox.min.y, bbox.max.y),
-            _ => (origin.z, dir.z, bbox.min.z, bbox.max.z),
+    macro_rules! check_axis {
+        ($o:expr, $d:expr, $min_v:expr, $max_v:expr) => {
+            if $d.abs() < 1e-9 {
+                if $o < $min_v || $o > $max_v {
+                    return false;
+                }
+            } else {
+                let inv_d = 1.0 / $d;
+                let mut t1 = ($min_v - $o) * inv_d;
+                let mut t2 = ($max_v - $o) * inv_d;
+                if t1 > t2 {
+                    std::mem::swap(&mut t1, &mut t2);
+                }
+                tmin = tmin.max(t1);
+                tmax = tmax.min(t2);
+                if tmin > tmax || tmax < 0.0 {
+                    return false;
+                }
+            }
         };
-
-        if d.abs() < 1e-9 {
-            if o < min_v || o > max_v {
-                return false;
-            }
-        } else {
-            let inv_d = 1.0 / d;
-            let mut t1 = (min_v - o) * inv_d;
-            let mut t2 = (max_v - o) * inv_d;
-            if t1 > t2 {
-                std::mem::swap(&mut t1, &mut t2);
-            }
-            tmin = tmin.max(t1);
-            tmax = tmax.min(t2);
-            if tmin > tmax || tmax < 0.0 {
-                return false;
-            }
-        }
     }
+
+    check_axis!(origin.x, dir.x, bbox.min.x, bbox.max.x);
+    check_axis!(origin.y, dir.y, bbox.min.y, bbox.max.y);
+    check_axis!(origin.z, dir.z, bbox.min.z, bbox.max.z);
+
     true
 }
 
@@ -283,11 +292,13 @@ pub const fn bytes_to_mb(bytes: f64) -> f64 {
 }
 
 /// Formats a byte size into a human-readable megabyte string with one decimal place.
+#[inline]
 pub fn format_bytes_mb(bytes: f64) -> String {
     format!("{:.1} MB", bytes_to_mb(bytes))
 }
 
 /// Formats a metric value with an optional unit symbol and power exponent (e.g. `12.3456 mm³`, `45.6789 mm²`, `10.50 mm`).
+#[inline]
 pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32) -> String {
     let suffix = match unit_symbol {
         Some(u) if !u.is_empty() => match power {
@@ -305,6 +316,7 @@ pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32
 }
 
 /// Formats 3D bounding box coordinates from `DVec3` into formatted min/max display strings.
+#[inline]
 pub fn format_bbox_coordinates(
     min: DVec3,
     max: DVec3,
@@ -359,6 +371,7 @@ pub const fn fps_color(fps: f32) -> &'static str {
 
 /// Returns the current high-resolution time in milliseconds.
 /// Falls back to 0.0 if the browser window or performance API is unavailable.
+#[inline(always)]
 pub fn now_ms() -> f64 {
     web_sys::window()
         .and_then(|w| w.performance())
@@ -475,7 +488,7 @@ pub fn input_file(event: &web_sys::Event) -> Option<web_sys::File> {
 }
 
 /// Extracts a slice of `Parameter`s if the parameter is a `Parameter::List`.
-#[inline]
+#[inline(always)]
 pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
     match param {
         Parameter::List(list) => Some(list.as_slice()),
@@ -484,7 +497,7 @@ pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
 }
 
 /// Extracts the string slice if the parameter is a `Parameter::Enumeration`.
-#[inline]
+#[inline(always)]
 pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
@@ -493,7 +506,7 @@ pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
 }
 
 /// Extracts a string slice if the parameter is either `Parameter::Enumeration` or `Parameter::String`.
-#[inline]
+#[inline(always)]
 pub const fn param_as_str(param: &Parameter) -> Option<&str> {
     match param {
         Parameter::Enumeration(value) => Some(value.as_str()),
@@ -503,7 +516,7 @@ pub const fn param_as_str(param: &Parameter) -> Option<&str> {
 }
 
 /// Extracts the numeric entity ID if the parameter is a `Parameter::Ref(Name::Entity(id))`.
-#[inline]
+#[inline(always)]
 pub const fn param_as_ref(param: &Parameter) -> Option<u64> {
     match param {
         Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => Some(*id),
@@ -512,7 +525,7 @@ pub const fn param_as_ref(param: &Parameter) -> Option<u64> {
 }
 
 /// Extracts a float value if the parameter is `Parameter::Real` or `Parameter::Integer`.
-#[inline]
+#[inline(always)]
 pub const fn param_as_real(param: &Parameter) -> Option<f64> {
     match param {
         Parameter::Real(v) => Some(*v),
@@ -522,6 +535,7 @@ pub const fn param_as_real(param: &Parameter) -> Option<f64> {
 }
 
 /// Recursively extracts all numeric entity IDs referenced within a `Parameter` (handling nested lists).
+#[inline]
 pub fn extract_entity_refs(param: &Parameter) -> Vec<u64> {
     let mut refs = Vec::new();
     collect_refs_recursive(param, &mut refs);

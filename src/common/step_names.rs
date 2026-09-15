@@ -222,6 +222,7 @@ fn select_best_name<'a>(
 /// - Empty strings or strings with only whitespace/quotes
 /// - CAD null/unspecified placeholders: "NONE", "None", "unspecified", "not specified", "null", "no_name", "default", "undefined"
 /// - Entity references such as "#602" or lone "#", "$", "*"
+#[inline]
 pub fn is_valid_part_name(s: &str) -> bool {
     let clean = clean_part_name_str(s);
     if clean.is_empty() {
@@ -250,6 +251,7 @@ pub fn is_valid_part_name(s: &str) -> bool {
 }
 
 /// Zero-allocation view of a cleaned part name, trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
+#[inline]
 pub fn clean_part_name_str(s: &str) -> &str {
     let trimmed = s.trim().trim_matches('\'').trim_matches('"').trim();
     if let Some(stripped) = trimmed.strip_prefix("SHAPE FOR ") {
@@ -262,6 +264,7 @@ pub fn clean_part_name_str(s: &str) -> &str {
 }
 
 /// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
+#[inline]
 pub fn clean_part_name(s: &str) -> String {
     clean_part_name_str(s).to_string()
 }

@@ -9,10 +9,24 @@ use glam::DVec3;
 /// `repr(transparent)` ensures zero-cost runtime wrapping over `String`
 /// and transparent serde serialization (serialized as a flat string in JSON/localStorage).
 #[repr(transparent)]
-#[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Hash,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct FileId(pub String);
 
 impl FileId {
+    #[inline]
     pub const fn as_str(&self) -> &str {
         self.0.as_str()
     }
@@ -67,7 +81,19 @@ impl std::borrow::Borrow<str> for FileId {
 }
 
 /// Physical pixel dimensions of a rendering viewport or canvas.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Default,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct ViewportSize {
     pub width: u32,
     pub height: u32,
@@ -80,6 +106,7 @@ impl ViewportSize {
     };
 
     /// Construct new viewport dimensions.
+    #[inline]
     pub const fn new(width: u32, height: u32) -> Self {
         Self { width, height }
     }
@@ -93,11 +120,13 @@ impl ViewportSize {
     }
 
     /// Whether both width and height are non-zero.
+    #[inline]
     pub const fn is_valid(&self) -> bool {
         self.width > 0 && self.height > 0
     }
 
     /// Aspect ratio (width / height), or 1.0 when height is zero.
+    #[inline]
     pub fn aspect_ratio(&self) -> f64 {
         if self.height == 0 {
             1.0
@@ -108,7 +137,18 @@ impl ViewportSize {
 }
 
 /// Standard length units parsed from STEP SI_UNIT and conversion factors to meters.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub enum LengthUnit {
     Millimetre,
     Centimetre,
@@ -122,6 +162,7 @@ pub enum LengthUnit {
 
 impl LengthUnit {
     /// Standard unit symbol ("mm", "cm", "m", etc.).
+    #[inline]
     pub const fn symbol(&self) -> &'static str {
         match self {
             Self::Millimetre => "mm",
@@ -174,7 +215,16 @@ impl std::fmt::Display for LengthUnit {
 }
 
 /// STEP header section (ISO 10303-21), shaped for display in the details panel.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct StepHeader {
     pub file_description: String,
     pub implementation_level: String,
@@ -191,7 +241,16 @@ pub struct StepHeader {
 /// Display metadata for a loaded file: header fields plus derived geometry
 /// stats. Persisted inside `StepModel`, so newly added fields need
 /// `#[serde(default)]` to stay load-compatible with previously saved models.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct Metadata {
     pub header: StepHeader,
     pub entity_count: usize,
@@ -211,7 +270,16 @@ pub struct Metadata {
 
 /// One entry of the recent-files history. `id` is the file's content hash,
 /// which doubles as the localStorage key of its persisted model.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct FileIndexItem {
     pub id: FileId,
     pub name: String,
@@ -222,7 +290,17 @@ pub struct FileIndexItem {
 }
 
 /// Axis-aligned bounds in 3D space.
-#[derive(Clone, Copy, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct BoundingBox {
     pub min: DVec3,
     pub max: DVec3,
@@ -236,52 +314,62 @@ impl BoundingBox {
     };
 
     /// Create a bounding box with the given min and max coordinates.
+    #[inline]
     pub const fn new(min: DVec3, max: DVec3) -> Self {
         Self { min, max }
     }
 
     /// True if the bounding box has valid, finite dimensions.
+    #[inline]
     pub fn is_valid(&self) -> bool {
         self.min.is_finite() && self.max.is_finite() && self.min.cmple(self.max).all()
     }
 
     /// Center point as double-precision `DVec3`.
+    #[inline]
     pub fn center(&self) -> glam::DVec3 {
         (self.min + self.max) * 0.5
     }
 
     /// Dimensions (width, height, depth) as `DVec3`.
+    #[inline]
     pub fn size(&self) -> glam::DVec3 {
         (self.max - self.min).max(glam::DVec3::ZERO)
     }
 
     /// Size along the X axis.
+    #[inline]
     pub fn size_x(&self) -> f64 {
         self.size().x
     }
 
     /// Size along the Y axis.
+    #[inline]
     pub fn size_y(&self) -> f64 {
         self.size().y
     }
 
     /// Size along the Z axis.
+    #[inline]
     pub fn size_z(&self) -> f64 {
         self.size().z
     }
 
     /// Maximum dimension across X, Y, Z as f64.
+    #[inline]
     pub fn max_extent(&self) -> f64 {
         self.size().max_element()
     }
 
     /// Expands this bounding box to include the given `DVec3` point.
+    #[inline]
     pub fn expand_point(&mut self, p: glam::DVec3) {
         self.min = self.min.min(p);
         self.max = self.max.max(p);
     }
 
     /// Expands this bounding box to include another bounding box.
+    #[inline]
     pub fn expand_bbox(&mut self, other: Self) {
         self.min = self.min.min(other.min);
         self.max = self.max.max(other.max);
@@ -298,7 +386,16 @@ impl BoundingBox {
 ///   and synchronized into the active `StepModel`.
 /// - `#[serde(default)]` ensures deserializing cached models without a `part_visibility`
 ///   field safely yields an empty vector which is hydrated to all-true on load.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct StepModel {
     pub id: FileId,
     pub metadata: Metadata,
@@ -343,7 +440,16 @@ impl StepModel {
 }
 
 /// Standard audit fields applied to database records.
-#[derive(Clone, PartialEq, Debug, Serialize, Deserialize, rkyv::Archive, rkyv::Serialize, rkyv::Deserialize)]
+#[derive(
+    Clone,
+    PartialEq,
+    Debug,
+    Serialize,
+    Deserialize,
+    rkyv::Archive,
+    rkyv::Serialize,
+    rkyv::Deserialize,
+)]
 pub struct AuditMetadata {
     #[serde(default = "default_timestamp")]
     pub created_on: f64,
@@ -369,7 +475,7 @@ impl Default for AuditMetadata {
 }
 
 fn default_timestamp() -> f64 {
-    js_sys::Date::now()
+    crate::common::utils::now_ms()
 }
 
 fn default_user() -> String {
