@@ -30,3 +30,20 @@ jobs:
       # Output is discarded — no artifact upload, no deploy.
       - name: Build Yew App
         run: trunk build --release --dist ./dist --public-url ./
+
+      - name: Check Wasm File Size
+        run: |
+          for WASM_FILE in ./dist/*.wasm; do
+            if [ ! -f "$WASM_FILE" ]; then
+              echo "Error: No wasm file found in ./dist"
+              exit 1
+            fi
+            SIZE=$(stat -c%s "$WASM_FILE")
+            MAX_SIZE=2097152 # 2MB
+            echo "Wasm file size for $WASM_FILE: $SIZE bytes"
+            if [ "$SIZE" -gt "$MAX_SIZE" ]; then
+              echo "Error: Wasm file size ($SIZE bytes) exceeds the maximum allowed limit of 2MB ($MAX_SIZE bytes)."
+              exit 1
+            fi
+          done
+          echo "Wasm file(s) size is within limits."
