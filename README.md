@@ -28,7 +28,7 @@ The visualizer uses [`ruststep`](https://github.com/ricosjp/ruststep) for parsin
 Support level depends on the `FILE_SCHEMA` declared in the file header.
 
 > [!NOTE]
-> The `examples/` directory intentionally includes files from **unsupported or partially-supported schemas**.
+> The `samples/` directory intentionally includes files from **unsupported or partially-supported schemas**.
 > They are provided so users can load them, observe the current behaviour, and help track what still needs work.
 > Do not assume a file renders correctly just because it ships with the project.
 
@@ -126,19 +126,19 @@ sequenceDiagram
 
 ## Running Tests
 
-Unit tests run in a freestanding `wasm32-unknown-unknown` browser environment with WebAssembly SIMD (`+simd128,+relaxed-simd`) enabled via `wasm-pack test`:
+Tests run in a freestanding `wasm32-unknown-unknown` browser environment with WebAssembly SIMD (`+simd128,-relaxed-simd`) enabled via `wasm-pack test`:
 
 ```bash
 # Headless Chrome / Chromium (Local & CI/CD)
-wasm-pack test --headless --chrome
+wasm-pack test --headless --chrome --release
 
 # Or using Firefox
-wasm-pack test --headless --firefox
+wasm-pack test --headless --firefox --release
 ```
 
 ### Example Files
 
-The `examples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
+The `samples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
 Not all of them render correctly - this is intentional. They serve as a test bed to explore current support and surface gaps.
 
 | File | Schema | Renders? |
@@ -184,11 +184,6 @@ Not all of them render correctly - this is intentional. They serve as a test bed
 
 ## Benchmarking & Performance Regression Testing
 
-An end-to-end hot-path benchmark suite is available in [`misc/benchmarks`](misc/benchmarks). It measures execution time and memory footprint (WASM linear memory and WebGPU buffer allocations) across the complete loading, parsing, tessellation, and rendering pipeline using `examples/l44mji.step` as baseline.
+An end-to-end hot-path benchmark suite is available in [`misc/benchmarks`](misc/benchmarks). It measures execution time and memory footprint (WASM linear memory and WebGPU buffer allocations) across the complete loading, parsing, tessellation, and rendering pipeline using `samples/l44mji.step` as baseline.
 
 For instructions on building and running the automated headless WebGPU benchmark, see [`misc/benchmarks/README.md`](misc/benchmarks/README.md).
-
-## Screenshots
-![Screenshot 1](screenshots/sc1.png)
-![Screenshot 2](screenshots/sc2.png)
-![Screenshot 3](screenshots/sc3.png)
