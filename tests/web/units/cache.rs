@@ -124,3 +124,31 @@ fn get_or_load_lifecycle() {
     let miss = cache.get_or_load("model_missing", |_| None);
     assert!(miss.is_none());
 }
+
+/// Verifies that StepModel serializes and deserializes accurately via rkyv binary format.
+#[wasm_bindgen_test]
+fn step_model_rkyv_binary_roundtrip() {
+    let model = create_mock_model("model_rkyv");
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(&model).expect("rkyv serialization succeeds");
+    assert!(!bytes.is_empty());
+
+    // Simulate JS Uint8Array boundary as done in IndexedDB storage
+    let uint8 = js_sys::Uint8Array::from(bytes.as_slice());
+    let len = uint8.length() as usize;
+    let mut aligned = rkyv::util::AlignedVec::<16>::with_capacity(len);
+    aligned.resize(len, 0);
+    uint8.copy_to(&mut aligned[..]);
+
+    let deserialized: StepModel =
+        rkyv::from_bytes::<StepModel, rkyv::rancor::Error>(&aligned)
+            .expect("rkyv deserialization succeeds");
+
+    assert_eq!(deserialized.id, model.id);
+    assert_eq!(deserialized.metadata.header.file_name, "model_rkyv.step");
+    assert_eq!(deserialized.metadata.entity_count, 10);
+    assert_eq!(deserialized.metadata.vertex_count, 100);
+    assert_eq!(deserialized.metadata.triangle_count, 50);
+    assert_eq!(deserialized.part_visibility, model.part_visibility);
+    assert_eq!(deserialized.audit.created_by, model.audit.created_by);
+}
+

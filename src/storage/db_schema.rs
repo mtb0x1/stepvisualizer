@@ -18,15 +18,12 @@
 use crate::common::constants::db_name;
 use crate::common::types::{FileId, StepModel};
 use rexie::{ObjectStore, Rexie, TransactionMode};
+use wasm_bindgen::JsCast;
 
-/// Change this value will trigger db update,
-/// tricky thing since updating db needs closing all open instances,
-/// but we're not closing any instances, so we need to wait for all instances to close,
-/// this means double refresh. of some kinda.
-// TODO : need to investigate a better way to handle this.
-pub const DB_VERSION: u32 = 2;
+/// Database schema version. Bumping to 3 migrates model store to rkyv binary format.
+pub const DB_VERSION: u32 = 3;
 
-/// Object store holding serialized [`StepModel`] JSON blobs, keyed by [`FileId`].
+/// Object store holding serialized [`StepModel`] binary/JSON blobs, keyed by [`FileId`].
 pub const STORE_MODELS: &str = "models";
 
 /// Open (or upgrade) the versioned IndexedDB database.
@@ -41,6 +38,7 @@ pub async fn open_db_versioned() -> Result<Rexie, rexie::Error> {
 }
 
 /// Load a [`StepModel`] by its [`FileId`] from the given open DB.
+/// Transparently handles both modern `rkyv` binary buffers and legacy JSON strings.
 pub async fn load_model_from_db(db: &Rexie, id: &FileId) -> Option<StepModel> {
     let tx = db
         .transaction(&[STORE_MODELS], TransactionMode::ReadOnly)
@@ -48,11 +46,52 @@ pub async fn load_model_from_db(db: &Rexie, id: &FileId) -> Option<StepModel> {
     let store = tx.store(STORE_MODELS).ok()?;
     let key = wasm_bindgen::JsValue::from_str(id.as_str());
     let val = store.get(key).await.ok()??;
-    let json = val.as_string()?;
-    serde_json::from_str(&json).ok()
+
+    // Check if stored as rkyv binary payload
+    // not sure if we need both inclination of binary aka :
+    // Uint8Array // ArrayBuffer
+    // but we do that for now and later we might need too look into
+    // this.
+    // TODO : check which format is better
+    if let Some(uint8) = val.dyn_ref::<js_sys::Uint8Array>() {
+        let len = uint8.length() as usize;
+        let mut aligned = rkyv::util::AlignedVec::<16>::with_capacity(len);
+        aligned.resize(len, 0);
+        uint8.copy_to(&mut aligned[..]);
+        if let Ok(model) = rkyv::from_bytes::<StepModel, rkyv::rancor::Error>(&aligned) {
+            return Some(model);
+        }
+    } else if let Some(ab) = val.dyn_ref::<js_sys::ArrayBuffer>() {
+        let uint8 = js_sys::Uint8Array::new(ab);
+        let len = uint8.length() as usize;
+        let mut aligned = rkyv::util::AlignedVec::<16>::with_capacity(len);
+        aligned.resize(len, 0);
+        uint8.copy_to(&mut aligned[..]);
+        if let Ok(model) = rkyv::from_bytes::<StepModel, rkyv::rancor::Error>(&aligned) {
+            return Some(model);
+        }
+    }
+
+    None
 }
 
-/// Save a serialized model JSON blob to the given open DB.
+/// Save a serialized model binary buffer (rkyv) to the given open DB.
+pub async fn save_model_bytes_to_db(db: &Rexie, id: &str, bytes: &[u8]) -> Result<(), String> {
+    let tx = db
+        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
+        .map_err(|e| e.to_string())?;
+    let store = tx.store(STORE_MODELS).map_err(|e| e.to_string())?;
+    let key = wasm_bindgen::JsValue::from_str(id);
+    let uint8 = js_sys::Uint8Array::from(bytes);
+    store
+        .put(&uint8.into(), Some(&key))
+        .await
+        .map_err(|e| e.to_string())?;
+    tx.commit().await.map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// Save a serialized model JSON blob to the given open DB (legacy format support).
 pub async fn save_model_json_to_db(db: &Rexie, id: &str, json: &str) -> Result<(), String> {
     let tx = db
         .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)

@@ -15,7 +15,7 @@ use wasm_bindgen_futures::spawn_local;
 use super::db_schema::{
     clear_index_in_db, clear_models_in_db, delete_index_item_from_db, delete_model_from_db,
     load_index_from_db, load_model_from_db, open_db_versioned, save_index_item_to_db,
-    save_model_json_to_db,
+    save_model_bytes_to_db, save_model_json_to_db,
 };
 use crate::common::types::{FileId, FileIndexItem, StepModel};
 
@@ -69,17 +69,23 @@ pub async fn load_index_async() -> Vec<FileIndexItem> {
     }
 }
 
-/// Persist a serialized model JSON blob asynchronously to IndexedDB.
+/// Persist a serialized model binary buffer asynchronously to IndexedDB.
+pub async fn save_model_bytes_indexeddb(id: &str, bytes: &[u8]) -> Result<(), String> {
+    let db = open_db_versioned().await.map_err(|e| e.to_string())?;
+    save_model_bytes_to_db(&db, id, bytes).await
+}
+
+/// Persist a serialized model JSON blob asynchronously to IndexedDB (legacy support).
 pub async fn save_model_json_indexeddb(id: &str, json: &str) -> Result<(), String> {
     let db = open_db_versioned().await.map_err(|e| e.to_string())?;
     save_model_json_to_db(&db, id, json).await
 }
 
-/// Persist a whole model asynchronously to IndexedDB.
+/// Persist a whole model asynchronously to IndexedDB using rkyv binary serialization.
 #[allow(dead_code)]
 pub async fn save_model_indexeddb(model: &StepModel) -> Result<(), String> {
-    let json = serde_json::to_string(model).map_err(|e| e.to_string())?;
-    save_model_json_indexeddb(&model.id, &json).await
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(model).map_err(|e| e.to_string())?;
+    save_model_bytes_indexeddb(&model.id, bytes.as_slice()).await
 }
 
 /// Load a model asynchronously from IndexedDB.
@@ -100,19 +106,19 @@ pub async fn clear_indexeddb() -> Result<(), String> {
     clear_models_in_db(&db).await
 }
 
-/// Persist a whole model (fire-and-forget async IndexedDB write).
+/// Persist a whole model (fire-and-forget async IndexedDB write using rkyv binary encoding).
 pub fn save_model(model: &StepModel) {
     trace_span!("save_model");
     let id = model.id.clone();
-    let json = match serde_json::to_string(model) {
-        Ok(j) => j,
+    let bytes = match rkyv::to_bytes::<rkyv::rancor::Error>(model) {
+        Ok(b) => b,
         Err(e) => {
-            logger::warn(&format!("Failed to serialize model: {e}"));
+            logger::warn(&format!("Failed to serialize model with rkyv: {e}"));
             return;
         }
     };
     spawn_local(async move {
-        if let Err(e) = save_model_json_indexeddb(&id, &json).await {
+        if let Err(e) = save_model_bytes_indexeddb(&id, bytes.as_slice()).await {
             logger::warn(&format!("Failed to save model to IndexedDB: {e}"));
         }
     });

@@ -51,11 +51,11 @@ truck-modeling = "0.6.0"
 truck-meshalgo = "0.4.0"
 truck-topology = "0.6.0"
 bytemuck = "1.18.0"
-glam = { version = "0.33.6", features = ["bytemuck", "serde", "fast-math", "rkyv"] }
+glam = { version = "0.33.6", features = ["bytemuck", "serde", "fast-math", "rkyv", "bytecheck"] }
 truck-geometry = "0.5.0"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
 rexie = "0.6"
-rkyv = { version = "0.8.18", default-features = false, features = ["std"] }
+rkyv = { version = "0.8.18", default-features = false, features = ["std", "bytecheck"] }
 
 
 [profile.release]
