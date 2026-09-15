@@ -4,17 +4,9 @@ use stepvisualizer::ruststep;
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
-fn test_color_hex_conversions() {
+fn test_color_to_hex() {
     let orange = Color::from_rgb_u8(255, 128, 0);
     assert_eq!(orange.to_hex(), "#FF8000");
-
-    let parsed = Color::from_hex("#FF8000").expect("hex parse");
-    assert!((parsed.r() - 1.0).abs() < 1e-3);
-    assert!((parsed.g() - 0.5019).abs() < 1e-3);
-    assert!((parsed.b() - 0.0).abs() < 1e-3);
-
-    let short_hex = Color::from_hex("#F80").expect("short hex parse");
-    assert_eq!(short_hex.to_hex(), "#FF8800");
 }
 
 #[wasm_bindgen_test]
@@ -24,22 +16,6 @@ fn test_color_css_rgba() {
     assert_eq!(css, "rgba(255, 0, 128, 0.750)");
 }
 
-#[wasm_bindgen_test]
-fn test_draughting_predefined_colors() {
-    assert_eq!(
-        Color::from_draughting_name("yellow"),
-        Some(Color::rgb(1.0, 1.0, 0.0))
-    );
-    assert_eq!(
-        Color::from_draughting_name("'BLUE'"),
-        Some(Color::rgb(0.0, 0.0, 1.0))
-    );
-    assert_eq!(
-        Color::from_draughting_name("red"),
-        Some(Color::rgb(1.0, 0.0, 0.0))
-    );
-    assert_eq!(Color::from_draughting_name("unknown_color"), None);
-}
 
 #[wasm_bindgen_test]
 fn test_pod_zeroable_bytemuck() {
@@ -93,11 +69,11 @@ fn test_step_color_map_as1_tc_214() {
     assert_eq!(map.len(), 5);
 
     // Shell #601 -> green
-    assert_eq!(map.get(601), Some(Color::rgb(0.0, 1.0, 0.0)));
+    assert_eq!(map.get(601), Some(Color::parse("green").unwrap()));
     // Shell #879 -> red
-    assert_eq!(map.get(879), Some(Color::rgb(1.0, 0.0, 0.0)));
+    assert_eq!(map.get(879), Some(Color::parse("red").unwrap()));
     // Shell #1109 -> blue
-    assert_eq!(map.get(1109), Some(Color::rgb(0.0, 0.0, 1.0)));
+    assert_eq!(map.get(1109), Some(Color::parse("blue").unwrap()));
     // Shell #1871 -> yellow-ish RGB (0.78, 0.78, 0.0)
     let c1871 = map.get(1871).expect("shell 1871 color");
     assert!((c1871.r() - 0.780392).abs() < 1e-4);

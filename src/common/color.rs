@@ -148,32 +148,12 @@ impl Color {
         format!("#{r:02X}{g:02X}{b:02X}")
     }
 
-    /// Parses a hex color string like `"#RRGGBB"`, `"RRGGBB"`, `"#RGB"`, or `"#RRGGBBAA"`.
-    pub fn from_hex(hex: &str) -> Option<Self> {
-        let clean = hex.trim().trim_start_matches('#');
-        match clean.len() {
-            3 => {
-                const HEX_SHORT_MULTIPLIER: u8 = 17;
-                let r = u8::from_str_radix(&clean[0..1], 16).ok()? * HEX_SHORT_MULTIPLIER;
-                let g = u8::from_str_radix(&clean[1..2], 16).ok()? * HEX_SHORT_MULTIPLIER;
-                let b = u8::from_str_radix(&clean[2..3], 16).ok()? * HEX_SHORT_MULTIPLIER;
-                Some(Self::from_rgb_u8(r, g, b))
-            }
-            6 => {
-                let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
-                let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
-                let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
-                Some(Self::from_rgb_u8(r, g, b))
-            }
-            8 => {
-                let r = u8::from_str_radix(&clean[0..2], 16).ok()?;
-                let g = u8::from_str_radix(&clean[2..4], 16).ok()?;
-                let b = u8::from_str_radix(&clean[4..6], 16).ok()?;
-                let a = u8::from_str_radix(&clean[6..8], 16).ok()?;
-                Some(Self::from_rgba_u8(r, g, b, a))
-            }
-            _ => None,
-        }
+    /// Parses standard CSS color names, RGB/RGBA strings, and Hex strings.
+    pub fn parse(text: &str) -> Option<Self> {
+        let clean = text.trim().trim_matches('\'').trim_matches('"');
+        csscolorparser::parse(clean).ok().map(|c| {
+            Self::new(c.r as f32, c.g as f32, c.b as f32, c.a as f32)
+        })
     }
 
     /// Formats the color as a CSS `rgba(r, g, b, a)` string.
@@ -188,40 +168,6 @@ impl Color {
         out
     }
 
-    /// Maps standard ISO 10303-46 predefined draughting color names to `Color`.
-    pub fn from_draughting_name(name: &str) -> Option<Self> {
-        let clean = name.trim().trim_matches('\'').trim_matches('"');
-        if clean.eq_ignore_ascii_case("red") {
-            Some(Self::rgb(1.0, 0.0, 0.0))
-        } else if clean.eq_ignore_ascii_case("green") {
-            Some(Self::rgb(0.0, 1.0, 0.0))
-        } else if clean.eq_ignore_ascii_case("blue") {
-            Some(Self::rgb(0.0, 0.0, 1.0))
-        } else if clean.eq_ignore_ascii_case("yellow") {
-            Some(Self::rgb(1.0, 1.0, 0.0))
-        } else if clean.eq_ignore_ascii_case("magenta") {
-            Some(Self::rgb(1.0, 0.0, 1.0))
-        } else if clean.eq_ignore_ascii_case("cyan") {
-            Some(Self::rgb(0.0, 1.0, 1.0))
-        } else if clean.eq_ignore_ascii_case("black") {
-            Some(Self::rgb(0.0, 0.0, 0.0))
-        } else if clean.eq_ignore_ascii_case("white") {
-            Some(Self::rgb(1.0, 1.0, 1.0))
-        } else if clean.eq_ignore_ascii_case("grey") || clean.eq_ignore_ascii_case("gray") {
-            Some(Self::rgb(0.5, 0.5, 0.5))
-        } else if clean.eq_ignore_ascii_case("orange") {
-            Some(Self::rgb(1.0, 0.5, 0.0))
-        } else if clean.eq_ignore_ascii_case("brown") {
-            Some(Self::rgb(0.6, 0.3, 0.0))
-        } else {
-            None
-        }
-    }
-
-    /// Flexible parser: checks standard draughting color names, then hex strings.
-    pub fn parse_flexible(text: &str) -> Option<Self> {
-        Self::from_draughting_name(text).or_else(|| Self::from_hex(text))
-    }
 
     /// Parses a color from a `COLOUR_RGB` STEP record.
     pub fn from_rgb_record(record: &Record) -> Option<Self> {
@@ -246,7 +192,7 @@ impl Color {
             Parameter::List(l) => l.first().and_then(param_as_str),
             _ => None,
         };
-        col_name.and_then(Self::parse_flexible)
+        col_name.and_then(Self::parse)
     }
 }
 
