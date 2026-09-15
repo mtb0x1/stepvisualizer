@@ -1,5 +1,9 @@
 :root {
     --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+    --font-size-label: 12px;
+    --font-size-sub: 10px;
+    --font-size-bold: 12px;
+    --font-size-button: 10px;
     --btn-bg: #f4f4f8;
     --btn-border: #c0c4d6;
     --btn-color: #3b3e4a;
@@ -32,7 +36,7 @@ optgroup {
 
 button {
     font-family: inherit;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     color: var(--btn-color);
     background: var(--btn-bg);
@@ -62,8 +66,22 @@ button:disabled {
 }
 
 label:not(.custom-file-upload) {
+    font-size: var(--font-size-label);
     font-weight: bold;
     color: #000000;
+}
+
+b,
+strong,
+th {
+    font-size: var(--font-size-bold);
+    font-weight: bold;
+}
+
+sub,
+small,
+.sub {
+    font-size: var(--font-size-sub);
 }
 
 .app-container {
@@ -76,7 +94,7 @@ label:not(.custom-file-upload) {
 
 .processing-hint {
     margin-left: 0.8em;
-    font-size: 0.9em;
+    font-size: var(--font-size-sub);
     color: #f0ab00;
 }
 
@@ -122,7 +140,7 @@ label:not(.custom-file-upload) {
     color: #fff;
     padding: 0.4em 0.6em;
     border-radius: 6px;
-    font-size: 0.85em;
+    font-size: var(--font-size-sub);
 }
 
 .camera-toolbar {
@@ -137,7 +155,7 @@ label:not(.custom-file-upload) {
     background: var(--btn-bg);
     color: var(--btn-color);
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     transition: all 0.15s ease;
     box-shadow: var(--btn-shadow);
@@ -187,7 +205,7 @@ label:not(.custom-file-upload) {
 }
 
 .quality-label {
-    font-size: 0.82em;
+    font-size: var(--font-size-label);
     color: #000000;
     font-weight: bold;
 }
@@ -199,7 +217,7 @@ label:not(.custom-file-upload) {
     background: #f4f4f8;
     color: #3b3e4a;
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     transition: all 0.15s ease;
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -244,7 +262,7 @@ label:not(.custom-file-upload) {
     background: #f4f4f8;
     color: #3b3e4a;
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     transition: all 0.15s ease;
     user-select: none;
@@ -277,7 +295,7 @@ label:not(.custom-file-upload) {
 
 .result-message {
     padding: 0.4em 1em;
-    font-size: 0.85em;
+    font-size: var(--font-size-sub);
     border-top: 1px solid #ddd;
     background: #f3f3f7;
     min-height: 1.6em;
@@ -340,7 +358,7 @@ label:not(.custom-file-upload) {
     display: inline-flex;
     align-items: center;
     gap: 0.5em;
-    font-size: 1rem;
+    font-size: var(--font-size-bold);
     font-weight: bold;
     color: #000000;
 }
@@ -362,7 +380,7 @@ label:not(.custom-file-upload) {
     align-items: center;
     justify-content: center;
     color: var(--btn-color);
-    font-size: 13px;
+    font-size: var(--font-size-button);
     transition: all 0.15s ease;
     box-sizing: border-box;
     box-shadow: var(--btn-shadow);
@@ -393,7 +411,7 @@ label:not(.custom-file-upload) {
 }
 
 .left-panel-header {
-    font-size: 1.1em;
+    font-size: var(--font-size-bold);
     margin: 0 0 0.6em 0;
     font-weight: bold;
     color: #000000;
@@ -401,7 +419,7 @@ label:not(.custom-file-upload) {
 
 .empty-files-message {
     color: #888;
-    font-size: 0.95em;
+    font-size: var(--font-size-sub);
     margin-top: 0.6em;
 }
 
@@ -431,7 +449,7 @@ label:not(.custom-file-upload) {
     border-radius: 5px;
     cursor: pointer;
     color: var(--btn-color);
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     transition: all 0.15s ease;
     box-shadow: var(--btn-shadow);
     box-sizing: border-box;
@@ -448,6 +466,7 @@ label:not(.custom-file-upload) {
 }
 
 .file-item-name {
+    font-size: var(--font-size-bold);
     font-weight: bold;
     color: #000000;
     overflow: hidden;
@@ -456,7 +475,7 @@ label:not(.custom-file-upload) {
 }
 
 .file-item-details {
-    font-size: 0.85em;
+    font-size: var(--font-size-sub);
     color: #666;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -478,7 +497,7 @@ label:not(.custom-file-upload) {
     flex-shrink: 0;
     box-sizing: border-box;
     color: var(--btn-color);
-    font-size: 13px;
+    font-size: var(--font-size-button);
     transition: all 0.15s ease;
     box-shadow: var(--btn-shadow);
 }
@@ -491,7 +510,7 @@ label:not(.custom-file-upload) {
 }
 
 .delete-icon {
-    font-size: 13px;
+    font-size: var(--font-size-button);
     display: inline-block;
     pointer-events: none;
 }
@@ -502,7 +521,7 @@ label:not(.custom-file-upload) {
 }
 
 .main-panel-status {
-    font-size: 0.85em;
+    font-size: var(--font-size-sub);
     color: #666;
     align-items: center;
 }
@@ -543,7 +562,7 @@ label:not(.custom-file-upload) {
     color: #fff;
     padding: 0.3em 0.5em;
     border-radius: 6px;
-    font-size: 0.8em;
+    font-size: var(--font-size-sub);
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -552,6 +571,7 @@ label:not(.custom-file-upload) {
 }
 
 .fps-graph-label {
+    font-size: var(--font-size-sub);
     font-variant-numeric: tabular-nums;
     line-height: 1;
 }
@@ -582,8 +602,14 @@ label:not(.custom-file-upload) {
 }
 
 .detail-label {
+    font-size: var(--font-size-label);
     font-weight: bold;
     color: #000000;
+}
+
+.details-list dd,
+.detail-item dd {
+    font-size: 12px;
 }
 
 /* Meshes Panel */
@@ -611,7 +637,7 @@ label:not(.custom-file-upload) {
     background: var(--btn-bg);
     color: var(--btn-color);
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     transition: all 0.15s ease;
     box-shadow: var(--btn-shadow);
@@ -633,7 +659,7 @@ label:not(.custom-file-upload) {
     background: var(--btn-bg);
     color: var(--btn-color);
     cursor: pointer;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     transition: all 0.15s ease;
     box-shadow: var(--btn-shadow);
@@ -664,14 +690,19 @@ label:not(.custom-file-upload) {
 }
 
 .mesh-name {
+    font-size: var(--font-size-bold);
     font-weight: bold;
     color: #000000;
 }
 
 .mesh-details {
     margin-left: 24px;
-    font-size: 0.85em;
+    font-size: var(--font-size-sub);
     color: var(--text-secondary);
+}
+
+.mesh-stats {
+    font-size: var(--font-size-sub);
 }
 
 .mesh-visibility {
@@ -702,7 +733,7 @@ label:not(.custom-file-upload) {
     display: inline-flex;
     align-items: center;
     gap: 0.4em;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     color: var(--btn-color);
     transition: all 0.15s ease;
@@ -813,7 +844,7 @@ label:not(.custom-file-upload) {
 .modal-btn {
     padding: 0.35em 0.85em;
     border-radius: 5px;
-    font-size: 0.8em;
+    font-size: var(--font-size-button);
     font-weight: 500;
     cursor: pointer;
     border: 1px solid var(--btn-border);
