@@ -1,6 +1,6 @@
 # StepVisualizer
 
-A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU. This tool parses and renders STEP files directly in the browser (CSR).
+A WebAssembly-based STEP file visualizer built with Rust and WebGPU. This tool parses and renders STEP files directly in the browser (Client Side Rendering).
 
 ## Live Demo
 
@@ -76,27 +76,45 @@ These schemas contain domain-specific entity types (machining features, FEA mesh
 
 ```mermaid
 sequenceDiagram
-    participant User
+    autonumber
+    actor User
+    
+    box rgba(200, 200, 200, 0.1) UI Components
     participant App as App (lib.rs)
+    participant MainPanel as MainPanel
+    participant Canvas as WebGPU Canvas
+    end
+    
+    box rgba(100, 100, 255, 0.1) Core Logic & Processing
     participant Workspace as Workspace Hook
-    participant Storage as Storage
+    participant Storage as Storage Cache
     participant Render as Render Module
     participant Camera as Camera
-    participant Canvas as WebGPU Canvas
+    end
 
     User->>App: Load STEP file
-    App->>Workspace: on_file_change callback
+    App->>Workspace: Trigger `on_file_change` callback
+    
+    rect rgba(0, 150, 255, 0.05)
+    Note over Workspace,Render: Phase 1: Parsing & Tessellation
     Workspace->>Storage: Read and hash file
-    Workspace->>Render: extract_render_parts
-    Note over Render: Tessellate → vertices/indices
+    Workspace->>Render: `extract_render_parts`
+    Note right of Render: Tessellate geometry<br/>→ Generate vertices/indices
     Render->>Storage: Cache render parts
-    Workspace->>App: Update metadata, step_model
-    App->>MainPanel: Pass step_model
-    MainPanel->>Camera: compute_eye_position
+    end
+    
+    Workspace->>App: Update metadata & `step_model`
+    App->>MainPanel: Pass `step_model`
+    
+    rect rgba(255, 100, 0, 0.05)
+    Note over MainPanel,Canvas: Phase 2: Rendering Pipeline
+    MainPanel->>Camera: `compute_eye_position`
     Camera-->>MainPanel: Eye position [x, y, z]
-    MainPanel->>Canvas: render_wgpu_on_canvas
-    Canvas->>Canvas: Render pass, draw calls
-    Canvas-->>User: Display geometry
+    MainPanel->>Canvas: `render_wgpu_on_canvas`
+    Canvas->>Canvas: Render pass & draw calls
+    end
+    
+    Canvas-->>User: Display 3D geometry
 ```
 
 ## Requirements
@@ -139,24 +157,7 @@ wasm-pack test --headless --firefox --release
 ### Example Files
 
 The `samples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
-Not all of them render correctly - this is intentional. They serve as a test bed to explore current support and surface gaps.
-
-| File | Schema | Renders? |
-|---|---|:---:|
-| `Part1.stp` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
-| `nasty_cheese.stp` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
-| `l44mji.step` | `CONFIG_CONTROL_DESIGN` (AP203) | Yes |
-| `as1-tc-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
-| `io1-ca-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
-| `io1-tc-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
-| `boxy_with_cylindricity.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
-| `d2-db-214.stp` | `AUTOMOTIVE_DESIGN` (AP214) | Yes |
-| `Cruise_Assembly.stp` | `AUTOMOTIVE_DESIGN` (AP214) | ~ |
-| `Rocky_House.stp` | `AUTOMOTIVE_DESIGN` (AP214) | ~ |
-| `twr_ps_16.stp` | `SHIP_STRUCTURES_SCHEMA` (AP218) | No |
-| `blower.stp` | `STRUCTURAL_ANALYSIS_DESIGN` (AP209-like) | No |
-| `fullroom_aim.stp` | `PLANT_SPATIAL_CONFIGURATION` (AP221) | No |
-| `ap224_997423743.stp` | `FEATURE_BASED_PROCESS_PLANNING` (AP224) | No |
+Not all of them render correctly. They serve as a test bed to explore current support and surface gaps.
 
 ## Known Limitations
 
