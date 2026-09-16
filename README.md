@@ -154,11 +154,6 @@ wasm-pack test --headless --chrome --release
 wasm-pack test --headless --firefox --release
 ```
 
-### Example Files
-
-The `samples/` directory ships with a variety of real-world STEP files spanning multiple schemas.
-Not all of them render correctly. They serve as a test bed to explore current support and surface gaps.
-
 ## Known Limitations
 
 - Complex STEP files may cause crashes or rendering issues
