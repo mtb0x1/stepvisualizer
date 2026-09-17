@@ -106,7 +106,10 @@ impl FpsMeter {
         if times.len() < 2 {
             return 0.0;
         }
-        let span = now - *times.front().unwrap();
+        let span = now
+            - *times
+                .front()
+                .expect("Deque contains at least 2 frames due to prior length check");
         if span <= 0.0 {
             return 0.0;
         }

@@ -144,6 +144,12 @@ impl RenderablePart {
     }
 }
 
+// ==============================================================================
+// Tessellation & Bounding Volume Extraction
+// ==============================================================================
+// The methods below handle transforming abstract STEP geometric representation
+// tables into concrete GPU-renderable structures and extracting scene bounds.
+
 /// Tessellate `step_table` into renderable parts — or return the cached
 /// Result of [`extract_render_parts`], containing the extracted meshes, the
 /// number of skipped shells, and any descriptive warnings.
@@ -253,6 +259,10 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
     }
 }
 
+// ==============================================================================
+// Fast Vertex Deduplication & Geometry Welding
+// ==============================================================================
+//
 // Fast Vertex Deduplication Helpers
 //
 // When turning STEP shapes into 3D meshes for WebGPU, each triangle corner has
@@ -317,7 +327,10 @@ fn append_face_geometry(
             continue;
         }
 
-        // Geometric normal fallback from the first three distinct points of the face (computed in f64)
+        // Geometric normal fallback from the first three distinct points of the face.
+        // We compute this in double-precision (`DVec3`) before downcasting because
+        // STEP models can have extreme scales (e.g. millimeters in aerospace assemblies)
+        // that cause catastrophic cancellation in single-precision floating point.
         let p0 = match positions.get(face[0].pos) {
             Some(p) => DVec3::new(p.x, p.y, p.z),
             None => continue,

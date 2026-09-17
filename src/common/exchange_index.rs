@@ -196,6 +196,11 @@ impl ExchangeIndex {
                         });
 
                         match kind {
+                            // ==============================================================================
+                            // Color Extraction
+                            // ==============================================================================
+                            // We extract colors defined directly on RGB or predefined entities, and link
+                            // presentation styles to their target geometry.
                             Some(StepEntityKind::ColourRgb) => {
                                 if let Some(color) = Color::from_rgb_record(record) {
                                     idx.direct_colors.insert(entity_id, color);
@@ -213,23 +218,114 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::StyledItem) => {
-                                idx.collect_styled_item(record);
+                                if let Some(params) = param_as_list(&record.parameter)
+                                    && let (Some(styles_param), Some(target_id)) =
+                                        (params.get(1), params.get(2).and_then(param_as_ref))
+                                {
+                                    let style_refs = extract_smallvec_refs(styles_param);
+                                    idx.styled_items.push((style_refs, target_id));
+                                }
                             }
                             Some(StepEntityKind::ClosedShell | StepEntityKind::OpenShell) => {
-                                idx.collect_shell(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    // Color: build face → shell and shell → faces maps
+                                    if let Some(faces_param) = params.get(1) {
+                                        let face_refs =
+                                            extract_entity_refs_with_capacity(faces_param, 5000);
+                                        for &face_id in &face_refs {
+                                            idx.face_to_shell.insert(face_id, entity_id);
+                                        }
+                                        idx.shell_to_faces.insert(entity_id, face_refs);
+                                    }
+
+                                    // Name: shell direct name
+                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                        && crate::common::step_names::is_valid_part_name(raw_name)
+                                    {
+                                        idx.shell_direct_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(raw_name),
+                                        );
+                                    }
+                                }
                             }
                             Some(
                                 StepEntityKind::ManifoldSolidBrep
                                 | StepEntityKind::BrepWithVoids
                                 | StepEntityKind::FacetedBrep,
                             ) => {
-                                idx.collect_brep_solid(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    // Name: solid name (param 0)
+                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                        && crate::common::step_names::is_valid_part_name(raw_name)
+                                    {
+                                        idx.solid_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(raw_name),
+                                        );
+                                    }
+
+                                    // Color + name: solid → shell link (param 1)
+                                    if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
+                                        idx.solid_to_shell.insert(entity_id, shell_id);
+                                        idx.shell_to_solids
+                                            .entry(shell_id)
+                                            .or_default()
+                                            .push(entity_id);
+                                    }
+                                }
                             }
                             Some(StepEntityKind::ShellBasedSurfaceModel) => {
-                                idx.collect_shell_based_surface_model(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    // Name: surface model name (param 0)
+                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                        && crate::common::step_names::is_valid_part_name(raw_name)
+                                    {
+                                        idx.solid_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(raw_name),
+                                        );
+                                    }
+
+                                    // Name: model → shells (param 1, a list of refs)
+                                    if let Some(shells_param) = params.get(1) {
+                                        for shell_id in extract_entity_refs(shells_param) {
+                                            idx.solid_to_shell.insert(entity_id, shell_id);
+                                            idx.shell_to_solids
+                                                .entry(shell_id)
+                                                .or_default()
+                                                .push(entity_id);
+                                        }
+                                    }
+                                }
                             }
+
+                            // ==============================================================================
+                            // Name Resolution
+                            // ==============================================================================
+                            // We traverse the assembly tree (Shape Representation -> Product Definition ->
+                            // Product) to find and link the best human-readable part names.
                             Some(StepEntityKind::ShapeRepresentation) => {
-                                idx.collect_shape_representation(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                        && crate::common::step_names::is_valid_part_name(raw_name)
+                                    {
+                                        idx.rep_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(raw_name),
+                                        );
+                                    }
+                                    if let Some(items_param) = params.get(1) {
+                                        let refs = extract_smallvec_refs(items_param);
+                                        for &item_id in &refs {
+                                            idx.item_to_reps
+                                                .entry(item_id)
+                                                .or_default()
+                                                .push(entity_id);
+                                        }
+                                        idx.rep_items.insert(entity_id, refs);
+                                    }
+                                }
                             }
                             Some(StepEntityKind::RepRelationship) => {
                                 let refs = extract_entity_refs(&record.parameter);
@@ -238,16 +334,76 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::IdAttribute) => {
-                                idx.collect_id_attribute(record);
+                                if let Some(params) = param_as_list(&record.parameter)
+                                    && let (Some(raw_val), Some(target_id)) = (
+                                        params.first().and_then(param_as_str),
+                                        params.get(1).and_then(param_as_ref),
+                                    )
+                                    && crate::common::step_names::is_valid_part_name(raw_val)
+                                {
+                                    idx.rep_names.insert(
+                                        target_id,
+                                        crate::common::step_names::clean_part_name(raw_val),
+                                    );
+                                }
                             }
                             Some(StepEntityKind::ShapeDefinitionRepresentation) => {
-                                idx.collect_shape_def_rep(record);
+                                if let Some(params) = param_as_list(&record.parameter)
+                                    && let (Some(pds_id), Some(rep_id)) = (
+                                        params.first().and_then(param_as_ref),
+                                        params.get(1).and_then(param_as_ref),
+                                    )
+                                {
+                                    idx.shape_rep_to_pds.insert(rep_id, pds_id);
+                                }
                             }
                             Some(StepEntityKind::ProductDefinitionShape) => {
-                                idx.collect_product_definition_shape(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    let raw_name = params.first().and_then(param_as_str);
+                                    let raw_desc = params.get(1).and_then(param_as_str);
+                                    let chosen = raw_desc
+                                        .filter(|s| {
+                                            crate::common::step_names::is_valid_part_name(s)
+                                        })
+                                        .or_else(|| {
+                                            raw_name.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        });
+                                    if let Some(val) = chosen {
+                                        idx.pds_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(val),
+                                        );
+                                    }
+                                    if let Some(pd_id) = params.get(2).and_then(param_as_ref) {
+                                        idx.pds_to_pd.insert(entity_id, pd_id);
+                                    }
+                                }
                             }
                             Some(StepEntityKind::ProductDefinition) => {
-                                idx.collect_product_definition(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    let raw_id = params.first().and_then(param_as_str);
+                                    let raw_desc = params.get(1).and_then(param_as_str);
+                                    let chosen = raw_id
+                                        .filter(|s| {
+                                            crate::common::step_names::is_valid_part_name(s)
+                                        })
+                                        .or_else(|| {
+                                            raw_desc.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        });
+                                    if let Some(val) = chosen {
+                                        idx.pd_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(val),
+                                        );
+                                    }
+                                    if let Some(pdf_id) = params.get(2).and_then(param_as_ref) {
+                                        idx.pd_to_pdf.insert(entity_id, pdf_id);
+                                    }
+                                }
                             }
                             Some(StepEntityKind::ProductDefinitionFormation) => {
                                 let refs = extract_entity_refs(&record.parameter);
@@ -256,11 +412,67 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::Product) => {
-                                idx.collect_product(entity_id, record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    let raw_id = params.first().and_then(param_as_str);
+                                    let raw_name = params.get(1).and_then(param_as_str);
+                                    let raw_desc = params.get(2).and_then(param_as_str);
+                                    let chosen = raw_name
+                                        .filter(|s| {
+                                            crate::common::step_names::is_valid_part_name(s)
+                                        })
+                                        .or_else(|| {
+                                            raw_id.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        })
+                                        .or_else(|| {
+                                            raw_desc.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        });
+                                    if let Some(val) = chosen {
+                                        idx.prod_names.insert(
+                                            entity_id,
+                                            crate::common::step_names::clean_part_name(val),
+                                        );
+                                    }
+                                }
                             }
                             Some(StepEntityKind::NextAssemblyUsageOccurrence) => {
-                                idx.collect_nauo(record);
+                                if let Some(params) = param_as_list(&record.parameter) {
+                                    let raw_id = params.first().and_then(param_as_str);
+                                    let raw_name = params.get(1).and_then(param_as_str);
+                                    let raw_desc = params.get(2).and_then(param_as_str);
+                                    let chosen = raw_desc
+                                        .filter(|s| {
+                                            crate::common::step_names::is_valid_part_name(s)
+                                        })
+                                        .or_else(|| {
+                                            raw_id.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        })
+                                        .or_else(|| {
+                                            raw_name.filter(|s| {
+                                                crate::common::step_names::is_valid_part_name(s)
+                                            })
+                                        });
+                                    if let (Some(val), Some(related_pd)) =
+                                        (chosen, params.get(4).and_then(param_as_ref))
+                                    {
+                                        idx.nauo_names.insert(
+                                            related_pd,
+                                            crate::common::step_names::clean_part_name(val),
+                                        );
+                                    }
+                                }
                             }
+
+                            // ==============================================================================
+                            // Unit Identification & Fallbacks
+                            // ==============================================================================
+                            // If we don't recognize the entity directly, we still extract PDF -> Product
+                            // links and try to fallback to any SI_UNIT if no definitive unit is found.
                             None => {
                                 if name.starts_with("PRODUCT_DEFINITION_FORMATION") {
                                     let refs = extract_entity_refs(&record.parameter);
@@ -312,232 +524,6 @@ impl ExchangeIndex {
         }
 
         idx
-    }
-
-    // -----------------------------------------------------------------------
-    // Private helpers — color
-    // -----------------------------------------------------------------------
-
-    fn collect_styled_item(&mut self, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let target = params.get(2).and_then(param_as_ref);
-        if let (Some(styles_param), Some(target_id)) = (params.get(1), target) {
-            let style_refs = extract_smallvec_refs(styles_param);
-            self.styled_items.push((style_refs, target_id));
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Private helpers — shared (color + name)
-    // -----------------------------------------------------------------------
-
-    fn collect_shell(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-
-        // Color: build face → shell and shell → faces maps
-        if let Some(faces_param) = params.get(1) {
-            // Default init the vec with 5000 (to avoid regrowing so often). Max observed faces in complex step files is ~4328.
-            let face_refs = extract_entity_refs_with_capacity(faces_param, 5000);
-            for &face_id in &face_refs {
-                self.face_to_shell.insert(face_id, entity_id);
-            }
-            self.shell_to_faces.insert(entity_id, face_refs);
-        }
-
-        // Name: shell direct name
-        if let Some(raw_name) = params.first().and_then(param_as_str)
-            && crate::common::step_names::is_valid_part_name(raw_name)
-        {
-            self.shell_direct_names.insert(
-                entity_id,
-                crate::common::step_names::clean_part_name(raw_name),
-            );
-        }
-    }
-
-    fn collect_brep_solid(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-
-        // Name: solid name (param 0)
-        if let Some(raw_name) = params.first().and_then(param_as_str)
-            && crate::common::step_names::is_valid_part_name(raw_name)
-        {
-            self.solid_names.insert(
-                entity_id,
-                crate::common::step_names::clean_part_name(raw_name),
-            );
-        }
-
-        // Color + name: solid → shell link (param 1)
-        if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
-            self.solid_to_shell.insert(entity_id, shell_id);
-            self.shell_to_solids
-                .entry(shell_id)
-                .or_default()
-                .push(entity_id);
-        }
-    }
-
-    fn collect_shell_based_surface_model(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-
-        // Name: surface model name (param 0)
-        if let Some(raw_name) = params.first().and_then(param_as_str)
-            && crate::common::step_names::is_valid_part_name(raw_name)
-        {
-            self.solid_names.insert(
-                entity_id,
-                crate::common::step_names::clean_part_name(raw_name),
-            );
-        }
-
-        // Name: model → shells (param 1, a list of refs)
-        if let Some(shells_param) = params.get(1) {
-            for shell_id in extract_entity_refs(shells_param) {
-                self.solid_to_shell.insert(entity_id, shell_id);
-                self.shell_to_solids
-                    .entry(shell_id)
-                    .or_default()
-                    .push(entity_id);
-            }
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Private helpers — name only
-    // -----------------------------------------------------------------------
-
-    fn collect_shape_representation(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        if let Some(raw_name) = params.first().and_then(param_as_str)
-            && crate::common::step_names::is_valid_part_name(raw_name)
-        {
-            self.rep_names.insert(
-                entity_id,
-                crate::common::step_names::clean_part_name(raw_name),
-            );
-        }
-        if let Some(items_param) = params.get(1) {
-            let refs = extract_smallvec_refs(items_param);
-            for &item_id in &refs {
-                self.item_to_reps
-                    .entry(item_id)
-                    .or_default()
-                    .push(entity_id);
-            }
-            self.rep_items.insert(entity_id, refs);
-        }
-    }
-
-    fn collect_id_attribute(&mut self, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let Some(raw_val) = params.first().and_then(param_as_str) else {
-            return;
-        };
-        let Some(target_id) = params.get(1).and_then(param_as_ref) else {
-            return;
-        };
-        if crate::common::step_names::is_valid_part_name(raw_val) {
-            self.rep_names.insert(
-                target_id,
-                crate::common::step_names::clean_part_name(raw_val),
-            );
-        }
-    }
-
-    fn collect_shape_def_rep(&mut self, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let Some(pds_id) = params.first().and_then(param_as_ref) else {
-            return;
-        };
-        let Some(rep_id) = params.get(1).and_then(param_as_ref) else {
-            return;
-        };
-        self.shape_rep_to_pds.insert(rep_id, pds_id);
-    }
-
-    fn collect_product_definition_shape(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let raw_name = params.first().and_then(param_as_str);
-        let raw_desc = params.get(1).and_then(param_as_str);
-        let chosen = raw_desc
-            .filter(|s| crate::common::step_names::is_valid_part_name(s))
-            .or_else(|| raw_name.filter(|s| crate::common::step_names::is_valid_part_name(s)));
-        if let Some(val) = chosen {
-            self.pds_names
-                .insert(entity_id, crate::common::step_names::clean_part_name(val));
-        }
-        if let Some(pd_id) = params.get(2).and_then(param_as_ref) {
-            self.pds_to_pd.insert(entity_id, pd_id);
-        }
-    }
-
-    fn collect_product_definition(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let raw_id = params.first().and_then(param_as_str);
-        let raw_desc = params.get(1).and_then(param_as_str);
-        let chosen = raw_id
-            .filter(|s| crate::common::step_names::is_valid_part_name(s))
-            .or_else(|| raw_desc.filter(|s| crate::common::step_names::is_valid_part_name(s)));
-        if let Some(val) = chosen {
-            self.pd_names
-                .insert(entity_id, crate::common::step_names::clean_part_name(val));
-        }
-        if let Some(pdf_id) = params.get(2).and_then(param_as_ref) {
-            self.pd_to_pdf.insert(entity_id, pdf_id);
-        }
-    }
-
-    fn collect_product(&mut self, entity_id: u64, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let raw_id = params.first().and_then(param_as_str);
-        let raw_name = params.get(1).and_then(param_as_str);
-        let raw_desc = params.get(2).and_then(param_as_str);
-        let chosen = raw_name
-            .filter(|s| crate::common::step_names::is_valid_part_name(s))
-            .or_else(|| raw_id.filter(|s| crate::common::step_names::is_valid_part_name(s)))
-            .or_else(|| raw_desc.filter(|s| crate::common::step_names::is_valid_part_name(s)));
-        if let Some(val) = chosen {
-            self.prod_names
-                .insert(entity_id, crate::common::step_names::clean_part_name(val));
-        }
-    }
-
-    fn collect_nauo(&mut self, record: &Record) {
-        let Some(params) = param_as_list(&record.parameter) else {
-            return;
-        };
-        let raw_id = params.first().and_then(param_as_str);
-        let raw_name = params.get(1).and_then(param_as_str);
-        let raw_desc = params.get(2).and_then(param_as_str);
-        let chosen = raw_desc
-            .filter(|s| crate::common::step_names::is_valid_part_name(s))
-            .or_else(|| raw_id.filter(|s| crate::common::step_names::is_valid_part_name(s)))
-            .or_else(|| raw_name.filter(|s| crate::common::step_names::is_valid_part_name(s)));
-        if let (Some(val), Some(related_pd)) = (chosen, params.get(4).and_then(param_as_ref)) {
-            self.nauo_names
-                .insert(related_pd, crate::common::step_names::clean_part_name(val));
-        }
     }
 }
 
