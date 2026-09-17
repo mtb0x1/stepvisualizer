@@ -79,13 +79,22 @@ fn schema_detection_supported() {
 #[wasm_bindgen_test]
 fn probe_validate_step_buffer_various() {
     let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN");
-    assert_eq!(StepParser::probe_validate_buffer(&text_203), Ok(StepSchema::Ap203));
+    assert_eq!(
+        StepParser::probe_validate_buffer(&text_203),
+        Ok(StepSchema::Ap203)
+    );
 
     let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
-    assert_eq!(StepParser::probe_validate_buffer(&text_214), Ok(StepSchema::Ap214));
+    assert_eq!(
+        StepParser::probe_validate_buffer(&text_214),
+        Ok(StepSchema::Ap214)
+    );
 
     let text_201 = step_with_schema("EXPLICIT_DRAUGHTING");
-    assert_eq!(StepParser::probe_validate_buffer(&text_201), Ok(StepSchema::Ap201));
+    assert_eq!(
+        StepParser::probe_validate_buffer(&text_201),
+        Ok(StepSchema::Ap201)
+    );
 
     // Unsupported schema early rejection
     let text_aim = step_with_schema("PLANT_SPATIAL_CONFIGURATION");

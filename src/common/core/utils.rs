@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 
 use glam::Vec2;
-use smol_str::{format_smolstr, SmolStr};
+use smol_str::{SmolStr, format_smolstr};
 
 use crate::common::constants::NA;
 

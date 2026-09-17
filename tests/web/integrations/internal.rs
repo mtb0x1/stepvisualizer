@@ -18,7 +18,9 @@ fn step_pipeline_e2e_real_model() {
     ));
 
     let mut parsed = StepParser::parse(STEP_TEXT).expect("successful STEP AST parse");
-    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
+    let usable_sections = parsed
+        .all_usable_sections()
+        .expect("usable sections present");
     assert!(!usable_sections.is_empty());
 
     let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
@@ -34,9 +36,9 @@ fn step_pipeline_e2e_real_model() {
     drop(index);
 
     let bbox = stepvisualizer::common::math::compute_bounding_box(&step_tables);
-    let (meta, file_id) =
-        parsed.build_initial_metadata("io1-ca-214.stp", STEP_TEXT, bbox, units)
-            .expect("metadata successfully built");
+    let (meta, file_id) = parsed
+        .build_initial_metadata("io1-ca-214.stp", STEP_TEXT, bbox, units)
+        .expect("metadata successfully built");
 
     assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
     assert_eq!(meta.header.file_schema, "AUTOMOTIVE_DESIGN");
@@ -85,7 +87,9 @@ fn step_pipeline_e2e_nasty_cheese() {
     let units = index.resolved_unit();
     drop(index);
 
-    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
+    let usable_sections = parsed
+        .all_usable_sections()
+        .expect("usable sections present");
     assert_eq!(usable_sections.len(), 1);
 
     let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
@@ -95,9 +99,9 @@ fn step_pipeline_e2e_nasty_cheese() {
     assert_eq!(step_tables.len(), 1);
 
     let bbox = stepvisualizer::common::math::compute_bounding_box(&step_tables);
-    let (meta, file_id) =
-        parsed.build_initial_metadata("nasty_cheese.stp", STEP_TEXT, bbox, units)
-            .expect("metadata successfully built");
+    let (meta, file_id) = parsed
+        .build_initial_metadata("nasty_cheese.stp", STEP_TEXT, bbox, units)
+        .expect("metadata successfully built");
 
     assert_eq!(meta.header.file_name, "nasty_cheese");
     assert_eq!(meta.header.file_schema, "CONFIG_CONTROL_DESIGN");
