@@ -13,13 +13,13 @@ use phf::phf_map;
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 
-use crate::common::color::Color;
-use crate::common::fast_hash::FastU64Map;
-use crate::common::types::LengthUnit;
-use crate::common::utils::{
+use crate::common::ast_helpers::{
     extract_entity_refs, extract_entity_refs_with_capacity, extract_smallvec_refs, param_as_enum,
     param_as_list, param_as_ref, param_as_str,
 };
+use crate::common::color::Color;
+use crate::common::fast_hash::FastU64Map;
+use crate::common::types::LengthUnit;
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 
 // TODO : double check kinds against specs.

@@ -12,7 +12,7 @@ use wgpu::{
     util::{BufferInitDescriptor, DeviceExt},
 };
 
-pub use crate::common::utils::browser_has_webgpu;
+pub use crate::common::web::browser_has_webgpu;
 
 /// GPU-side buffers for a single rendered part.
 ///

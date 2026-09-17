@@ -2,7 +2,7 @@
 use crate::common::constants::{
     MAX_FILE_BYTES, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance,
 };
-use crate::common::utils::input_file;
+use crate::common::web::input_file;
 use crate::common::{
     ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, all_usable_sections,
     compute_bounding_box, extract_header_and_count, extract_render_parts,

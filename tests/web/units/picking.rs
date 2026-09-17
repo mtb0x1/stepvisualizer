@@ -3,11 +3,11 @@ use stepvisualizer::common::color::Color;
 use stepvisualizer::common::constants::{
     DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance,
 };
-use stepvisualizer::common::render::{GpuVertex, RenderablePart};
-use stepvisualizer::common::types::{BoundingBox, ViewportSize};
-use stepvisualizer::common::utils::{
+use stepvisualizer::common::math::{
     geometric_normal, ray_triangle_intersect, raycast_parts, screen_point_to_ray,
 };
+use stepvisualizer::common::render::{GpuVertex, RenderablePart};
+use stepvisualizer::common::types::{BoundingBox, ViewportSize};
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]

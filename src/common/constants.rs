@@ -16,7 +16,7 @@ pub const MAX_FILE_BYTES: f64 = 50.0 * 1024.0 * 1024.0; // 50mb max (text file .
 /// - local dev / unknown            → `""` (no prefix, fully backward-compatible)
 ///
 /// The result is computed once per page load and cached in a thread-local.
-use crate::common::utils::{sanitize_host_for_db_name, storage_prefix};
+use crate::common::web::{sanitize_host_for_db_name, storage_prefix};
 
 /// IndexedDB database name, namespaced by host (including port) and deployment environment.
 /// `.` and `:` in the host are replaced with `_` so the name is a safe identifier.
@@ -99,7 +99,7 @@ pub const MIN_TOLERANCE: f64 = 1e-4;
 /// Maximum tessellation tolerance (ensures adequate curve smoothness on tiny models).
 pub const MAX_TOLERANCE: f64 = 0.05;
 
-pub use crate::common::utils::compute_adaptive_tolerance;
+pub use crate::common::math::compute_adaptive_tolerance;
 
 /// User-selectable tessellation quality trade-off. The chosen variant applies
 /// a multiplier to the adaptive tolerance computed from the model bounding box.

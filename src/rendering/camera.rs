@@ -1,4 +1,4 @@
-pub use crate::common::utils::spherical_to_cartesian;
+pub use crate::common::math::spherical_to_cartesian;
 use glam::DVec3;
 use std::fmt::Display;
 

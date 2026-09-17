@@ -9,12 +9,12 @@ use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
 use crate::common::color::{Color, StepColorMap, part_color};
+use crate::common::math::{
+    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
+};
 use crate::common::step_names::StepNameMap;
 use crate::common::time::now_ms;
 use crate::common::types::BoundingBox;
-use crate::common::utils::{
-    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
-};
 use glam::{DVec3, Mat4, Vec3};
 use smol_str::SmolStr;
 

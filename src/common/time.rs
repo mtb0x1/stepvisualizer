@@ -1,2 +1,2 @@
 //! Time utilities.
-pub use crate::common::utils::now_ms;
+pub use crate::common::web::now_ms;

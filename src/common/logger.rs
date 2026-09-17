@@ -14,7 +14,7 @@ use tracing_web::{MakeConsoleWriter, performance_layer};
 use web_sys::console;
 
 use super::constants::STEP_TRACER;
-use super::utils::url_query_param;
+use super::web::url_query_param;
 
 /// Install the global subscriber, but only when tracing is enabled via URL.
 pub fn init() {

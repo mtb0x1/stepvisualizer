@@ -5,9 +5,9 @@ use crate::common::logger;
 use crate::rendering::camera::PresetType;
 use crate::{
     common::fps_meter::FpsMeter,
+    common::math::{raycast_parts, screen_point_to_ray},
     common::render::visible_bounds,
     common::types::BoundingBox,
-    common::utils::{raycast_parts, screen_point_to_ray},
     common::{
         DMat4, DVec3, FileId, Metadata, StepModel, ViewportSize, constants::NEAR_PLANE,
         constants::WEBGPU_INIT_FAILED_MSG, look_at_mat4, perspective,

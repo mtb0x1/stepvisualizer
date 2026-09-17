@@ -481,7 +481,7 @@ impl Default for AuditMetadata {
 }
 
 fn default_timestamp() -> f64 {
-    crate::common::utils::now_ms()
+    crate::common::web::now_ms()
 }
 
 fn default_user() -> SmolStr {
