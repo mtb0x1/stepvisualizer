@@ -19,9 +19,7 @@ pub mod utils;
 pub mod web;
 
 #[allow(unused_imports)]
-pub use ast_helpers::{
-    extract_entity_refs, param_as_enum, param_as_list, param_as_real, param_as_ref, param_as_str,
-};
+pub use ast_helpers::{ParameterExt, TryExtractParam, extract_entity_refs};
 pub use color::{Color, PART_COLORS, PART_COLORS_COUNT, StepColorMap, part_color};
 pub use exchange_index::ExchangeIndex;
 pub use fast_hash::{FastBuildHasher, FastU64Hasher, FastU64Map, FastU64Set};

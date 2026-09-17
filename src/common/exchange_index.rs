@@ -14,12 +14,12 @@ use smallvec::SmallVec;
 use smol_str::SmolStr;
 
 use crate::common::ast_helpers::{
-    extract_entity_refs, extract_entity_refs_with_capacity, extract_smallvec_refs, param_as_enum,
-    param_as_list, param_as_ref, param_as_str,
+    ParameterExt, extract_entity_refs, extract_entity_refs_with_capacity, extract_smallvec_refs,
 };
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
 use crate::common::types::LengthUnit;
+use crate::ruststep::ast::Parameter;
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
 
 // TODO : double check kinds against specs.
@@ -218,16 +218,19 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::StyledItem) => {
-                                if let Some(params) = param_as_list(&record.parameter)
-                                    && let (Some(styles_param), Some(target_id)) =
-                                        (params.get(1), params.get(2).and_then(param_as_ref))
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                    && let (Some(styles_param), Some(target_id)) = (
+                                        params.get(1),
+                                        params.get(2).and_then(|p| p.try_extract::<u64>()),
+                                    )
                                 {
                                     let style_refs = extract_smallvec_refs(styles_param);
                                     idx.styled_items.push((style_refs, target_id));
                                 }
                             }
                             Some(StepEntityKind::ClosedShell | StepEntityKind::OpenShell) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
                                     // Color: build face → shell and shell → faces maps
                                     if let Some(faces_param) = params.get(1) {
                                         let face_refs =
@@ -239,7 +242,8 @@ impl ExchangeIndex {
                                     }
 
                                     // Name: shell direct name
-                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    if let Some(raw_name) =
+                                        params.first().and_then(|p| p.try_extract::<&str>())
                                         && crate::common::step_names::is_valid_part_name(raw_name)
                                     {
                                         idx.shell_direct_names.insert(
@@ -254,9 +258,11 @@ impl ExchangeIndex {
                                 | StepEntityKind::BrepWithVoids
                                 | StepEntityKind::FacetedBrep,
                             ) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
                                     // Name: solid name (param 0)
-                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    if let Some(raw_name) =
+                                        params.first().and_then(|p| p.try_extract::<&str>())
                                         && crate::common::step_names::is_valid_part_name(raw_name)
                                     {
                                         idx.solid_names.insert(
@@ -266,7 +272,9 @@ impl ExchangeIndex {
                                     }
 
                                     // Color + name: solid → shell link (param 1)
-                                    if let Some(shell_id) = params.get(1).and_then(param_as_ref) {
+                                    if let Some(shell_id) =
+                                        params.get(1).and_then(|p| p.try_extract::<u64>())
+                                    {
                                         idx.solid_to_shell.insert(entity_id, shell_id);
                                         idx.shell_to_solids
                                             .entry(shell_id)
@@ -276,9 +284,11 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::ShellBasedSurfaceModel) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
                                     // Name: surface model name (param 0)
-                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                    if let Some(raw_name) =
+                                        params.first().and_then(|p| p.try_extract::<&str>())
                                         && crate::common::step_names::is_valid_part_name(raw_name)
                                     {
                                         idx.solid_names.insert(
@@ -306,8 +316,10 @@ impl ExchangeIndex {
                             // We traverse the assembly tree (Shape Representation -> Product Definition ->
                             // Product) to find and link the best human-readable part names.
                             Some(StepEntityKind::ShapeRepresentation) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
-                                    if let Some(raw_name) = params.first().and_then(param_as_str)
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
+                                    if let Some(raw_name) =
+                                        params.first().and_then(|p| p.try_extract::<&str>())
                                         && crate::common::step_names::is_valid_part_name(raw_name)
                                     {
                                         idx.rep_names.insert(
@@ -334,10 +346,10 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::IdAttribute) => {
-                                if let Some(params) = param_as_list(&record.parameter)
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                     && let (Some(raw_val), Some(target_id)) = (
-                                        params.first().and_then(param_as_str),
-                                        params.get(1).and_then(param_as_ref),
+                                        params.first().and_then(|p| p.try_extract::<&str>()),
+                                        params.get(1).and_then(|p| p.try_extract::<u64>()),
                                     )
                                     && crate::common::step_names::is_valid_part_name(raw_val)
                                 {
@@ -348,19 +360,22 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::ShapeDefinitionRepresentation) => {
-                                if let Some(params) = param_as_list(&record.parameter)
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                     && let (Some(pds_id), Some(rep_id)) = (
-                                        params.first().and_then(param_as_ref),
-                                        params.get(1).and_then(param_as_ref),
+                                        params.first().and_then(|p| p.try_extract::<u64>()),
+                                        params.get(1).and_then(|p| p.try_extract::<u64>()),
                                     )
                                 {
                                     idx.shape_rep_to_pds.insert(rep_id, pds_id);
                                 }
                             }
                             Some(StepEntityKind::ProductDefinitionShape) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
-                                    let raw_name = params.first().and_then(param_as_str);
-                                    let raw_desc = params.get(1).and_then(param_as_str);
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
+                                    let raw_name =
+                                        params.first().and_then(|p| p.try_extract::<&str>());
+                                    let raw_desc =
+                                        params.get(1).and_then(|p| p.try_extract::<&str>());
                                     let chosen = raw_desc
                                         .filter(|s| {
                                             crate::common::step_names::is_valid_part_name(s)
@@ -376,15 +391,20 @@ impl ExchangeIndex {
                                             crate::common::step_names::clean_part_name(val),
                                         );
                                     }
-                                    if let Some(pd_id) = params.get(2).and_then(param_as_ref) {
+                                    if let Some(pd_id) =
+                                        params.get(2).and_then(|p| p.try_extract::<u64>())
+                                    {
                                         idx.pds_to_pd.insert(entity_id, pd_id);
                                     }
                                 }
                             }
                             Some(StepEntityKind::ProductDefinition) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
-                                    let raw_id = params.first().and_then(param_as_str);
-                                    let raw_desc = params.get(1).and_then(param_as_str);
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
+                                    let raw_id =
+                                        params.first().and_then(|p| p.try_extract::<&str>());
+                                    let raw_desc =
+                                        params.get(1).and_then(|p| p.try_extract::<&str>());
                                     let chosen = raw_id
                                         .filter(|s| {
                                             crate::common::step_names::is_valid_part_name(s)
@@ -400,7 +420,9 @@ impl ExchangeIndex {
                                             crate::common::step_names::clean_part_name(val),
                                         );
                                     }
-                                    if let Some(pdf_id) = params.get(2).and_then(param_as_ref) {
+                                    if let Some(pdf_id) =
+                                        params.get(2).and_then(|p| p.try_extract::<u64>())
+                                    {
                                         idx.pd_to_pdf.insert(entity_id, pdf_id);
                                     }
                                 }
@@ -412,10 +434,14 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::Product) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
-                                    let raw_id = params.first().and_then(param_as_str);
-                                    let raw_name = params.get(1).and_then(param_as_str);
-                                    let raw_desc = params.get(2).and_then(param_as_str);
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
+                                    let raw_id =
+                                        params.first().and_then(|p| p.try_extract::<&str>());
+                                    let raw_name =
+                                        params.get(1).and_then(|p| p.try_extract::<&str>());
+                                    let raw_desc =
+                                        params.get(2).and_then(|p| p.try_extract::<&str>());
                                     let chosen = raw_name
                                         .filter(|s| {
                                             crate::common::step_names::is_valid_part_name(s)
@@ -439,10 +465,14 @@ impl ExchangeIndex {
                                 }
                             }
                             Some(StepEntityKind::NextAssemblyUsageOccurrence) => {
-                                if let Some(params) = param_as_list(&record.parameter) {
-                                    let raw_id = params.first().and_then(param_as_str);
-                                    let raw_name = params.get(1).and_then(param_as_str);
-                                    let raw_desc = params.get(2).and_then(param_as_str);
+                                if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
+                                {
+                                    let raw_id =
+                                        params.first().and_then(|p| p.try_extract::<&str>());
+                                    let raw_name =
+                                        params.get(1).and_then(|p| p.try_extract::<&str>());
+                                    let raw_desc =
+                                        params.get(2).and_then(|p| p.try_extract::<&str>());
                                     let chosen = raw_desc
                                         .filter(|s| {
                                             crate::common::step_names::is_valid_part_name(s)
@@ -458,7 +488,7 @@ impl ExchangeIndex {
                                             })
                                         });
                                     if let (Some(val), Some(related_pd)) =
-                                        (chosen, params.get(4).and_then(param_as_ref))
+                                        (chosen, params.get(4).and_then(|p| p.try_extract::<u64>()))
                                     {
                                         idx.nauo_names.insert(
                                             related_pd,
@@ -537,14 +567,14 @@ fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
 
 fn unit_from_record(record: &Record) -> Option<LengthUnit> {
     if record.name.eq_ignore_ascii_case("SI_UNIT") {
-        let params = param_as_list(&record.parameter)?;
-        let unit = params.get(1).and_then(param_as_enum)?;
-        let prefix = params.first().and_then(param_as_enum);
+        let params = record.parameter.try_extract::<&[Parameter]>()?;
+        let unit = params.get(1).and_then(|p| p.try_extract::<&str>())?;
+        let prefix = params.first().and_then(|p| p.try_extract::<&str>());
         return LengthUnit::from_si_spec(unit, prefix);
     }
     if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
-        let params = param_as_list(&record.parameter)?;
-        let name = params.first().and_then(param_as_str)?;
+        let params = record.parameter.try_extract::<&[Parameter]>()?;
+        let name = params.first().and_then(|p| p.try_extract::<&str>())?;
         return LengthUnit::from_name(name);
     }
     None

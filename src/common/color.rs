@@ -8,7 +8,7 @@ use bytemuck::{Pod, Zeroable};
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 
-use crate::common::ast_helpers::{param_as_list, param_as_real, param_as_str};
+use crate::common::ast_helpers::ParameterExt;
 use crate::common::exchange_index::ExchangeIndex;
 use crate::ruststep::ast::{Parameter, Record};
 
@@ -170,13 +170,13 @@ impl Color {
 
     /// Parses a color from a `COLOUR_RGB` STEP record.
     pub fn from_rgb_record(record: &Record) -> Option<Self> {
-        let params = param_as_list(&record.parameter)?;
+        let params = record.parameter.try_extract::<&[Parameter]>()?;
         if params.len() < 4 {
             return None;
         }
-        let r = param_as_real(&params[1]).unwrap_or(0.0) as f32;
-        let g = param_as_real(&params[2]).unwrap_or(0.0) as f32;
-        let b = param_as_real(&params[3]).unwrap_or(0.0) as f32;
+        let r = params[1].try_extract::<f64>().unwrap_or(0.0) as f32;
+        let g = params[2].try_extract::<f64>().unwrap_or(0.0) as f32;
+        let b = params[3].try_extract::<f64>().unwrap_or(0.0) as f32;
         Some(Self::rgb(
             r.clamp(0.0, 1.0),
             g.clamp(0.0, 1.0),
@@ -188,7 +188,7 @@ impl Color {
     pub fn from_predefined_record(record: &Record) -> Option<Self> {
         let col_name = match &record.parameter {
             Parameter::String(s) | Parameter::Enumeration(s) => Some(s.as_str()),
-            Parameter::List(l) => l.first().and_then(param_as_str),
+            Parameter::List(l) => l.first().and_then(|p| p.try_extract::<&str>()),
             _ => None,
         };
         col_name.and_then(Self::parse)

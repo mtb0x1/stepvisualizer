@@ -2,50 +2,61 @@
 
 use crate::ruststep::ast::Parameter;
 
-/// Extracts a slice of `Parameter`s if the parameter is a `Parameter::List`.
-#[inline(always)]
-pub const fn param_as_list(param: &Parameter) -> Option<&[Parameter]> {
-    match param {
-        Parameter::List(list) => Some(list.as_slice()),
-        _ => None,
+/// Trait for types that can be extracted from a `ruststep` AST `Parameter`.
+pub trait TryExtractParam<'a>: Sized {
+    fn try_extract(param: &'a Parameter) -> Option<Self>;
+}
+
+impl<'a> TryExtractParam<'a> for &'a [Parameter] {
+    #[inline(always)]
+    fn try_extract(param: &'a Parameter) -> Option<&'a [Parameter]> {
+        match param {
+            Parameter::List(list) => Some(list.as_slice()),
+            _ => None,
+        }
     }
 }
 
-/// Extracts the string slice if the parameter is a `Parameter::Enumeration`.
-#[inline(always)]
-pub const fn param_as_enum(param: &Parameter) -> Option<&str> {
-    match param {
-        Parameter::Enumeration(value) => Some(value.as_str()),
-        _ => None,
+impl<'a> TryExtractParam<'a> for &'a str {
+    #[inline(always)]
+    fn try_extract(param: &'a Parameter) -> Option<&'a str> {
+        match param {
+            Parameter::String(value) | Parameter::Enumeration(value) => Some(value.as_str()),
+            _ => None,
+        }
     }
 }
 
-/// Extracts a string slice if the parameter is either `Parameter::Enumeration` or `Parameter::String`.
-#[inline(always)]
-pub const fn param_as_str(param: &Parameter) -> Option<&str> {
-    match param {
-        Parameter::Enumeration(value) => Some(value.as_str()),
-        Parameter::String(value) => Some(value.as_str()),
-        _ => None,
+impl<'a> TryExtractParam<'a> for u64 {
+    #[inline(always)]
+    fn try_extract(param: &'a Parameter) -> Option<u64> {
+        match param {
+            Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => Some(*id),
+            _ => None,
+        }
     }
 }
 
-/// Extracts the numeric entity ID if the parameter is a `Parameter::Ref(Name::Entity(id))`.
-#[inline(always)]
-pub const fn param_as_ref(param: &Parameter) -> Option<u64> {
-    match param {
-        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => Some(*id),
-        _ => None,
+impl<'a> TryExtractParam<'a> for f64 {
+    #[inline(always)]
+    fn try_extract(param: &'a Parameter) -> Option<f64> {
+        match param {
+            Parameter::Real(v) => Some(*v),
+            Parameter::Integer(v) => Some(*v as f64),
+            _ => None,
+        }
     }
 }
 
-/// Extracts a float value if the parameter is `Parameter::Real` or `Parameter::Integer`.
-#[inline(always)]
-pub const fn param_as_real(param: &Parameter) -> Option<f64> {
-    match param {
-        Parameter::Real(v) => Some(*v),
-        Parameter::Integer(v) => Some(*v as f64),
-        _ => None,
+/// Extension trait for `Parameter` to allow ergonomic extraction.
+pub trait ParameterExt {
+    fn try_extract<'a, T: TryExtractParam<'a>>(&'a self) -> Option<T>;
+}
+
+impl ParameterExt for Parameter {
+    #[inline(always)]
+    fn try_extract<'a, T: TryExtractParam<'a>>(&'a self) -> Option<T> {
+        T::try_extract(self)
     }
 }
 
