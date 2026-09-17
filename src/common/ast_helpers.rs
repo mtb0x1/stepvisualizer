@@ -64,14 +64,14 @@ impl ParameterExt for Parameter {
 #[inline]
 pub fn extract_entity_refs(param: &Parameter) -> Vec<u64> {
     let mut refs = Vec::new();
-    collect_refs_recursive(param, &mut refs);
+    collect_refs_recursive(param, &mut |id| refs.push(id));
     refs
 }
 
 #[inline]
 pub fn extract_entity_refs_with_capacity(param: &Parameter, cap: usize) -> Vec<u64> {
     let mut refs = Vec::with_capacity(cap);
-    collect_refs_recursive(param, &mut refs);
+    collect_refs_recursive(param, &mut |id| refs.push(id));
     refs
 }
 
@@ -81,34 +81,17 @@ where
     [u64; N]: smallvec::Array<Item = u64>,
 {
     let mut refs = smallvec::SmallVec::new();
-    collect_refs_recursive_small(&mut refs, param);
+    collect_refs_recursive(param, &mut |id| refs.push(id));
     refs
 }
 
 /// Helper for recursive collection of entity references within a `Parameter`.
-pub fn collect_refs_recursive(param: &Parameter, out: &mut Vec<u64>) {
+pub fn collect_refs_recursive(param: &Parameter, push: &mut impl FnMut(u64)) {
     match param {
-        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => out.push(*id),
+        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => push(*id),
         Parameter::List(list) => {
             for item in list {
-                collect_refs_recursive(item, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-pub fn collect_refs_recursive_small<const N: usize>(
-    out: &mut smallvec::SmallVec<[u64; N]>,
-    param: &Parameter,
-) where
-    [u64; N]: smallvec::Array<Item = u64>,
-{
-    match param {
-        Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => out.push(*id),
-        Parameter::List(list) => {
-            for item in list {
-                collect_refs_recursive_small(out, item);
+                collect_refs_recursive(item, push);
             }
         }
         _ => {}

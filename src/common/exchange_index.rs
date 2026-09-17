@@ -220,13 +220,13 @@ impl ExchangeIndex {
                             Some(StepEntityKind::StyledItem) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_styled_item(&mut idx, params);
+                                    idx.collect_styled_item(params);
                                 }
                             }
                             Some(StepEntityKind::ClosedShell | StepEntityKind::OpenShell) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_shell_data(&mut idx, entity_id, params);
+                                    idx.collect_shell_data(entity_id, params);
                                 }
                             }
                             Some(
@@ -236,13 +236,13 @@ impl ExchangeIndex {
                             ) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_solid_data(&mut idx, entity_id, params);
+                                    idx.collect_solid_data(entity_id, params);
                                 }
                             }
                             Some(StepEntityKind::ShellBasedSurfaceModel) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_surface_model_data(&mut idx, entity_id, params);
+                                    idx.collect_surface_model_data(entity_id, params);
                                 }
                             }
 
@@ -254,7 +254,7 @@ impl ExchangeIndex {
                             Some(StepEntityKind::ShapeRepresentation) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_shape_rep_data(&mut idx, entity_id, params);
+                                    idx.collect_shape_rep_data(entity_id, params);
                                 }
                             }
                             Some(StepEntityKind::RepRelationship) => {
@@ -266,25 +266,25 @@ impl ExchangeIndex {
                             Some(StepEntityKind::IdAttribute) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_id_attribute(&mut idx, params);
+                                    idx.collect_id_attribute(params);
                                 }
                             }
                             Some(StepEntityKind::ShapeDefinitionRepresentation) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_shape_def_rep(&mut idx, params);
+                                    idx.collect_shape_def_rep(params);
                                 }
                             }
                             Some(StepEntityKind::ProductDefinitionShape) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_pds_data(&mut idx, entity_id, params);
+                                    idx.collect_pds_data(entity_id, params);
                                 }
                             }
                             Some(StepEntityKind::ProductDefinition) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_pd_data(&mut idx, entity_id, params);
+                                    idx.collect_pd_data(entity_id, params);
                                 }
                             }
                             Some(StepEntityKind::ProductDefinitionFormation) => {
@@ -296,13 +296,13 @@ impl ExchangeIndex {
                             Some(StepEntityKind::Product) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_product_data(&mut idx, entity_id, params);
+                                    idx.collect_product_data(entity_id, params);
                                 }
                             }
                             Some(StepEntityKind::NextAssemblyUsageOccurrence) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
-                                    collect_nauo_data(&mut idx, params);
+                                    idx.collect_nauo_data(params);
                                 }
                             }
 
@@ -381,159 +381,161 @@ fn first_valid_name<'a, const N: usize>(candidates: [Option<&'a str>; N]) -> Opt
     None
 }
 
-#[inline]
-fn collect_styled_item(idx: &mut ExchangeIndex, params: &[Parameter]) {
-    if let (Some(styles_param), Some(target_id)) = (
-        params.get(1),
-        params.get(2).and_then(|p| p.try_extract::<u64>()),
-    ) {
-        let style_refs = extract_smallvec_refs(styles_param);
-        idx.styled_items.push((style_refs, target_id));
-    }
-}
-
-#[inline]
-fn collect_shell_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    // Color: build face → shell and shell → faces maps
-    if let Some(faces_param) = params.get(1) {
-        let face_refs = extract_entity_refs_with_capacity(faces_param, 5000);
-        for &face_id in &face_refs {
-            idx.face_to_shell.insert(face_id, entity_id);
+impl ExchangeIndex {
+    #[inline]
+    fn collect_styled_item(&mut self, params: &[Parameter]) {
+        if let (Some(styles_param), Some(target_id)) = (
+            params.get(1),
+            params.get(2).and_then(|p| p.try_extract::<u64>()),
+        ) {
+            let style_refs = extract_smallvec_refs(styles_param);
+            self.styled_items.push((style_refs, target_id));
         }
-        idx.shell_to_faces.insert(entity_id, face_refs);
     }
 
-    // Name: shell direct name
-    if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
-        idx.shell_direct_names.insert(entity_id, val);
-    }
-}
+    #[inline]
+    fn collect_shell_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        // Color: build face → shell and shell → faces maps
+        if let Some(faces_param) = params.get(1) {
+            let face_refs = extract_entity_refs_with_capacity(faces_param, 5000);
+            for &face_id in &face_refs {
+                self.face_to_shell.insert(face_id, entity_id);
+            }
+            self.shell_to_faces.insert(entity_id, face_refs);
+        }
 
-#[inline]
-fn collect_solid_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    // Name: solid name (param 0)
-    if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
-        idx.solid_names.insert(entity_id, val);
-    }
-
-    // Color + name: solid → shell link (param 1)
-    if let Some(shell_id) = params.get(1).and_then(|p| p.try_extract::<u64>()) {
-        idx.solid_to_shell.insert(entity_id, shell_id);
-        idx.shell_to_solids
-            .entry(shell_id)
-            .or_default()
-            .push(entity_id);
-    }
-}
-
-#[inline]
-fn collect_surface_model_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    // Name: surface model name (param 0)
-    if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
-        idx.solid_names.insert(entity_id, val);
+        // Name: shell direct name
+        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+            self.shell_direct_names.insert(entity_id, val);
+        }
     }
 
-    // Name: model → shells (param 1, a list of refs)
-    if let Some(shells_param) = params.get(1) {
-        for shell_id in extract_entity_refs(shells_param) {
-            idx.solid_to_shell.insert(entity_id, shell_id);
-            idx.shell_to_solids
+    #[inline]
+    fn collect_solid_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        // Name: solid name (param 0)
+        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+            self.solid_names.insert(entity_id, val);
+        }
+
+        // Color + name: solid → shell link (param 1)
+        if let Some(shell_id) = params.get(1).and_then(|p| p.try_extract::<u64>()) {
+            self.solid_to_shell.insert(entity_id, shell_id);
+            self.shell_to_solids
                 .entry(shell_id)
                 .or_default()
                 .push(entity_id);
         }
     }
-}
 
-#[inline]
-fn collect_shape_rep_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
-        idx.rep_names.insert(entity_id, val);
-    }
-    if let Some(items_param) = params.get(1) {
-        let refs = extract_smallvec_refs(items_param);
-        for &item_id in &refs {
-            idx.item_to_reps.entry(item_id).or_default().push(entity_id);
+    #[inline]
+    fn collect_surface_model_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        // Name: surface model name (param 0)
+        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+            self.solid_names.insert(entity_id, val);
         }
-        idx.rep_items.insert(entity_id, refs);
-    }
-}
 
-#[inline]
-fn collect_id_attribute(idx: &mut ExchangeIndex, params: &[Parameter]) {
-    if let (Some(raw_val), Some(target_id)) = (
-        params.first().and_then(|p| p.try_extract::<&str>()),
-        params.get(1).and_then(|p| p.try_extract::<u64>()),
-    ) {
-        if let Some(val) = first_valid_name([Some(raw_val)]) {
-            idx.rep_names.insert(target_id, val);
+        // Name: model → shells (param 1, a list of refs)
+        if let Some(shells_param) = params.get(1) {
+            for shell_id in extract_entity_refs(shells_param) {
+                self.solid_to_shell.insert(entity_id, shell_id);
+                self.shell_to_solids
+                    .entry(shell_id)
+                    .or_default()
+                    .push(entity_id);
+            }
         }
     }
-}
 
-#[inline]
-fn collect_shape_def_rep(idx: &mut ExchangeIndex, params: &[Parameter]) {
-    if let (Some(pds_id), Some(rep_id)) = (
-        params.first().and_then(|p| p.try_extract::<u64>()),
-        params.get(1).and_then(|p| p.try_extract::<u64>()),
-    ) {
-        idx.shape_rep_to_pds.insert(rep_id, pds_id);
+    #[inline]
+    fn collect_shape_rep_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+            self.rep_names.insert(entity_id, val);
+        }
+        if let Some(items_param) = params.get(1) {
+            let refs = extract_smallvec_refs(items_param);
+            for &item_id in &refs {
+                self.item_to_reps.entry(item_id).or_default().push(entity_id);
+            }
+            self.rep_items.insert(entity_id, refs);
+        }
     }
-}
 
-#[inline]
-fn collect_pds_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    let raw_name = params.first().and_then(|p| p.try_extract::<&str>());
-    let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
-    
-    if let Some(val) = first_valid_name([raw_desc, raw_name]) {
-        idx.pds_names.insert(entity_id, val);
+    #[inline]
+    fn collect_id_attribute(&mut self, params: &[Parameter]) {
+        if let (Some(raw_val), Some(target_id)) = (
+            params.first().and_then(|p| p.try_extract::<&str>()),
+            params.get(1).and_then(|p| p.try_extract::<u64>()),
+        ) {
+            if let Some(val) = first_valid_name([Some(raw_val)]) {
+                self.rep_names.insert(target_id, val);
+            }
+        }
     }
-    if let Some(pd_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
-        idx.pds_to_pd.insert(entity_id, pd_id);
+
+    #[inline]
+    fn collect_shape_def_rep(&mut self, params: &[Parameter]) {
+        if let (Some(pds_id), Some(rep_id)) = (
+            params.first().and_then(|p| p.try_extract::<u64>()),
+            params.get(1).and_then(|p| p.try_extract::<u64>()),
+        ) {
+            self.shape_rep_to_pds.insert(rep_id, pds_id);
+        }
     }
-}
 
-#[inline]
-fn collect_pd_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
-    let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
-
-    if let Some(val) = first_valid_name([raw_id, raw_desc]) {
-        idx.pd_names.insert(entity_id, val);
+    #[inline]
+    fn collect_pds_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        let raw_name = params.first().and_then(|p| p.try_extract::<&str>());
+        let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
+        
+        if let Some(val) = first_valid_name([raw_desc, raw_name]) {
+            self.pds_names.insert(entity_id, val);
+        }
+        if let Some(pd_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
+            self.pds_to_pd.insert(entity_id, pd_id);
+        }
     }
-    if let Some(pdf_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
-        idx.pd_to_pdf.insert(entity_id, pdf_id);
+
+    #[inline]
+    fn collect_pd_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
+        let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
+
+        if let Some(val) = first_valid_name([raw_id, raw_desc]) {
+            self.pd_names.insert(entity_id, val);
+        }
+        if let Some(pdf_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
+            self.pd_to_pdf.insert(entity_id, pdf_id);
+        }
     }
-}
 
-#[inline]
-fn collect_product_data(idx: &mut ExchangeIndex, entity_id: u64, params: &[Parameter]) {
-    let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
-    let raw_name = params.get(1).and_then(|p| p.try_extract::<&str>());
-    let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
+    #[inline]
+    fn collect_product_data(&mut self, entity_id: u64, params: &[Parameter]) {
+        let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
+        let raw_name = params.get(1).and_then(|p| p.try_extract::<&str>());
+        let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
 
-    if let Some(val) = first_valid_name([raw_name, raw_id, raw_desc]) {
-        idx.prod_names.insert(entity_id, val);
+        if let Some(val) = first_valid_name([raw_name, raw_id, raw_desc]) {
+            self.prod_names.insert(entity_id, val);
+        }
     }
-}
 
-#[inline]
-fn collect_nauo_data(idx: &mut ExchangeIndex, params: &[Parameter]) {
-    let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
-    let raw_name = params.get(1).and_then(|p| p.try_extract::<&str>());
-    let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
+    #[inline]
+    fn collect_nauo_data(&mut self, params: &[Parameter]) {
+        let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
+        let raw_name = params.get(1).and_then(|p| p.try_extract::<&str>());
+        let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
 
-    if let (Some(val), Some(related_pd)) = (
-        first_valid_name([raw_desc, raw_id, raw_name]),
-        params.get(4).and_then(|p| p.try_extract::<u64>()),
-    ) {
-        idx.nauo_names.insert(related_pd, val);
+        if let (Some(val), Some(related_pd)) = (
+            first_valid_name([raw_desc, raw_id, raw_name]),
+            params.get(4).and_then(|p| p.try_extract::<u64>()),
+        ) {
+            self.nauo_names.insert(related_pd, val);
+        }
     }
 }
 
 // ---------------------------------------------------------------------------
-// Unit helpers (were private to parser.rs)
+// Extraction Helpers
 // ---------------------------------------------------------------------------
 
 fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
