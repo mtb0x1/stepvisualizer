@@ -1,14 +1,16 @@
 //! History management, localStorage/IndexedDB persistence helpers, and confirmation workflows.
-use crate::common::{FileId, FileIndexItem};
-use crate::storage::{
-    LruCache, clear_all_storage, delete_index_item, delete_model, load_model_indexeddb,
-    save_index_item,
-};
-use crate::workspace::ConfirmAction;
-use crate::workspace::state::StateHandles;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
+
 use yew::prelude::*;
+
+use crate::{
+    common::{FileId, FileIndexItem},
+    storage::{
+        LruCache, clear_all_storage, delete_index_item, delete_model, load_model_indexeddb,
+        save_index_item,
+    },
+    workspace::{ConfirmAction, state::StateHandles},
+};
 
 /// Moves an existing file item to the top of the history index.
 pub(crate) fn promote_in_index(files_index: &UseStateHandle<Vec<FileIndexItem>>, id: &FileId) {
@@ -24,8 +26,7 @@ pub(crate) fn promote_in_index(files_index: &UseStateHandle<Vec<FileIndexItem>>,
 
 /// Prepends or updates a file in the history index.
 pub(crate) fn add_to_index(
-    files_index: &UseStateHandle<Vec<FileIndexItem>>,
-    mut item: FileIndexItem,
+    files_index: &UseStateHandle<Vec<FileIndexItem>>, mut item: FileIndexItem,
 ) {
     let mut list = (**files_index).clone();
     list.retain(|i| i.id != item.id);
@@ -55,8 +56,7 @@ pub(crate) struct WorkspaceManagementActions {
 
 #[hook]
 pub(crate) fn use_workspace_management(
-    states: &StateHandles,
-    files_index: UseStateHandle<Vec<FileIndexItem>>,
+    states: &StateHandles, files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
 ) -> WorkspaceManagementActions {
     let on_item_click = {
@@ -113,9 +113,7 @@ pub(crate) fn use_workspace_management(
     let on_delete = {
         let states = states.clone();
         Callback::from(move |delete_id: FileId| {
-            states
-                .pending_confirm
-                .set(Some(ConfirmAction::DeleteFile(delete_id)));
+            states.pending_confirm.set(Some(ConfirmAction::DeleteFile(delete_id)));
         })
     };
 
@@ -130,9 +128,7 @@ pub(crate) fn use_workspace_management(
     let on_clear_history = {
         let states = states.clone();
         Callback::from(move |_| {
-            states
-                .pending_confirm
-                .set(Some(ConfirmAction::ClearHistory));
+            states.pending_confirm.set(Some(ConfirmAction::ClearHistory));
         })
     };
 

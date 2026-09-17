@@ -7,8 +7,10 @@
 //! exactly when frames are produced and is completely idle the rest of the time.
 use yew::prelude::*;
 
-use crate::common::fps_meter::FpsSnapshot;
-use crate::common::utils::{build_svg_polyline_points, fps_color};
+use crate::common::{
+    fps_meter::FpsSnapshot,
+    utils::{build_svg_polyline_points, fps_color},
+};
 
 #[derive(Properties, Clone, PartialEq)]
 pub struct FpsGraphProps {
@@ -26,12 +28,8 @@ const MAX_FPS: f32 = 120.0;
 
 #[function_component(FpsGraph)]
 pub fn fps_graph(props: &FpsGraphProps) -> Html {
-    let points = build_svg_polyline_points(
-        &props.snapshot.samples,
-        GRAPH_W as f32,
-        GRAPH_H as f32,
-        MAX_FPS,
-    );
+    let points =
+        build_svg_polyline_points(&props.snapshot.samples, GRAPH_W as f32, GRAPH_H as f32, MAX_FPS);
     let stroke = fps_color(props.snapshot.current_fps);
 
     html! {

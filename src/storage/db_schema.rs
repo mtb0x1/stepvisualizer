@@ -15,10 +15,13 @@
 //! browser at the IndexedDB spec level; the app falls back to an empty in-memory
 //! session and surfaces a non-fatal warning.
 
-use crate::common::constants::db_name;
-use crate::common::types::{FileId, StepModel};
 use rexie::{ObjectStore, Rexie, TransactionMode};
 use wasm_bindgen::JsCast;
+
+use crate::common::{
+    constants::db_name,
+    types::{FileId, StepModel},
+};
 
 /// Database schema version. Bumping to 3 migrates model store to rkyv binary format.
 pub const DB_VERSION: u32 = 3;
@@ -40,9 +43,7 @@ pub async fn open_db_versioned() -> Result<Rexie, rexie::Error> {
 /// Load a [`StepModel`] by its [`FileId`] from the given open DB.
 /// Transparently handles both modern `rkyv` binary buffers and legacy JSON strings.
 pub async fn load_model_from_db(db: &Rexie, id: &FileId) -> Option<StepModel> {
-    let tx = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadOnly)
-        .ok()?;
+    let tx = db.transaction(&[STORE_MODELS], TransactionMode::ReadOnly).ok()?;
     let store = tx.store(STORE_MODELS).ok()?;
     let key = wasm_bindgen::JsValue::from_str(id.as_str());
     let val = store.get(key).await.ok()??;
@@ -77,41 +78,32 @@ pub async fn load_model_from_db(db: &Rexie, id: &FileId) -> Option<StepModel> {
 
 /// Save a serialized model binary buffer (rkyv) to the given open DB.
 pub async fn save_model_bytes_to_db(db: &Rexie, id: &str, bytes: &[u8]) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_MODELS], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_MODELS).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(id);
     let uint8 = js_sys::Uint8Array::from(bytes);
-    store
-        .put(&uint8.into(), Some(&key))
-        .await
-        .map_err(|e| e.to_string())?;
+    store.put(&uint8.into(), Some(&key)).await.map_err(|e| e.to_string())?;
     tx.commit().await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Save a serialized model JSON blob to the given open DB (legacy format support).
 pub async fn save_model_json_to_db(db: &Rexie, id: &str, json: &str) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_MODELS], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_MODELS).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(id);
     let val = wasm_bindgen::JsValue::from_str(json);
-    store
-        .put(&val, Some(&key))
-        .await
-        .map_err(|e| e.to_string())?;
+    store.put(&val, Some(&key)).await.map_err(|e| e.to_string())?;
     tx.commit().await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Delete a model record from the given open DB.
 pub async fn delete_model_from_db(db: &Rexie, id: &str) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_MODELS], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_MODELS).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(id);
     store.delete(key).await.map_err(|e| e.to_string())?;
@@ -121,9 +113,8 @@ pub async fn delete_model_from_db(db: &Rexie, id: &str) -> Result<(), String> {
 
 /// Clear all model records from the given open DB.
 pub async fn clear_models_in_db(db: &Rexie) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_MODELS], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_MODELS], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_MODELS).map_err(|e| e.to_string())?;
     store.clear().await.map_err(|e| e.to_string())?;
     tx.commit().await.map_err(|e| e.to_string())?;
@@ -161,39 +152,30 @@ pub async fn load_index_from_db(db: &Rexie) -> Vec<crate::common::types::FileInd
     }
 
     items.sort_by(|a, b| {
-        b.audit
-            .updated_on
-            .partial_cmp(&a.audit.updated_on)
-            .unwrap_or(std::cmp::Ordering::Equal)
+        b.audit.updated_on.partial_cmp(&a.audit.updated_on).unwrap_or(std::cmp::Ordering::Equal)
     });
     items
 }
 
 /// Persist a single file index item to IndexedDB.
 pub async fn save_index_item_to_db(
-    db: &Rexie,
-    item: &crate::common::types::FileIndexItem,
+    db: &Rexie, item: &crate::common::types::FileIndexItem,
 ) -> Result<(), String> {
     let json = serde_json::to_string(item).map_err(|e| e.to_string())?;
-    let tx = db
-        .transaction(&[STORE_INDEX], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_INDEX], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_INDEX).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(item.id.as_str());
     let val = wasm_bindgen::JsValue::from_str(&json);
-    store
-        .put(&val, Some(&key))
-        .await
-        .map_err(|e| e.to_string())?;
+    store.put(&val, Some(&key)).await.map_err(|e| e.to_string())?;
     tx.commit().await.map_err(|e| e.to_string())?;
     Ok(())
 }
 
 /// Delete a single file index item from IndexedDB.
 pub async fn delete_index_item_from_db(db: &Rexie, id: &str) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_INDEX], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_INDEX], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_INDEX).map_err(|e| e.to_string())?;
     let key = wasm_bindgen::JsValue::from_str(id);
     store.delete(key).await.map_err(|e| e.to_string())?;
@@ -203,9 +185,8 @@ pub async fn delete_index_item_from_db(db: &Rexie, id: &str) -> Result<(), Strin
 
 /// Clear the recent-files index in IndexedDB.
 pub async fn clear_index_in_db(db: &Rexie) -> Result<(), String> {
-    let tx = db
-        .transaction(&[STORE_INDEX], TransactionMode::ReadWrite)
-        .map_err(|e| e.to_string())?;
+    let tx =
+        db.transaction(&[STORE_INDEX], TransactionMode::ReadWrite).map_err(|e| e.to_string())?;
     let store = tx.store(STORE_INDEX).map_err(|e| e.to_string())?;
     store.clear().await.map_err(|e| e.to_string())?;
     tx.commit().await.map_err(|e| e.to_string())?;

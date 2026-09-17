@@ -1,16 +1,15 @@
 //! Color domain model, STEP ISO 10303-46 presentation color extraction, and palette helpers.
 
-use crate::common::fast_hash::FastU64Map;
-use std::fmt::Write;
-use std::ops::Deref;
+use std::{fmt::Write, ops::Deref};
 
 use bytemuck::{Pod, Zeroable};
 use glam::Vec4;
 use serde::{Deserialize, Serialize};
 
-use crate::common::ast_helpers::ParameterExt;
-use crate::common::exchange_index::ExchangeIndex;
-use crate::ruststep::ast::{Parameter, Record};
+use crate::{
+    common::{ast_helpers::ParameterExt, exchange_index::ExchangeIndex, fast_hash::FastU64Map},
+    ruststep::ast::{Parameter, Record},
+};
 
 /// RGBA color representation backed by `glam::Vec4`.
 ///
@@ -132,12 +131,7 @@ impl Color {
     /// Constructs a color from 8-bit RGBA integers `0..=255`.
     #[inline]
     pub const fn from_rgba_u8(r: u8, g: u8, b: u8, a: u8) -> Self {
-        Self::new(
-            r as f32 / 255.0,
-            g as f32 / 255.0,
-            b as f32 / 255.0,
-            a as f32 / 255.0,
-        )
+        Self::new(r as f32 / 255.0, g as f32 / 255.0, b as f32 / 255.0, a as f32 / 255.0)
     }
 
     /// Formats the color as an uppercase 6-digit hex string `"#RRGGBB"`.
@@ -151,9 +145,7 @@ impl Color {
     /// Parses standard CSS color names, RGB/RGBA strings, and Hex strings.
     pub fn parse(text: &str) -> Option<Self> {
         let clean = text.trim().trim_matches('\'').trim_matches('"');
-        csscolorparser::parse(clean)
-            .ok()
-            .map(|c| Self::new(c.r, c.g, c.b, c.a))
+        csscolorparser::parse(clean).ok().map(|c| Self::new(c.r, c.g, c.b, c.a))
     }
 
     /// Formats the color as a CSS `rgba(r, g, b, a)` string.
@@ -177,11 +169,7 @@ impl Color {
         let r = params[1].try_extract::<f64>().unwrap_or(0.0) as f32;
         let g = params[2].try_extract::<f64>().unwrap_or(0.0) as f32;
         let b = params[3].try_extract::<f64>().unwrap_or(0.0) as f32;
-        Some(Self::rgb(
-            r.clamp(0.0, 1.0),
-            g.clamp(0.0, 1.0),
-            b.clamp(0.0, 1.0),
-        ))
+        Some(Self::rgb(r.clamp(0.0, 1.0), g.clamp(0.0, 1.0), b.clamp(0.0, 1.0)))
     }
 
     /// Parses a color from a `PRE_DEFINED_COLOUR` or `DRAUGHTING_PRE_DEFINED_COLOUR` STEP record.
@@ -255,18 +243,14 @@ impl StepColorMap {
         self.shell_colors.len()
     }
 
-    /// Extracts colors and connects presentation styles to shells from a pre-built [`ExchangeIndex`].
+    /// Extracts colors and connects presentation styles to shells from a pre-built
+    /// [`ExchangeIndex`].
     pub fn from_index(index: &ExchangeIndex) -> Self {
         // Resolve presentation styles recursively to Color via memoized DFS
         let mut resolved_styles: FastU64Map<Color> = index.direct_colors.clone();
         let mut visiting: Vec<u64> = Vec::with_capacity(8);
         for &style_id in index.style_edges.keys() {
-            resolve_style_color(
-                style_id,
-                &index.style_edges,
-                &mut resolved_styles,
-                &mut visiting,
-            );
+            resolve_style_color(style_id, &index.style_edges, &mut resolved_styles, &mut visiting);
         }
 
         // Map styled items to shells
@@ -302,10 +286,8 @@ impl StepColorMap {
 /// Recursively resolves a presentation style entity to its terminal [`Color`] via memoized DFS,
 /// breaking any cyclic references safely using a call-stack vector.
 fn resolve_style_color(
-    style_id: u64,
-    style_edges: &FastU64Map<smallvec::SmallVec<[u64; 2]>>,
-    resolved: &mut FastU64Map<Color>,
-    visiting: &mut Vec<u64>,
+    style_id: u64, style_edges: &FastU64Map<smallvec::SmallVec<[u64; 2]>>,
+    resolved: &mut FastU64Map<Color>, visiting: &mut Vec<u64>,
 ) -> Option<Color> {
     if let Some(&color) = resolved.get(&style_id) {
         return Some(color);

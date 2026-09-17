@@ -12,8 +12,7 @@
 //! - `rendering`: wgpu device/pipeline setup, frame renderer, orbit camera
 //! - `common`: domain types + pure logic (parsing, tessellation, caches, math, logging)
 //! - `error`: the crate-wide error type
-pub use truck_stepio;
-pub use truck_stepio::r#in::ruststep;
+pub use truck_stepio::{self, r#in::ruststep};
 use wasm_bindgen::prelude::*;
 use yew::prelude::*;
 pub mod common;
@@ -22,8 +21,7 @@ pub mod rendering;
 pub mod storage;
 mod ui;
 pub mod workspace;
-use common::constants::NO_WEBGPU_MSG;
-use common::logger;
+use common::{constants::NO_WEBGPU_MSG, logger};
 use rendering::wgpu_state::browser_has_webgpu;
 use smol_str::SmolStr;
 use ui::{
@@ -182,8 +180,9 @@ pub fn run_app() {
     yew::Renderer::<App>::new().render();
 
     // we set a hook on panic (requires unwinding)
-    // IMPORTANT: Yew installs `console_error_panic_hook` during initialization (or via its dependencies),
-    // which overwrites our custom hook if we set it beforehand. Thus we set our custom hook AFTER Yew starts.
+    // IMPORTANT: Yew installs `console_error_panic_hook` during initialization (or via its
+    // dependencies), which overwrites our custom hook if we set it beforehand. Thus we set our
+    // custom hook AFTER Yew starts.
     std::panic::set_hook(Box::new(|info| {
         let msg = match info.payload().downcast_ref::<&'static str>() {
             Some(s) => *s,

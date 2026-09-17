@@ -75,7 +75,8 @@ impl ParameterExt for Parameter {
     }
 }
 
-/// Recursively extracts all numeric entity IDs referenced within a `Parameter` (handling nested lists).
+/// Recursively extracts all numeric entity IDs referenced within a `Parameter` (handling nested
+/// lists).
 #[inline]
 pub fn extract_entity_refs(param: &Parameter) -> Vec<u64> {
     extract_entity_refs_with_capacity(param, 0)
@@ -90,9 +91,7 @@ pub fn extract_entity_refs_with_capacity(param: &Parameter, cap: usize) -> Vec<u
 
 #[inline]
 pub fn extract_smallvec_refs<const N: usize>(param: &Parameter) -> smallvec::SmallVec<[u64; N]>
-where
-    [u64; N]: smallvec::Array<Item = u64>,
-{
+where [u64; N]: smallvec::Array<Item = u64> {
     let mut refs = smallvec::SmallVec::new();
     collect_refs_recursive(param, &mut |id| refs.push(id));
     refs
@@ -115,11 +114,7 @@ pub fn collect_refs_recursive(param: &Parameter, push: &mut impl FnMut(u64)) {
 /// Extracts the 3D direction vector `[dx, dy, dz]` from a `DIRECTION` entity record as `DVec3`.
 #[inline]
 pub fn extract_direction_coords(record: &Record) -> Option<glam::DVec3> {
-    record
-        .parameter
-        .try_extract::<&[Parameter]>()?
-        .get(1)?
-        .try_extract::<glam::DVec3>()
+    record.parameter.try_extract::<&[Parameter]>()?.get(1)?.try_extract::<glam::DVec3>()
 }
 
 /// Tests whether a direction vector is approximately the positive Z unit vector `(0, 0, 1)`.
@@ -129,7 +124,8 @@ pub fn is_unit_z_direction(v: glam::DVec3) -> bool {
     (norm - glam::DVec3::Z).length_squared() < 1e-8
 }
 
-/// Tests whether a direction vector is collinear or antiparallel with the global X-axis `(1, 0, 0)`.
+/// Tests whether a direction vector is collinear or antiparallel with the global X-axis `(1, 0,
+/// 0)`.
 ///
 /// Uses the normalized squared cross product with `(1, 0, 0)`:
 /// `sin^2(theta) = ||v x X||^2 / ||v||^2`
@@ -230,11 +226,8 @@ pub static STEP_ENTITY_KINDS: phf::Map<&'static str, StepEntityKind> = phf::phf_
 #[inline]
 pub fn sanitize_omitted_param(param: &mut Parameter, default_list: bool) {
     if matches!(param, Parameter::NotProvided | Parameter::Omitted) {
-        *param = if default_list {
-            Parameter::List(vec![])
-        } else {
-            Parameter::String(String::new())
-        };
+        *param =
+            if default_list { Parameter::List(vec![]) } else { Parameter::String(String::new()) };
     } else if let Parameter::List(list) = param {
         for item in list.iter_mut() {
             // Sub-level elements in headers are assumed to be strings if omitted.

@@ -1,7 +1,8 @@
 //! Crate-wide domain error types.
 use std::fmt;
 
-/// Crate-wide domain error type for all fallible operations (parsing, geometry, GPU init, rendering, storage).
+/// Crate-wide domain error type for all fallible operations (parsing, geometry, GPU init,
+/// rendering, storage).
 #[derive(Debug, Clone, PartialEq)]
 pub enum StepError {
     /// Failure while reading file contents from browser FileReader.
@@ -28,23 +29,14 @@ impl fmt::Display for StepError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::FileRead(msg) => write!(f, "Failed to read file: {msg}"),
-            Self::FileTooLarge {
-                size_bytes,
-                max_bytes,
-            } => {
+            Self::FileTooLarge { size_bytes, max_bytes } => {
                 let size_mb = crate::common::utils::format_bytes_mb(*size_bytes);
                 let max_mb = crate::common::utils::format_bytes_mb(*max_bytes);
-                write!(
-                    f,
-                    "File too large ({size_mb}). Maximum allowed is {max_mb}."
-                )
+                write!(f, "File too large ({size_mb}). Maximum allowed is {max_mb}.")
             }
             Self::Parse(msg) => write!(f, "Failed to parse STEP: {msg}"),
             Self::EmptyDataSection => {
-                write!(
-                    f,
-                    "STEP file has no usable data sections (empty meta/entities)."
-                )
+                write!(f, "STEP file has no usable data sections (empty meta/entities).")
             }
             Self::InvalidHeader(msg) => write!(f, "Failed to parse header: {msg}"),
             Self::GpuInitFailed(msg) => write!(f, "Failed to initialize WebGPU: {msg}"),

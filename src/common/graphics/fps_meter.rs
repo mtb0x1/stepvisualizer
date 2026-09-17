@@ -7,8 +7,7 @@
 //! estimated from a short rolling window of frame timestamps, and periodic
 //! snapshots feed the sparkline. When no frame has arrived for a while the
 //! meter reports 0 FPS (idle) instead of a stale value.
-use std::cell::RefCell;
-use std::collections::VecDeque;
+use std::{cell::RefCell, collections::VecDeque};
 
 use crate::common::time::now_ms;
 
@@ -63,11 +62,7 @@ impl FpsMeter {
         // is kept oldest-first, so eviction is an O(1) `pop_front` (not the O(n)
         // `Vec::remove(0)` this replaced).
         let cutoff = now - WINDOW_MS;
-        while inner
-            .frame_times
-            .front()
-            .is_some_and(|&oldest| oldest < cutoff)
-        {
+        while inner.frame_times.front().is_some_and(|&oldest| oldest < cutoff) {
             inner.frame_times.pop_front();
         }
 
@@ -94,10 +89,7 @@ impl FpsMeter {
             _ => 0.0,
         };
         let samples = inner.samples.iter().copied().collect();
-        FpsSnapshot {
-            current_fps,
-            samples,
-        }
+        FpsSnapshot { current_fps, samples }
     }
 
     /// FPS from a deque of frame timestamps: frames-per-second across the span
@@ -107,9 +99,7 @@ impl FpsMeter {
             return 0.0;
         }
         let span = now
-            - *times
-                .front()
-                .expect("Deque contains at least 2 frames due to prior length check");
+            - *times.front().expect("Deque contains at least 2 frames due to prior length check");
         if span <= 0.0 {
             return 0.0;
         }

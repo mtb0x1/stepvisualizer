@@ -1,14 +1,15 @@
-use crate::common::{Metadata, StepModel};
-use crate::storage::{LruCache, save_model};
-use crate::workspace::state::StateHandles;
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
+
 use yew::prelude::*;
 
+use crate::{
+    common::{Metadata, StepModel},
+    storage::{LruCache, save_model},
+    workspace::state::StateHandles,
+};
+
 fn recompute_and_store_metric(
-    states: &StateHandles,
-    cache: &Rc<RefCell<LruCache>>,
-    compute: impl Fn(&StepModel) -> f64,
+    states: &StateHandles, cache: &Rc<RefCell<LruCache>>, compute: impl Fn(&StepModel) -> f64,
     apply: impl Fn(&mut Metadata, f64),
 ) {
     if let Some(model_rc) = states.step_model.as_ref() {
@@ -23,9 +24,7 @@ fn recompute_and_store_metric(
         model_mut.metadata = new_meta;
 
         save_model(model_mut);
-        cache
-            .borrow_mut()
-            .insert_rc(model_rc.id.clone(), model_rc.clone());
+        cache.borrow_mut().insert_rc(model_rc.id.clone(), model_rc.clone());
 
         states.step_model.set(Some(model_rc));
     }
@@ -42,8 +41,7 @@ pub(crate) struct ModelActions {
 
 #[hook]
 pub(crate) fn use_model_actions(
-    states: &StateHandles,
-    cache: Rc<RefCell<LruCache>>,
+    states: &StateHandles, cache: Rc<RefCell<LruCache>>,
 ) -> ModelActions {
     let on_visibility_change = {
         let part_visibility = states.part_visibility.clone();

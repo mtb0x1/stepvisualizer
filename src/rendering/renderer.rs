@@ -7,8 +7,10 @@ use crate::{
         perspective,
     },
     error::StepError,
-    rendering::camera::CameraState,
-    rendering::wgpu_state::{PartGpu, WgpuState},
+    rendering::{
+        camera::CameraState,
+        wgpu_state::{PartGpu, WgpuState},
+    },
     trace_span,
 };
 
@@ -20,10 +22,7 @@ use crate::{
 /// a part's geometry size changes; MVP/model/color uniforms are rewritten
 /// every frame; each visible part is one indexed draw.
 pub async fn render_wgpu_on_canvas(
-    state: Rc<WgpuState>,
-    parts: &[RenderablePart],
-    visibility: &[bool],
-    camera: &CameraState,
+    state: Rc<WgpuState>, parts: &[RenderablePart], visibility: &[bool], camera: &CameraState,
     fps_meter: Rc<FpsMeter>,
 ) -> Result<(), StepError> {
     trace_span!("render_wgpu_on_canvas");
@@ -61,16 +60,14 @@ pub async fn render_wgpu_on_canvas(
             if cached_vis.as_slice() == visibility {
                 *cached_bbox
             } else {
-                let computed = crate::common::render::visible_bounds(parts, visibility).unwrap_or(
-                    BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)),
-                );
+                let computed = crate::common::render::visible_bounds(parts, visibility)
+                    .unwrap_or(BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)));
                 *cached_opt = Some((visibility.to_vec(), computed));
                 computed
             }
         } else {
-            let computed = crate::common::render::visible_bounds(parts, visibility).unwrap_or(
-                BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)),
-            );
+            let computed = crate::common::render::visible_bounds(parts, visibility)
+                .unwrap_or(BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)));
             *cached_opt = Some((visibility.to_vec(), computed));
             computed
         }
@@ -88,12 +85,11 @@ pub async fn render_wgpu_on_canvas(
     let projection_matrix = perspective(FOV_Y, aspect, near, far);
 
     // wgpu 30 returns `CurrentSurfaceTexture` instead of a `Result`:
-    // - Success / Suboptimal hand us a presentable texture (Suboptimal also
-    //   hints the surface should be reconfigured soon),
-    // - Timeout / Occluded are transient states; skipping the frame is the
-    //   documented response,
-    // - Outdated / Lost are fatal surface failures that require reconfiguring
-    //   the surface and retrying.
+    // - Success / Suboptimal hand us a presentable texture (Suboptimal also hints the surface
+    //   should be reconfigured soon),
+    // - Timeout / Occluded are transient states; skipping the frame is the documented response,
+    // - Outdated / Lost are fatal surface failures that require reconfiguring the surface and
+    //   retrying.
     let frame = match surface.get_current_texture() {
         wgpu::CurrentSurfaceTexture::Success(texture)
         | wgpu::CurrentSurfaceTexture::Suboptimal(texture) => texture,
@@ -108,22 +104,15 @@ pub async fn render_wgpu_on_canvas(
             return Ok(());
         }
         wgpu::CurrentSurfaceTexture::Validation => {
-            return Err(StepError::RenderError(
-                "Surface texture validation failed".to_string(),
-            ));
+            return Err(StepError::RenderError("Surface texture validation failed".to_string()));
         }
     };
 
     // Recreate the depth texture when its size diverges from the surface's
     // actual swapchain size (which can lag `config` during resize).
-    state.ensure_depth_texture(ViewportSize::new(
-        frame.texture.width(),
-        frame.texture.height(),
-    ));
+    state.ensure_depth_texture(ViewportSize::new(frame.texture.width(), frame.texture.height()));
 
-    let texture_view = frame
-        .texture
-        .create_view(&wgpu::TextureViewDescriptor::default());
+    let texture_view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
 
     let mut encoder = device.create_command_encoder(&wgpu::CommandEncoderDescriptor {
         label: Some("Main Command Encoder"),
@@ -191,7 +180,7 @@ pub async fn render_wgpu_on_canvas(
             render_pass.set_bind_group(1, &gpu.bind_group, &[]);
             render_pass.set_vertex_buffer(0, gpu.vertex_buffer.slice(..));
             render_pass.set_index_buffer(gpu.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
-            render_pass.draw_indexed(0..gpu.index_count as u32, 0, 0..1);
+            render_pass.draw_indexed(0 .. gpu.index_count as u32, 0, 0 .. 1);
         }
     }
 

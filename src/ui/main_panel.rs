@@ -1,29 +1,29 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
+use smol_str::{SmolStr, format_smolstr};
+use wasm_bindgen::{JsCast, closure::Closure};
+use wasm_bindgen_futures::spawn_local;
+use web_sys::{HtmlCanvasElement, ResizeObserver};
+use yew::prelude::*;
+
 use super::components::fps_graph::FpsGraph;
-use crate::common::logger;
-use crate::rendering::camera::PresetType;
 use crate::{
-    common::fps_meter::{FpsMeter, FpsSnapshot},
-    common::math::{raycast_parts, screen_point_to_ray},
-    common::render::visible_bounds,
-    common::types::BoundingBox,
     common::{
-        DMat4, DVec3, FileId, Metadata, StepModel, ViewportSize, constants::NEAR_PLANE,
-        constants::WEBGPU_INIT_FAILED_MSG, look_at_mat4, perspective,
+        DMat4, DVec3, FileId, Metadata, StepModel, ViewportSize,
+        constants::{NEAR_PLANE, WEBGPU_INIT_FAILED_MSG},
+        fps_meter::{FpsMeter, FpsSnapshot},
+        logger, look_at_mat4,
+        math::{raycast_parts, screen_point_to_ray},
+        perspective,
+        render::visible_bounds,
+        types::BoundingBox,
     },
     rendering::{
-        camera::{CAMERA_PRESETS, CameraPreset, CameraState},
+        camera::{CAMERA_PRESETS, CameraPreset, CameraState, PresetType},
         renderer::render_wgpu_on_canvas,
         wgpu_state::{WgpuState, init_wgpu},
     },
 };
-use smol_str::{SmolStr, format_smolstr};
-use wasm_bindgen::JsCast;
-use wasm_bindgen::closure::Closure;
-use wasm_bindgen_futures::spawn_local;
-use web_sys::{HtmlCanvasElement, ResizeObserver};
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct MainPanelProps {
@@ -57,27 +57,19 @@ struct DragState {
 use std::rc::Rc;
 
 fn get_canvas_cursor_and_viewport(
-    canvas_ref: &NodeRef,
-    cached_size: ViewportSize,
-    client_x: i32,
-    client_y: i32,
+    canvas_ref: &NodeRef, cached_size: ViewportSize, client_x: i32, client_y: i32,
 ) -> Option<((f64, f64), ViewportSize)> {
     let canvas = canvas_ref.cast::<HtmlCanvasElement>()?;
     let rect = canvas.get_bounding_client_rect();
     let screen_x = client_x as f64 - rect.left();
     let screen_y = client_y as f64 - rect.top();
-    let viewport = if cached_size.is_valid() {
-        cached_size
-    } else {
-        ViewportSize::from_canvas(&canvas)
-    };
+    let viewport =
+        if cached_size.is_valid() { cached_size } else { ViewportSize::from_canvas(&canvas) };
     Some(((screen_x, screen_y), viewport))
 }
 
 fn compute_camera_matrices(
-    camera: &CameraState,
-    viewport_size: ViewportSize,
-    max_size: f64,
+    camera: &CameraState, viewport_size: ViewportSize, max_size: f64,
 ) -> (DMat4, DMat4) {
     let eye = camera.eye_position();
     let view_matrix = look_at_mat4(eye, camera.target, DVec3::Y);
@@ -177,13 +169,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
         let fps_snapshot = fps_snapshot.clone();
 
         use_effect_with(
-            (
-                wgpu_state_handle,
-                camera_state,
-                step_model,
-                part_visibility,
-                canvas_size.clone(),
-            ),
+            (wgpu_state_handle, camera_state, step_model, part_visibility, canvas_size.clone()),
             move |(wgpu_handle, camera, model, vis, _size)| {
                 // Discard cached per-part GPU buffers whenever the loaded model
                 // changes: index-keyed buffers would otherwise be reused for a
@@ -271,11 +257,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
             html! { <div class="canvas-processing-overlay">{ "Preparing 3D view..." }</div> }
         } else if props.step_model.is_none() {
             html! { <div class="empty-canvas-message">{ "Upload a STEP file to visualize it." }</div> }
-        } else if props
-            .step_model
-            .as_ref()
-            .is_some_and(|m| m.render_parts.is_empty())
-        {
+        } else if props.step_model.as_ref().is_some_and(|m| m.render_parts.is_empty()) {
             html! { <div class="empty-canvas-message">{ "Parsing geometry..." }</div> }
         } else {
             Html::default()
@@ -343,11 +325,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
             } else {
                 return;
             };
-            drag_state.set(Some(DragState {
-                last_x: e.client_x(),
-                last_y: e.client_y(),
-                mode,
-            }));
+            drag_state.set(Some(DragState { last_x: e.client_x(), last_y: e.client_y(), mode }));
         })
     };
 

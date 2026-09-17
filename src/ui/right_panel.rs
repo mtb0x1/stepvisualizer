@@ -1,7 +1,8 @@
 //! Right sidebar: the metadata details panel.
+use yew::prelude::*;
+
 use super::components::details_panel::DetailsPanel;
 use crate::common::Metadata;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct RightPanelProps {

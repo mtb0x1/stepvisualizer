@@ -1,7 +1,6 @@
 //! General utilities: pure text processing, formatting, and color mapping.
 
-use std::borrow::Cow;
-use std::fmt::Write;
+use std::{borrow::Cow, fmt::Write};
 
 use glam::Vec2;
 use smol_str::{SmolStr, format_smolstr};
@@ -51,7 +50,8 @@ pub const fn format_or_na(val: &str) -> &str {
     if val.is_empty() { NA } else { val }
 }
 
-/// Formats a list of strings joined by `", "`, returning `NA` ("N/A") if empty or all strings are empty.
+/// Formats a list of strings joined by `", "`, returning `NA` ("N/A") if empty or all strings are
+/// empty.
 #[inline]
 pub fn format_list_or_na(list: &[SmolStr]) -> Cow<'_, str> {
     if list.is_empty() || list.iter().all(|s| s.is_empty()) {
@@ -82,7 +82,8 @@ pub fn format_bytes_mb(bytes: f64) -> SmolStr {
     format_smolstr!("{:.1} MB", bytes_to_mb(bytes))
 }
 
-/// Formats a metric value with an optional unit symbol and power exponent (e.g. `12.3456 mm³`, `45.6789 mm²`, `10.50 mm`).
+/// Formats a metric value with an optional unit symbol and power exponent (e.g. `12.3456 mm³`,
+/// `45.6789 mm²`, `10.50 mm`).
 #[inline]
 pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32) -> SmolStr {
     match unit_symbol.filter(|u| !u.is_empty()) {
@@ -101,9 +102,7 @@ pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32
 /// Formats 3D bounding box coordinates from `glam::DVec3` into formatted min/max display strings.
 #[inline]
 pub fn format_bbox_coordinates(
-    min: glam::DVec3,
-    max: glam::DVec3,
-    unit_symbol: Option<&str>,
+    min: glam::DVec3, max: glam::DVec3, unit_symbol: Option<&str>,
 ) -> (SmolStr, SmolStr) {
     let u = unit_symbol.filter(|u| !u.is_empty()).unwrap_or("");
     let space = if u.is_empty() { "" } else { " " };
@@ -113,7 +112,8 @@ pub fn format_bbox_coordinates(
     (format_pt(min, "min"), format_pt(max, "max"))
 }
 
-/// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height, and max value.
+/// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height,
+/// and max value.
 #[inline]
 pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_val: f32) -> String {
     if samples.is_empty() {
@@ -125,11 +125,7 @@ pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_v
         if i > 0 {
             out.push(' ');
         }
-        let x = if n == 1 {
-            0.0
-        } else {
-            (i as f32 / (n - 1) as f32) * width
-        };
+        let x = if n == 1 { 0.0 } else { (i as f32 / (n - 1) as f32) * width };
         let y = height - (v.min(max_val) / max_val) * height;
         let pt = Vec2::new(x, y);
         let _ = write!(out, "{:.1},{:.1}", pt.x, pt.y);

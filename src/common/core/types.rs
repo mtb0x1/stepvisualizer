@@ -1,10 +1,9 @@
+use glam::DVec3;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::{SmolStr, format_smolstr};
 
-use crate::common::render::RenderablePart;
-use crate::common::utils::clean_unit_name;
-use glam::DVec3;
+use crate::common::{render::RenderablePart, utils::clean_unit_name};
 
 /// Strongly-typed file content hash ID.
 ///
@@ -106,10 +105,7 @@ pub struct ViewportSize {
 }
 
 impl ViewportSize {
-    pub const ZERO: Self = Self {
-        width: 0,
-        height: 0,
-    };
+    pub const ZERO: Self = Self { width: 0, height: 0 };
 
     /// Construct new viewport dimensions.
     #[inline]
@@ -134,11 +130,7 @@ impl ViewportSize {
     /// Aspect ratio (width / height), or 1.0 when height is zero.
     #[inline]
     pub fn aspect_ratio(&self) -> f64 {
-        if self.height == 0 {
-            1.0
-        } else {
-            self.width as f64 / self.height as f64
-        }
+        if self.height == 0 { 1.0 } else { self.width as f64 / self.height as f64 }
     }
 }
 
@@ -314,10 +306,7 @@ pub struct BoundingBox {
 
 impl BoundingBox {
     /// An empty/inverted bounding box ready to be expanded.
-    pub const EMPTY: Self = Self {
-        min: DVec3::INFINITY,
-        max: DVec3::NEG_INFINITY,
-    };
+    pub const EMPTY: Self = Self { min: DVec3::INFINITY, max: DVec3::NEG_INFINITY };
 
     /// Create a bounding box with the given min and max coordinates.
     #[inline]
@@ -388,10 +377,10 @@ impl BoundingBox {
 ///
 /// ### Part Visibility Contract
 /// - Part visibility defaults to all-parts-visible (`vec![true; n]`) upon initial load.
-/// - During an active session, visibility changes are tracked dynamically in UI state
-///   and synchronized into the active `StepModel`.
-/// - `#[serde(default)]` ensures deserializing cached models without a `part_visibility`
-///   field safely yields an empty vector which is hydrated to all-true on load.
+/// - During an active session, visibility changes are tracked dynamically in UI state and
+///   synchronized into the active `StepModel`.
+/// - `#[serde(default)]` ensures deserializing cached models without a `part_visibility` field
+///   safely yields an empty vector which is hydrated to all-true on load.
 #[derive(
     Clone,
     PartialEq,
@@ -409,7 +398,8 @@ pub struct StepModel {
     /// Per-part visibility mask. When empty after deserialization, callers hydrate to all-true.
     #[serde(default)]
     pub part_visibility: Vec<bool>,
-    /// Monotonically increasing generation bumped on visibility changes to invalidate bounds cache.
+    /// Monotonically increasing generation bumped on visibility changes to invalidate bounds
+    /// cache.
     #[serde(default)]
     pub visibility_generation: u64,
     /// Cached bounding box for the current visibility generation (skipped during serialization).
@@ -438,10 +428,7 @@ impl StepModel {
 
     /// Calculate total surface area across all render parts.
     pub fn calculate_total_surface_area(&self) -> f64 {
-        self.render_parts
-            .iter()
-            .map(|p| p.calculate_surface_area())
-            .sum()
+        self.render_parts.iter().map(|p| p.calculate_surface_area()).sum()
     }
 }
 
@@ -471,12 +458,7 @@ impl Default for AuditMetadata {
     fn default() -> Self {
         let now = default_timestamp();
         let user = default_user();
-        Self {
-            created_on: now,
-            updated_on: now,
-            created_by: user.clone(),
-            updated_by: user,
-        }
+        Self { created_on: now, updated_on: now, created_by: user.clone(), updated_by: user }
     }
 }
 

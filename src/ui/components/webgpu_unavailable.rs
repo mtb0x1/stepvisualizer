@@ -5,8 +5,9 @@
 //! camera controls over a dead canvas), the whole UI is replaced by this
 //! explanatory page.
 
-use crate::common::logger;
 use yew::prelude::*;
+
+use crate::common::logger;
 
 #[derive(Properties, PartialEq)]
 pub struct WebGpuUnavailableProps {

@@ -1,9 +1,11 @@
 //! Loaded-model panel: wraps the part list, show/hide-all controls, and the
 //! deselect action.
+use std::rc::Rc;
+
+use yew::prelude::*;
+
 use super::meshes_panel::{MeshData, MeshesPanel};
 use crate::common::types::StepModel;
-use std::rc::Rc;
-use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
 pub struct StepMeshPanelProps {

@@ -1,7 +1,8 @@
 //! Single-pass index of a STEP AST exchange structure.
 //!
 //! [`ExchangeIndex::build`] iterates every entity **once**, simultaneously:
-//! - Normalising `INTERSECTION_CURVE` / `BOUNDARY_CURVE` → `SURFACE_CURVE` (previously `normalize_exchange`).
+//! - Normalising `INTERSECTION_CURVE` / `BOUNDARY_CURVE` → `SURFACE_CURVE` (previously
+//!   `normalize_exchange`).
 //! - Collecting all raw data tables needed by [`crate::common::StepColorMap`].
 //! - Collecting all raw data tables needed by [`crate::common::StepNameMap`].
 //! - Resolving the file's [`crate::common::LengthUnit`] (previously `parse_units`).
@@ -12,16 +13,19 @@
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 
-use crate::common::ast_helpers::{
-    ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_entity_refs,
-    extract_entity_refs_with_capacity, extract_smallvec_refs,
+use crate::{
+    common::{
+        ast_helpers::{
+            ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_entity_refs,
+            extract_entity_refs_with_capacity, extract_smallvec_refs,
+        },
+        color::Color,
+        fast_hash::FastU64Map,
+        step::parser::StepParser,
+        types::LengthUnit,
+    },
+    ruststep::ast::{EntityInstance, Parameter, Record},
 };
-use crate::common::color::Color;
-use crate::common::fast_hash::FastU64Map;
-use crate::common::step::parser::StepParser;
-use crate::common::types::LengthUnit;
-use crate::ruststep::ast::Parameter;
-use crate::ruststep::ast::{EntityInstance, Record};
 
 // ---------------------------------------------------------------------------
 // Public index type
@@ -48,7 +52,8 @@ pub struct ExchangeIndex {
     pub styled_items: Vec<(SmallVec<[u64; 4]>, u64)>,
 
     // ---- shared data (StepColorMap, StepNameMap) ---------------------------
-    /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS / SHELL_BASED_SURFACE_MODEL id → outer SHELL id.
+    /// MANIFOLD_SOLID_BREP / FACETED_BREP / BREP_WITH_VOIDS / SHELL_BASED_SURFACE_MODEL id → outer
+    /// SHELL id.
     pub solid_to_shell: FastU64Map<u64>,
 
     // ---- name data (StepNameMap) -------------------------------------------
@@ -66,7 +71,8 @@ pub struct ExchangeIndex {
     pub rep_names: FastU64Map<SmolStr>,
     /// (rep1_id, rep2_id) pairs from REPRESENTATION_RELATIONSHIP entities.
     pub rep_links: Vec<(u64, u64)>,
-    /// SHAPE_REPRESENTATION id → PRODUCT_DEFINITION_SHAPE id (from SHAPE_DEFINITION_REPRESENTATION).
+    /// SHAPE_REPRESENTATION id → PRODUCT_DEFINITION_SHAPE id (from
+    /// SHAPE_DEFINITION_REPRESENTATION).
     pub shape_rep_to_pds: FastU64Map<u64>,
     /// PRODUCT_DEFINITION_SHAPE id → cleaned name.
     pub pds_names: FastU64Map<SmolStr>,
@@ -113,7 +119,8 @@ impl ExchangeIndex {
                         let entity_id = *id;
                         let name = record.name.as_str();
 
-                        // O(1) minimal perfect hash lookup (fallback to uppercase if non-conformant case)
+                        // O(1) minimal perfect hash lookup (fallback to uppercase if non-conformant
+                        // case)
                         let kind = STEP_ENTITY_KINDS.get(name).copied().or_else(|| {
                             if name.bytes().any(|b| b.is_ascii_lowercase()) {
                                 let upper = name.to_ascii_uppercase();
@@ -127,8 +134,9 @@ impl ExchangeIndex {
                             // ==============================================================================
                             // Color Extraction
                             // ==============================================================================
-                            // We extract colors defined directly on RGB or predefined entities, and link
-                            // presentation styles to their target geometry.
+                            // We extract colors defined directly on RGB or predefined entities, and
+                            // link presentation styles to their target
+                            // geometry.
                             Some(StepEntityKind::ColourRgb) => {
                                 if let Some(color) = Color::from_rgb_record(record) {
                                     idx.direct_colors.insert(entity_id, color);
@@ -177,8 +185,9 @@ impl ExchangeIndex {
                             // ==============================================================================
                             // Name Resolution
                             // ==============================================================================
-                            // We traverse the assembly tree (Shape Representation -> Product Definition ->
-                            // Product) to find and link the best human-readable part names.
+                            // We traverse the assembly tree (Shape Representation -> Product
+                            // Definition -> Product) to find and link
+                            // the best human-readable part names.
                             Some(StepEntityKind::ShapeRepresentation) => {
                                 if let Some(params) = record.parameter.try_extract::<&[Parameter]>()
                                 {
@@ -246,8 +255,9 @@ impl ExchangeIndex {
                             // ==============================================================================
                             // Unit Identification & Fallbacks
                             // ==============================================================================
-                            // If we don't recognize the entity directly, we still extract PDF -> Product
-                            // links and try to fallback to any SI_UNIT if no definitive unit is found.
+                            // If we don't recognize the entity directly, we still extract PDF ->
+                            // Product links and try to fallback to any
+                            // SI_UNIT if no definitive unit is found.
                             None => {
                                 if name.starts_with("PRODUCT_DEFINITION_FORMATION") {
                                     let refs = extract_entity_refs(&record.parameter);
@@ -342,10 +352,9 @@ impl ExchangeIndex {
 
     #[inline]
     fn collect_styled_item(&mut self, params: &[Parameter]) {
-        if let (Some(styles_param), Some(target_id)) = (
-            params.get(1),
-            params.get(2).and_then(|p| p.try_extract::<u64>()),
-        ) {
+        if let (Some(styles_param), Some(target_id)) =
+            (params.get(1), params.get(2).and_then(|p| p.try_extract::<u64>()))
+        {
             let style_refs = extract_smallvec_refs(styles_param);
             self.styled_items.push((style_refs, target_id));
         }
@@ -382,10 +391,7 @@ impl ExchangeIndex {
         // Color + name: solid → shell link (param 1)
         if let Some(shell_id) = params.get(1).and_then(|p| p.try_extract::<u64>()) {
             self.solid_to_shell.insert(entity_id, shell_id);
-            self.shell_to_solids
-                .entry(shell_id)
-                .or_default()
-                .push(entity_id);
+            self.shell_to_solids.entry(shell_id).or_default().push(entity_id);
         }
     }
 
@@ -402,10 +408,7 @@ impl ExchangeIndex {
         if let Some(shells_param) = params.get(1) {
             for shell_id in extract_entity_refs(shells_param) {
                 self.solid_to_shell.insert(entity_id, shell_id);
-                self.shell_to_solids
-                    .entry(shell_id)
-                    .or_default()
-                    .push(entity_id);
+                self.shell_to_solids.entry(shell_id).or_default().push(entity_id);
             }
         }
     }
@@ -420,10 +423,7 @@ impl ExchangeIndex {
         if let Some(items_param) = params.get(1) {
             let refs = extract_smallvec_refs(items_param);
             for &item_id in &refs {
-                self.item_to_reps
-                    .entry(item_id)
-                    .or_default()
-                    .push(entity_id);
+                self.item_to_reps.entry(item_id).or_default().push(entity_id);
             }
             self.rep_items.insert(entity_id, refs);
         }

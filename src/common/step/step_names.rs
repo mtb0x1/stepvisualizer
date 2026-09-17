@@ -1,9 +1,9 @@
 //! STEP ISO 10303 part and mesh name extraction across solids, products,
 //! representations, and assembly occurrences.
 
-use crate::common::exchange_index::ExchangeIndex;
-use crate::common::fast_hash::FastU64Map;
 use smol_str::SmolStr;
+
+use crate::common::{exchange_index::ExchangeIndex, fast_hash::FastU64Map};
 
 /// Extracted mapping of STEP shell entity IDs to resolved, human-readable part names.
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -52,13 +52,11 @@ impl StepNameMap {
 
             // 1. Check solid name
             let solid_candidate = solids.and_then(|sol_list| {
-                sol_list
-                    .iter()
-                    .find_map(|s| index.solid_names.get(s))
-                    .map(|s| s.as_str())
+                sol_list.iter().find_map(|s| index.solid_names.get(s)).map(|s| s.as_str())
             });
 
-            // Find all representations that DIRECTLY contain any of this shell's solids or the shell itself
+            // Find all representations that DIRECTLY contain any of this shell's solids or the
+            // shell itself
             let mut matching_reps: Vec<u64> = Vec::new();
             if let Some(reps) = index.item_to_reps.get(&shell_id) {
                 matching_reps.extend(reps);
@@ -145,9 +143,7 @@ impl StepNameMap {
 /// Resolves the associated `PRODUCT_DEFINITION_SHAPE` for a representation,
 /// checking both direct mapping and representation relationships.
 fn resolve_pds_for_rep(
-    rep_id: u64,
-    shape_rep_to_pds: &FastU64Map<u64>,
-    rep_links: &[(u64, u64)],
+    rep_id: u64, shape_rep_to_pds: &FastU64Map<u64>, rep_links: &[(u64, u64)],
 ) -> Option<u64> {
     if let Some(&pds) = shape_rep_to_pds.get(&rep_id) {
         return Some(pds);
@@ -168,23 +164,21 @@ fn resolve_pds_for_rep(
 
 /// Chooses the highest quality name candidate using priority rules:
 /// - A descriptive solid name (e.g. "Housing", "Pin 1", "PartBody") takes precedence.
-/// - If the solid name is purely numeric and a non-numeric product/assembly name is available, prefer the latter.
-/// - Otherwise fall back through Product -> NAUO -> Product Definition -> Shape -> Representation -> Shell.
+/// - If the solid name is purely numeric and a non-numeric product/assembly name is available,
+///   prefer the latter.
+/// - Otherwise fall back through Product -> NAUO -> Product Definition -> Shape -> Representation
+///   -> Shell.
 fn select_best_name<'a>(
-    solid: Option<&'a str>,
-    prod: Option<&'a str>,
-    nauo: Option<&'a str>,
-    pd: Option<&'a str>,
-    pds: Option<&'a str>,
-    rep: Option<&'a str>,
-    shell: Option<&'a str>,
+    solid: Option<&'a str>, prod: Option<&'a str>, nauo: Option<&'a str>, pd: Option<&'a str>,
+    pds: Option<&'a str>, rep: Option<&'a str>, shell: Option<&'a str>,
 ) -> Option<&'a str> {
     if let Some(s) = solid {
         let is_pure_digit = s.chars().all(|c| c.is_ascii_digit());
         if !is_pure_digit {
             return Some(s);
         }
-        // If solid is pure digits like "1", but we have a descriptive product/assembly name, prefer that
+        // If solid is pure digits like "1", but we have a descriptive product/assembly name, prefer
+        // that
         if let Some(p) = prod.filter(|val| val.chars().any(|c| c.is_alphabetic())) {
             return Some(p);
         }
@@ -216,7 +210,8 @@ fn select_best_name<'a>(
 ///
 /// Filters out:
 /// - Empty strings or strings with only whitespace/quotes
-/// - CAD null/unspecified placeholders: "NONE", "None", "unspecified", "not specified", "null", "no_name", "default", "undefined"
+/// - CAD null/unspecified placeholders: "NONE", "None", "unspecified", "not specified", "null",
+///   "no_name", "default", "undefined"
 /// - Entity references such as "#602" or lone "#", "$", "*"
 #[inline]
 pub fn is_valid_part_name(s: &str) -> bool {
@@ -225,7 +220,7 @@ pub fn is_valid_part_name(s: &str) -> bool {
         return false;
     }
     // Filter out STEP entity pointer labels like "#602", "#123"
-    if clean.starts_with('#') && clean[1..].chars().all(|c| c.is_ascii_digit()) {
+    if clean.starts_with('#') && clean[1 ..].chars().all(|c| c.is_ascii_digit()) {
         return false;
     }
     if clean == "#" || clean == "$" || clean == "*" {
@@ -246,7 +241,8 @@ pub fn is_valid_part_name(s: &str) -> bool {
         || clean.eq_ignore_ascii_case("part"))
 }
 
-/// Zero-allocation view of a cleaned part name, trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
+/// Zero-allocation view of a cleaned part name, trimming quotes, whitespace, and descriptive CAD
+/// prefixes like "SHAPE FOR ".
 #[inline]
 pub fn clean_part_name_str(s: &str) -> &str {
     let trimmed = s.trim().trim_matches('\'').trim_matches('"').trim();
@@ -259,7 +255,8 @@ pub fn clean_part_name_str(s: &str) -> &str {
     }
 }
 
-/// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR ".
+/// Cleans a part name by trimming quotes, whitespace, and descriptive CAD prefixes like "SHAPE FOR
+/// ".
 #[inline]
 pub fn clean_part_name(s: &str) -> SmolStr {
     SmolStr::new(clean_part_name_str(s))

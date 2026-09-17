@@ -1,11 +1,7 @@
-use crate::{
-    common::{BoundingBox, Color, RenderablePart, ViewportSize, logger},
-    error::StepError,
-    trace_span,
-};
+use std::cell::RefCell;
+
 use bytemuck::cast_slice;
 use glam::Mat4;
-use std::cell::RefCell;
 use web_sys::HtmlCanvasElement;
 use wgpu::{
     self, SurfaceTarget,
@@ -13,6 +9,11 @@ use wgpu::{
 };
 
 pub use crate::common::web::browser_has_webgpu;
+use crate::{
+    common::{BoundingBox, Color, RenderablePart, ViewportSize, logger},
+    error::StepError,
+    trace_span,
+};
 
 /// GPU-side buffers for a single rendered part.
 ///
@@ -38,9 +39,7 @@ impl PartGpu {
     /// Allocate vertex, index, and uniform buffers on `device` for `part`, and
     /// construct the matching part bind group under `layout`.
     pub fn new(
-        device: &wgpu::Device,
-        layout: &wgpu::BindGroupLayout,
-        part: &RenderablePart,
+        device: &wgpu::Device, layout: &wgpu::BindGroupLayout, part: &RenderablePart,
     ) -> Self {
         let vertex_buffer = device.create_buffer_init(&BufferInitDescriptor {
             label: Some("Vertex Buffer"),
@@ -66,14 +65,8 @@ impl PartGpu {
         let bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout,
             entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: model_buffer.as_entire_binding(),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: color_buffer.as_entire_binding(),
-                },
+                wgpu::BindGroupEntry { binding: 0, resource: model_buffer.as_entire_binding() },
+                wgpu::BindGroupEntry { binding: 1, resource: color_buffer.as_entire_binding() },
             ],
             label: Some("part_bind_group"),
         });
@@ -93,11 +86,7 @@ impl PartGpu {
     /// Upload model transform and RGBA color uniforms to the GPU queue if dirty.
     pub fn upload_uniforms(&mut self, queue: &wgpu::Queue, part: &RenderablePart) {
         if self.uniforms_dirty {
-            queue.write_buffer(
-                &self.model_buffer,
-                0,
-                bytemuck::bytes_of(&part.model_matrix),
-            );
+            queue.write_buffer(&self.model_buffer, 0, bytemuck::bytes_of(&part.model_matrix));
             queue.write_buffer(&self.color_buffer, 0, bytemuck::bytes_of(&part.color));
             self.uniforms_dirty = false;
         }
@@ -136,7 +125,8 @@ pub struct WgpuState {
     pub part_buffers: RefCell<Vec<Option<PartGpu>>>,
     /// Unique identifier for this GPU context instance.
     pub id: u64,
-    /// Cached visible bounds keyed by visibility array to avoid re-iterating vertices on every frame.
+    /// Cached visible bounds keyed by visibility array to avoid re-iterating vertices on every
+    /// frame.
     pub cached_bounds: RefCell<Option<(Vec<bool>, BoundingBox)>>,
 }
 
@@ -192,11 +182,7 @@ use crate::common::constants::{POWER_PREFERENCE, WGSL_SHADER};
 fn create_depth_texture_view(device: &wgpu::Device, width: u32, height: u32) -> wgpu::TextureView {
     let depth_texture = device.create_texture(&wgpu::TextureDescriptor {
         label: Some("Depth Texture"),
-        size: wgpu::Extent3d {
-            width,
-            height,
-            depth_or_array_layers: 1,
-        },
+        size: wgpu::Extent3d { width, height, depth_or_array_layers: 1 },
         mip_level_count: 1,
         sample_count: 1,
         dimension: wgpu::TextureDimension::D2,
@@ -253,10 +239,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepError
             return Err(StepError::GpuInitFailed(msg));
         }
     };
-    let (device, queue) = match adapter
-        .request_device(&wgpu::DeviceDescriptor::default())
-        .await
-    {
+    let (device, queue) = match adapter.request_device(&wgpu::DeviceDescriptor::default()).await {
         Ok((device, queue)) => (device, queue),
         Err(err) => {
             let msg = format!("Failed to request adapter device: {err}");
@@ -364,10 +347,7 @@ pub async fn init_wgpu(canvas: HtmlCanvasElement) -> Result<WgpuState, StepError
         // wgpu 30: each layout slot is optional (None skips that set), and
         // `immediate_size` replaces `push_constant_ranges` (we use neither
         // feature, so a single mandatory layout and zero immediate bytes).
-        bind_group_layouts: &[
-            Some(&global_bind_group_layout),
-            Some(&part_bind_group_layout),
-        ],
+        bind_group_layouts: &[Some(&global_bind_group_layout), Some(&part_bind_group_layout)],
         immediate_size: 0,
     });
 

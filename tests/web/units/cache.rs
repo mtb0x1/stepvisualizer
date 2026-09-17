@@ -1,8 +1,12 @@
-use std::cell::Cell;
-use std::rc::Rc;
-use stepvisualizer::common::types::{LengthUnit, Metadata, StepHeader};
-use stepvisualizer::common::{FileId, StepModel};
-use stepvisualizer::storage::LruCache;
+use std::{cell::Cell, rc::Rc};
+
+use stepvisualizer::{
+    common::{
+        FileId, StepModel,
+        types::{LengthUnit, Metadata, StepHeader},
+    },
+    storage::LruCache,
+};
 use wasm_bindgen_test::*;
 
 fn create_mock_model(id: &str) -> StepModel {
@@ -104,7 +108,8 @@ fn cache_reinsert_existing_key() {
     assert!(cache.get("model_B").is_some());
 }
 
-/// Verifies get_or_load invokes loader once on miss, caches result, and serves future calls from memory.
+/// Verifies get_or_load invokes loader once on miss, caches result, and serves future calls from
+/// memory.
 #[wasm_bindgen_test]
 fn get_or_load_lifecycle() {
     let mut cache = LruCache::new(50000);

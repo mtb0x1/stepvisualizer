@@ -1,5 +1,5 @@
 fn main() {
-    //needed by webgpu, to activate web cfg shit,
+    // needed by webgpu, to activate web cfg shit,
     println!("cargo:rustc-cfg=web");
 
     // Fetch the short git commit hash

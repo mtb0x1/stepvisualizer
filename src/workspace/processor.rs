@@ -1,38 +1,33 @@
 //! File upload handling, STEP parsing pipeline, and async tessellation.
-use crate::common::constants::{
-    MAX_FILE_BYTES, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance,
-};
-use crate::common::web::input_file;
-use crate::common::{
-    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, StepParser,
-    compute_bounding_box, extract_render_parts,
-};
-use crate::error::StepError;
-use crate::storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model};
-use crate::trace_span;
-use crate::workspace::history::{add_to_index, promote_in_index};
-use crate::workspace::state::{StateHandles, build_step_model};
+use std::{cell::RefCell, rc::Rc};
+
 use gloo::file::File;
-use std::cell::RefCell;
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use web_sys::{Event, HtmlInputElement};
 use yew::prelude::*;
 
+use crate::{
+    common::{
+        ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, StepParser,
+        compute_bounding_box,
+        constants::{MAX_FILE_BYTES, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance},
+        extract_render_parts,
+        web::input_file,
+    },
+    error::StepError,
+    storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model},
+    trace_span,
+    workspace::{
+        history::{add_to_index, promote_in_index},
+        state::{StateHandles, build_step_model},
+    },
+};
+
 /// Parses STEP text into metadata, a content-based FileId, and entity tables.
 pub fn parse_step_file_content(
-    name: &str,
-    text: &str,
-) -> Result<
-    (
-        Metadata,
-        FileId,
-        Vec<truck_stepio::r#in::Table>,
-        StepColorMap,
-        StepNameMap,
-    ),
-    StepError,
-> {
+    name: &str, text: &str,
+) -> Result<(Metadata, FileId, Vec<truck_stepio::r#in::Table>, StepColorMap, StepNameMap), StepError>
+{
     let mut step_parser = StepParser::parse(text)?;
 
     // Single combined pass: normalises INTERSECTION/BOUNDARY_CURVE → SURFACE_CURVE,
@@ -47,10 +42,8 @@ pub fn parse_step_file_content(
     let (step_header, entity_count) = step_parser.extract_header_and_count(name)?;
 
     let sections = step_parser.all_usable_sections()?;
-    let step_tables: Vec<truck_stepio::r#in::Table> = sections
-        .into_iter()
-        .map(truck_stepio::r#in::Table::from_data_section)
-        .collect();
+    let step_tables: Vec<truck_stepio::r#in::Table> =
+        sections.into_iter().map(truck_stepio::r#in::Table::from_data_section).collect();
 
     // Drop the parsed AST immediately to release its large record and string allocations
     // from WASM memory before computing bounding boxes and returning tables.
@@ -71,16 +64,11 @@ pub fn parse_step_file_content(
 }
 
 fn format_tessellation_status(
-    total_triangles: usize,
-    skipped_shells: usize,
-    warnings: &[String],
+    total_triangles: usize, skipped_shells: usize, warnings: &[String],
 ) -> String {
     if total_triangles == 0 {
         if !warnings.is_empty() {
-            format!(
-                "File loaded but no renderable geometry found: {}.",
-                warnings.join("; ")
-            )
+            format!("File loaded but no renderable geometry found: {}.", warnings.join("; "))
         } else {
             "File loaded but no renderable geometry was found.".to_string()
         }
@@ -114,19 +102,10 @@ pub(crate) struct TessellationJob {
 /// result in a [`StepModel`], persists it to the cache and localStorage, then
 /// publishes the updated metadata and model to the UI.
 pub(crate) fn spawn_tessellation(
-    job: TessellationJob,
-    states: StateHandles,
-    files_index: UseStateHandle<Vec<FileIndexItem>>,
+    job: TessellationJob, states: StateHandles, files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
 ) {
-    let TessellationJob {
-        step_tables,
-        color_map,
-        name_map,
-        file_id,
-        meta,
-        generation,
-    } = job;
+    let TessellationJob { step_tables, color_map, name_map, file_id, meta, generation } = job;
     let base_tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     let multiplier = states.quality_preset.multiplier();
     let tolerance = (base_tolerance * multiplier).clamp(MIN_TOLERANCE, MAX_TOLERANCE);
@@ -159,7 +138,8 @@ pub(crate) fn spawn_tessellation(
         let model = build_step_model(file_id.clone(), meta, renderable_parts);
         save_model(&model);
 
-        // Record the file in the history index ONLY after successful tessellation and model persistence.
+        // Record the file in the history index ONLY after successful tessellation and model
+        // persistence.
         add_to_index(
             &files_index,
             FileIndexItem {
@@ -189,8 +169,7 @@ pub(crate) fn spawn_tessellation(
 
 #[hook]
 pub(crate) fn use_file_processor(
-    states: &StateHandles,
-    files_index: UseStateHandle<Vec<FileIndexItem>>,
+    states: &StateHandles, files_index: UseStateHandle<Vec<FileIndexItem>>,
     cache: Rc<RefCell<LruCache>>,
 ) -> Callback<Event> {
     let states = states.clone();
@@ -202,10 +181,7 @@ pub(crate) fn use_file_processor(
             return;
         };
 
-        if let Some(input) = event
-            .target()
-            .and_then(|t| t.dyn_into::<HtmlInputElement>().ok())
-        {
+        if let Some(input) = event.target().and_then(|t| t.dyn_into::<HtmlInputElement>().ok()) {
             input.set_value("");
         }
 
@@ -254,7 +230,8 @@ pub(crate) fn use_file_processor(
                 return;
             }
 
-            // Fast-path 2: Check asynchronous IndexedDB before falling back to full AST parsing & tessellation
+            // Fast-path 2: Check asynchronous IndexedDB before falling back to full AST parsing &
+            // tessellation
             let states_async = states_for_reader.clone();
             let cache_async = cache.clone();
             let files_index_async = files_index.clone();
@@ -265,9 +242,7 @@ pub(crate) fn use_file_processor(
                         return;
                     }
                     let model_rc = Rc::new(model);
-                    cache_async
-                        .borrow_mut()
-                        .insert_rc(file_id.clone(), model_rc.clone());
+                    cache_async.borrow_mut().insert_rc(file_id.clone(), model_rc.clone());
                     states_async.set_loaded_model(model_rc, file_id.clone(), "Loaded from storage");
                     promote_in_index(&files_index_async, &file_id);
                     return;

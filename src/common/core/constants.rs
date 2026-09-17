@@ -152,12 +152,8 @@ impl QualityPreset {
 /// Canvas clear color (RGB, alpha is always 1).
 pub const CLEAR_COLOR_RGB: (f64, f64, f64) = (0.165, 0.165, 0.165);
 /// Static clear color pre-formatted for wgpu render pass descriptor.
-pub const CLEAR_COLOR: wgpu::Color = wgpu::Color {
-    r: CLEAR_COLOR_RGB.0,
-    g: CLEAR_COLOR_RGB.1,
-    b: CLEAR_COLOR_RGB.2,
-    a: 1.0,
-};
+pub const CLEAR_COLOR: wgpu::Color =
+    wgpu::Color { r: CLEAR_COLOR_RGB.0, g: CLEAR_COLOR_RGB.1, b: CLEAR_COLOR_RGB.2, a: 1.0 };
 
 /// GPU adapter power preference requested at init.
 ///

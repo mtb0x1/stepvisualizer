@@ -1,6 +1,7 @@
 //! Recent-files list with per-item load and delete, plus clear-history.
-use crate::common::{FileId, FileIndexItem};
 use yew::prelude::*;
+
+use crate::common::{FileId, FileIndexItem};
 
 #[derive(Properties, PartialEq)]
 pub struct FileHistoryPanelProps {

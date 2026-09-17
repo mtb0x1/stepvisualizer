@@ -4,10 +4,7 @@
 /// Falls back to 0.0 if the browser window or performance API is unavailable.
 #[inline(always)]
 pub fn now_ms() -> f64 {
-    web_sys::window()
-        .and_then(|w| w.performance())
-        .map(|p| p.now())
-        .unwrap_or(0.0)
+    web_sys::window().and_then(|w| w.performance()).map(|p| p.now()).unwrap_or(0.0)
 }
 
 /// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).
@@ -24,9 +21,7 @@ pub fn url_query_param(key: &str) -> Option<String> {
             Some((k, v)) => (k, v),
             None => (pair, ""),
         };
-        pair_key
-            .eq_ignore_ascii_case(key)
-            .then(|| value.to_ascii_lowercase())
+        pair_key.eq_ignore_ascii_case(key).then(|| value.to_ascii_lowercase())
     })
 }
 
@@ -52,9 +47,7 @@ pub fn browser_has_webgpu() -> bool {
 #[cold]
 #[inline(never)]
 pub fn detect_env_prefix() -> &'static str {
-    let path = web_sys::window()
-        .and_then(|w| w.location().pathname().ok())
-        .unwrap_or_default();
+    let path = web_sys::window().and_then(|w| w.location().pathname().ok()).unwrap_or_default();
     if path.contains("/testing") {
         "testing:"
     } else if path.contains("/production") {
@@ -114,8 +107,7 @@ pub fn sanitize_host_for_db_name(host: &str) -> String {
 /// Extracts the first selected file from an `<input type="file">` change event.
 pub fn input_file(event: &web_sys::Event) -> Option<web_sys::File> {
     use wasm_bindgen::JsCast;
-    let input: web_sys::HtmlInputElement = event
-        .target()
-        .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())?;
+    let input: web_sys::HtmlInputElement =
+        event.target().and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())?;
     input.files()?.get(0)
 }

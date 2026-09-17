@@ -1,9 +1,10 @@
 //! Left sidebar: file history when nothing is selected, part list otherwise.
-use super::components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel};
-use crate::common::types::StepModel;
-use crate::common::{FileId, FileIndexItem};
 use std::rc::Rc;
+
 use yew::prelude::*;
+
+use super::components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel};
+use crate::common::{FileId, FileIndexItem, types::StepModel};
 
 #[derive(Properties, PartialEq)]
 pub struct LeftPanelProps {

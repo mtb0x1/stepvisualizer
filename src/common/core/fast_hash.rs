@@ -10,8 +10,8 @@
 //! degrading O(1) operations into O(n) denial-of-service).
 //!
 //! In StepVisualizer, however:
-//! 1. Client-Side WASM Sandbox: The code runs entirely in the user's local browser tab
-//!    rendering CAD geometry. There is no remote network server and no untrusted collision attack vector.
+//! 1. Client-Side WASM Sandbox: The code runs entirely in the user's local browser tab rendering
+//!    CAD geometry. There is no remote network server and no untrusted collision attack vector.
 //! 2. Integer Key Domain: Hot-path lookup keys across the engine are almost exclusively `u64`:
 //!    - STEP entity IDs (`#10 = ...`, `#500 = ...`) across 20+ tables during AST indexing.
 //!    - Packed vertex keys `((pos as u64) << 32) | nor` during geometry welding.
@@ -24,7 +24,8 @@
 //! `FastU64Hasher` uses **SplitMix64**, a widely-used pseudo-random bit mixer.
 //! For any `u64` key, it performs just 3 constant multiplications and bitwise shifts:
 //! - Uniformly avalanches and distributes bits across all hash buckets.
-//! - Executes in ~3 CPU cycles with zero memory loads, zero branches, and zero state initialization.
+//! - Executes in ~3 CPU cycles with zero memory loads, zero branches, and zero state
+//!   initialization.
 //! - Coupled with `hashbrown::HashMap` (SwissTable SIMD bucketing), it provides maximum throughput
 //!   for geometry extraction, AST indexing, and vertex welding.
 
@@ -55,7 +56,7 @@ impl Hasher for FastU64Hasher {
     fn write(&mut self, bytes: &[u8]) {
         for chunk in bytes.chunks(8) {
             let mut buf = [0u8; 8];
-            buf[..chunk.len()].copy_from_slice(chunk);
+            buf[.. chunk.len()].copy_from_slice(chunk);
             self.write_u64(u64::from_ne_bytes(buf));
         }
     }

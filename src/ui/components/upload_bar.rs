@@ -1,7 +1,8 @@
 //! STEP file picker with its processing hint and tessellation-quality preset.
-use crate::common::constants::QualityPreset;
 use web_sys::Event;
 use yew::prelude::*;
+
+use crate::common::constants::QualityPreset;
 
 #[derive(Properties, PartialEq)]
 pub struct UploadBarProps {
@@ -11,11 +12,8 @@ pub struct UploadBarProps {
     pub on_quality_change: Callback<QualityPreset>,
 }
 
-const PRESETS: [QualityPreset; 3] = [
-    QualityPreset::Coarse,
-    QualityPreset::Balanced,
-    QualityPreset::Fine,
-];
+const PRESETS: [QualityPreset; 3] =
+    [QualityPreset::Coarse, QualityPreset::Balanced, QualityPreset::Fine];
 
 #[function_component(UploadBar)]
 pub fn upload_bar(props: &UploadBarProps) -> Html {
@@ -24,11 +22,7 @@ pub fn upload_bar(props: &UploadBarProps) -> Html {
         .map(|&preset| {
             let on_quality_change = props.on_quality_change.clone();
             let is_active = props.quality_preset == preset;
-            let class = if is_active {
-                "quality-btn quality-btn-active"
-            } else {
-                "quality-btn"
-            };
+            let class = if is_active { "quality-btn quality-btn-active" } else { "quality-btn" };
             let onclick = Callback::from(move |_| on_quality_change.emit(preset));
             let title = preset.tooltip();
             html! {

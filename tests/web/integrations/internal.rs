@@ -1,32 +1,29 @@
-use stepvisualizer::common::constants::compute_adaptive_tolerance;
-use stepvisualizer::common::exchange_index::ExchangeIndex;
-use stepvisualizer::common::parser::StepParser;
-use stepvisualizer::common::render::{extract_render_parts, visible_bounds};
-use stepvisualizer::common::types::{FileId, LengthUnit, StepModel};
-use stepvisualizer::common::{StepColorMap, StepNameMap};
-use stepvisualizer::error::StepError;
-
-use stepvisualizer::truck_stepio;
-use stepvisualizer::workspace::{build_step_model, parse_step_file_content};
+use stepvisualizer::{
+    common::{
+        StepColorMap, StepNameMap,
+        constants::compute_adaptive_tolerance,
+        exchange_index::ExchangeIndex,
+        parser::StepParser,
+        render::{extract_render_parts, visible_bounds},
+        types::{FileId, LengthUnit, StepModel},
+    },
+    error::StepError,
+    truck_stepio,
+    workspace::{build_step_model, parse_step_file_content},
+};
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
 fn step_pipeline_e2e_real_model() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/io1-ca-214.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/io1-ca-214.stp"));
 
     let mut parsed = StepParser::parse(STEP_TEXT).expect("successful STEP AST parse");
-    let usable_sections = parsed
-        .all_usable_sections()
-        .expect("usable sections present");
+    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
     assert!(!usable_sections.is_empty());
 
-    let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
-        .into_iter()
-        .map(truck_stepio::r#in::Table::from_data_section)
-        .collect();
+    let step_tables: Vec<truck_stepio::r#in::Table> =
+        usable_sections.into_iter().map(truck_stepio::r#in::Table::from_data_section).collect();
     assert_eq!(step_tables.len(), 1);
 
     let index = ExchangeIndex::build(&mut parsed);
@@ -77,25 +74,19 @@ fn step_pipeline_e2e_real_model() {
 
 #[wasm_bindgen_test]
 fn step_pipeline_e2e_nasty_cheese() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/nasty_cheese.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/nasty_cheese.stp"));
 
     let mut parsed = StepParser::parse(STEP_TEXT).expect("successful STEP AST parse");
     let index = ExchangeIndex::build(&mut parsed);
     let units = index.resolved_unit();
     drop(index);
 
-    let usable_sections = parsed
-        .all_usable_sections()
-        .expect("usable sections present");
+    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
     assert_eq!(usable_sections.len(), 1);
 
-    let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
-        .into_iter()
-        .map(truck_stepio::r#in::Table::from_data_section)
-        .collect();
+    let step_tables: Vec<truck_stepio::r#in::Table> =
+        usable_sections.into_iter().map(truck_stepio::r#in::Table::from_data_section).collect();
     assert_eq!(step_tables.len(), 1);
 
     let bbox = stepvisualizer::common::math::compute_bounding_box(&step_tables);
@@ -110,10 +101,7 @@ fn step_pipeline_e2e_nasty_cheese() {
 
     let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     let output = extract_render_parts(&step_tables, None, None, tolerance);
-    assert!(
-        !output.parts.is_empty(),
-        "Expected render parts for nasty_cheese.stp"
-    );
+    assert!(!output.parts.is_empty(), "Expected render parts for nasty_cheese.stp");
 
     let render_parts = output.parts;
     let mut model = StepModel {
@@ -141,10 +129,8 @@ fn step_pipeline_e2e_nasty_cheese() {
 #[wasm_bindgen_test]
 fn workspace_processor_parse_and_model_build() {
     const STEP_FILE_NAME: &str = "io1-ca-214.stp";
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/io1-ca-214.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/io1-ca-214.stp"));
     let (meta, id, tables, color_map, name_map) =
         parse_step_file_content(STEP_FILE_NAME, STEP_TEXT).expect("valid parse");
     assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
@@ -168,10 +154,8 @@ fn workspace_parse_unsupported_and_invalid_fails_early() {
     let res = parse_step_file_content(STEP_FILE_NAME, STEP_TEXT);
     assert!(res.is_err());
 
-    const STEP_AIM: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/fullroom_aim.stp"
-    ));
+    const STEP_AIM: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/fullroom_aim.stp"));
     match parse_step_file_content("fullroom_aim.stp", STEP_AIM) {
         Err(StepError::UnsupportedSchema { schema }) => {
             assert_eq!(schema, "PLANT_SPATIAL_CONFIGURATION");
@@ -179,10 +163,8 @@ fn workspace_parse_unsupported_and_invalid_fails_early() {
         res => panic!("Expected UnsupportedSchema error, got {:?}", res),
     }
 
-    const STEP_224: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/ap224_997423743.stp"
-    ));
+    const STEP_224: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/ap224_997423743.stp"));
     match parse_step_file_content("ap224_997423743.stp", STEP_224) {
         Err(StepError::UnsupportedSchema { schema }) => {
             assert_eq!(schema, "FEATURE_BASED_PROCESS_PLANNING");
@@ -193,10 +175,8 @@ fn workspace_parse_unsupported_and_invalid_fails_early() {
 
 #[wasm_bindgen_test]
 fn step_pipeline_as1_ac_214_small() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/as1-ac-214_small.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/as1-ac-214_small.stp"));
 
     let (meta, _id, step_tables, color_map, name_map) =
         parse_step_file_content("as1-ac-214_small.stp", STEP_TEXT)
@@ -208,16 +188,8 @@ fn step_pipeline_as1_ac_214_small() {
     let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
 
-    assert_eq!(
-        output.skipped_shells, 0,
-        "No shells should be skipped: {:?}",
-        output.warnings
-    );
-    assert_eq!(
-        output.parts.len(),
-        3,
-        "Expected all 3 shells to tessellate into renderable parts"
-    );
+    assert_eq!(output.skipped_shells, 0, "No shells should be skipped: {:?}", output.warnings);
+    assert_eq!(output.parts.len(), 3, "Expected all 3 shells to tessellate into renderable parts");
     for part in &output.parts {
         assert!(!part.vertices.is_empty());
         assert!(!part.indices.is_empty());

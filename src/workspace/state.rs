@@ -1,13 +1,17 @@
 //! Internal workspace state handles and state transition methods.
-use crate::common::constants::QualityPreset;
-use crate::common::{FileId, Metadata, RenderablePart, StepModel, visible_bounds};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
 use gloo::file::callbacks::FileReader;
 use smol_str::{SmolStr, format_smolstr};
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
 use yew::prelude::*;
 
 use super::ConfirmAction;
+use crate::common::{
+    FileId, Metadata, RenderablePart, StepModel, constants::QualityPreset, visible_bounds,
+};
 
 /// Grouped state handles owned by the workspace.
 ///
@@ -90,9 +94,7 @@ impl StateHandles {
 
 /// Constructs a [`StepModel`], computing totals and visible bounds.
 pub fn build_step_model(
-    id: FileId,
-    metadata: Metadata,
-    render_parts: Vec<RenderablePart>,
+    id: FileId, metadata: Metadata, render_parts: Vec<RenderablePart>,
 ) -> StepModel {
     let part_count = render_parts.len();
     let part_visibility = vec![true; part_count];

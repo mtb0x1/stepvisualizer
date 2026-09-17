@@ -1,6 +1,10 @@
-use stepvisualizer::common::color::{Color, StepColorMap};
-use stepvisualizer::common::exchange_index::ExchangeIndex;
-use stepvisualizer::ruststep;
+use stepvisualizer::{
+    common::{
+        color::{Color, StepColorMap},
+        exchange_index::ExchangeIndex,
+    },
+    ruststep,
+};
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
@@ -57,10 +61,8 @@ fn test_step_color_map_synthetic() {
 
 #[wasm_bindgen_test]
 fn test_step_color_map_as1_tc_214() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/as1-tc-214.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/as1-tc-214.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
     let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
     let index = ExchangeIndex::build(&mut parser);

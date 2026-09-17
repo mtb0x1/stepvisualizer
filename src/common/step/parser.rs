@@ -1,29 +1,37 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
 
-use crate::common::fast_hash::FastU64Map;
-use crate::common::logger;
-use crate::common::utils::find_ignore_ascii_case;
-use crate::error::StepError;
-use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Name, Parameter, Record};
-use crate::ruststep::header::{FileSchema, Header};
-use crate::storage::hash_text_to_id;
-use crate::trace_span;
 use glam::DVec3;
 use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
-use crate::common::ast_helpers::{
-    ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_direction_coords, is_collinear_with_x,
-    is_unit_z_direction, sanitize_omitted_param,
+use crate::{
+    common::{
+        ast_helpers::{
+            ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_direction_coords,
+            is_collinear_with_x, is_unit_z_direction, sanitize_omitted_param,
+        },
+        fast_hash::FastU64Map,
+        logger,
+        types::{FileId, LengthUnit, Metadata, StepHeader},
+        utils::find_ignore_ascii_case,
+    },
+    error::StepError,
+    ruststep::{
+        ast::{DataSection, EntityInstance, Exchange, Name, Parameter, Record},
+        header::{FileSchema, Header},
+    },
+    storage::hash_text_to_id,
+    trace_span,
 };
-use crate::common::types::{FileId, LengthUnit, Metadata, StepHeader};
 
 /// Supported STEP schemas recognized by the visualizer and geometry pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum StepSchema {
-    /// ISO 10303-201: Explicit Draughting (corresponding to `ruststep::ap201::explicit_draughting`).
+    /// ISO 10303-201: Explicit Draughting (corresponding to
+    /// `ruststep::ap201::explicit_draughting`).
     Ap201,
-    /// ISO 10303-203: Configuration Controlled 3D Design (corresponding to `ruststep::ap203::config_control_design`).
+    /// ISO 10303-203: Configuration Controlled 3D Design (corresponding to
+    /// `ruststep::ap203::config_control_design`).
     Ap203,
     /// ISO 10303-214: Core Data for Automotive Mechanical Design Processes.
     Ap214,
@@ -90,12 +98,7 @@ pub fn convert_header_from_ast(header: &Header) -> StepHeader {
         file_name: header.file_name.name.clone().into(),
         time_stamp: header.file_name.time_stamp.clone().into(),
         author: header.file_name.author.iter().map(|s| s.into()).collect(),
-        organization: header
-            .file_name
-            .organization
-            .iter()
-            .map(|s| s.into())
-            .collect(),
+        organization: header.file_name.organization.iter().map(|s| s.into()).collect(),
         preprocessor_version: header.file_name.preprocessor_version.clone().into(),
         originating_system: header.file_name.originating_system.clone().into(),
         authorization: header.file_name.authorization.clone().into(),
@@ -105,7 +108,8 @@ pub fn convert_header_from_ast(header: &Header) -> StepHeader {
 
 /// TODO: This sanitization allocation (`to_vec`) is a performance issue.
 /// `ruststep` should ideally be permissively deserializing by default, gracefully handling
-/// `NotProvided`/`Omitted` fields as well as skipping unknown fields (which `serde` can handle natively).
+/// `NotProvided`/`Omitted` fields as well as skipping unknown fields (which `serde` can handle
+/// natively).
 pub fn sanitize_header_records(header_in: &[Record]) -> Result<SmallVec<[Record; 4]>, StepError> {
     if header_in.len() < 3 {
         return Err(StepError::InvalidHeader(
@@ -170,10 +174,7 @@ fn normalize_curve_subtypes(section: &mut DataSection) {
 
         let name_upper = record.name.to_ascii_uppercase();
         if let Some(kind) = STEP_ENTITY_KINDS.get(name_upper.as_str())
-            && matches!(
-                kind,
-                StepEntityKind::IntersectionCurve | StepEntityKind::BoundaryCurve
-            )
+            && matches!(kind, StepEntityKind::IntersectionCurve | StepEntityKind::BoundaryCurve)
         {
             record.name.clear();
             record.name.push_str("SURFACE_CURVE");
@@ -226,27 +227,28 @@ fn normalize_curve_subtypes(section: &mut DataSection) {
 /// 2. `(0, 0, 0).normalize()` attempts to divide by zero: `0.0 / 0.0 = NaN`.
 /// 3. `y = z.cross(x)` becomes `NaN`.
 /// 4. The resulting `Matrix4` coordinate frame is corrupted with `NaN` elements.
-/// 5. Downstream in `truck-meshalgo` during `cshell.triangulation(tolerance)`, each edge
-///    curve (e.g. `CIRCLE`, `ELLIPSE`) or surface (e.g. `TOROIDAL_SURFACE`) is tessellated
-///    via `Processor::parameter_division`.
+/// 5. Downstream in `truck-meshalgo` during `cshell.triangulation(tolerance)`, each edge curve
+///    (e.g. `CIRCLE`, `ELLIPSE`) or surface (e.g. `TOROIDAL_SURFACE`) is tessellated via
+///    `Processor::parameter_division`.
 /// 6. `Processor` computes its spatial scaling factor 'n' via an Iwasawa decomposition on the
 ///    `Matrix4`. Because the matrix elements are `NaN`, 'n' evaluates to `NaN`.
-/// 7. The effective tolerance passed to `UnitCircle::parameter_division` is
-///    `tolerance / n = tolerance / NaN = NaN`.
-/// 8. In `truck-geometry-0.5.0/src/specifieds/circle.rs:51`, `nonpositive_tolerance!(tol)`
-///    executes `assert!(tol >= 1.0e-6)`.
-/// 9. In IEEE-754 floating-point arithmetic, any comparison with `NaN` evaluates to `false`
-///    (`NaN >= 1.0e-6` is `false`).
-/// 10. The assertion panics with: `"tolerance must be no less than 1e-6"`, terminating the
-///     entire WebAssembly thread / async task and crashing the visualizer.
+/// 7. The effective tolerance passed to `UnitCircle::parameter_division` is `tolerance / n =
+///    tolerance / NaN = NaN`.
+/// 8. In `truck-geometry-0.5.0/src/specifieds/circle.rs:51`, `nonpositive_tolerance!(tol)` executes
+///    `assert!(tol >= 1.0e-6)`.
+/// 9. In IEEE-754 floating-point arithmetic, any comparison with `NaN` evaluates to `false` (`NaN
+///    >= 1.0e-6` is `false`).
+/// 10. The assertion panics with: `"tolerance must be no less than 1e-6"`, terminating the entire
+///     WebAssembly thread / async task and crashing the visualizer.
 ///
 /// # Mathematical Resolution
 ///
 /// To eliminate the 0.0 / 0.0 = NaN singularity, this function ensures that any
 /// `AXIS2_PLACEMENT_3D` whose `ref_direction` is omitted and whose `axis` is collinear with
-/// `(1, 0, 0)` is explicitly assigned an orthogonal reference direction unit Z vector = `(0.0, 0.0, 1.0)`:
-/// - If a `DIRECTION` pointing along `(0.0, 0.0, 1.0)` already exists in the section, its entity
-///   ID is reused.
+/// `(1, 0, 0)` is explicitly assigned an orthogonal reference direction unit Z vector = `(0.0, 0.0,
+/// 1.0)`:
+/// - If a `DIRECTION` pointing along `(0.0, 0.0, 1.0)` already exists in the section, its entity ID
+///   is reused.
 /// - Otherwise, a synthetic `DIRECTION('synthetic_ref_z', (0.0, 0.0, 1.0))` entity is appended to
 ///   the data section.
 /// - The `AXIS2_PLACEMENT_3D` record's parameter list is updated to reference this `DIRECTION`.
@@ -375,7 +377,7 @@ impl StepParser {
         let mut cursor = clean;
         while cursor.starts_with("/*") {
             if let Some(end) = cursor.find("*/") {
-                cursor = cursor[end + 2..].trim_start();
+                cursor = cursor[end + 2 ..].trim_start();
             } else {
                 break;
             }
@@ -389,27 +391,27 @@ impl StepParser {
 
         // 2. Locate FILE_SCHEMA in the header chunk (before DATA; if present, or up to 64KB)
         let search_limit = text.find("DATA;").unwrap_or(text.len().min(65536));
-        let header_chunk = &text[..search_limit];
+        let header_chunk = &text[.. search_limit];
 
         let schema_kw_pos =
             find_ignore_ascii_case(header_chunk, "FILE_SCHEMA").ok_or_else(|| {
                 StepError::InvalidHeader("Missing FILE_SCHEMA declaration in header".to_string())
             })?;
 
-        let remainder = &header_chunk[schema_kw_pos + "FILE_SCHEMA".len()..];
+        let remainder = &header_chunk[schema_kw_pos + "FILE_SCHEMA".len() ..];
         let semi_pos = remainder.find(';').ok_or_else(|| {
             StepError::InvalidHeader("Unterminated FILE_SCHEMA declaration".to_string())
         })?;
-        let stmt = &remainder[..semi_pos];
+        let stmt = &remainder[.. semi_pos];
 
         let mut raw_schemas = Vec::new();
         let mut curr = stmt;
         while let Some(start) = curr.find('\'') {
-            let after_start = &curr[start + 1..];
+            let after_start = &curr[start + 1 ..];
             if let Some(end) = after_start.find('\'') {
-                let schema_token = &after_start[..end];
+                let schema_token = &after_start[.. end];
                 raw_schemas.push(schema_token);
-                curr = &after_start[end + 1..];
+                curr = &after_start[end + 1 ..];
             } else {
                 break;
             }
@@ -427,9 +429,7 @@ impl StepParser {
             }
         }
 
-        Err(StepError::UnsupportedSchema {
-            schema: raw_schemas.join(", "),
-        })
+        Err(StepError::UnsupportedSchema { schema: raw_schemas.join(", ") })
     }
 
     /// Parses the given STEP string buffer.
@@ -460,8 +460,8 @@ impl StepParser {
     /// This pass performs two essential AST sanitizations:
     /// 1. Renames `INTERSECTION_CURVE` and `BOUNDARY_CURVE` → `SURFACE_CURVE` so that
     ///    `truck_stepio` can parse them into `table.surface_curve`.
-    /// 2. Sanitizes `AXIS2_PLACEMENT_3D` records whose `ref_direction` is omitted (`$`) and
-    ///    whose `axis` is collinear with the global X-axis, preventing a catastrophic 0.0 / 0.0 = NaN
+    /// 2. Sanitizes `AXIS2_PLACEMENT_3D` records whose `ref_direction` is omitted (`$`) and whose
+    ///    `axis` is collinear with the global X-axis, preventing a catastrophic 0.0 / 0.0 = NaN
     ///    crash in `truck-stepio`'s Gram-Schmidt orthonormalization.
     // TODO : better way to do this, it defies the index building or it feels like it.
     pub fn normalize(&mut self) {
@@ -474,20 +474,15 @@ impl StepParser {
 
     /// Extracts the typed [`StepHeader`] and total entity count.
     pub fn extract_header_and_count(
-        &self,
-        fallback_name: &str,
+        &self, fallback_name: &str,
     ) -> Result<(StepHeader, usize), StepError> {
         let sanitized_header = sanitize_header_records(&self.exchange.header)?;
         let header_obj = Header::from_records(&sanitized_header)
             .map_err(|e| StepError::InvalidHeader(e.to_string()))?;
         validate_schema(&header_obj.file_schema)?;
 
-        let entity_count: usize = self
-            .exchange
-            .data
-            .iter()
-            .map(|section| section.entities.len())
-            .sum();
+        let entity_count: usize =
+            self.exchange.data.iter().map(|section| section.entities.len()).sum();
 
         let mut step_header = convert_header_from_ast(&header_obj);
         if step_header.file_name.is_empty() {
@@ -520,10 +515,7 @@ impl StepParser {
 
     /// Assembles the pre-tessellation metadata.
     pub fn build_initial_metadata(
-        &self,
-        fallback_name: &str,
-        text: &str,
-        bbox: Option<crate::common::types::BoundingBox>,
+        &self, fallback_name: &str, text: &str, bbox: Option<crate::common::types::BoundingBox>,
         units: Option<LengthUnit>,
     ) -> Result<(Metadata, FileId), StepError> {
         trace_span!("build_initial_metadata");

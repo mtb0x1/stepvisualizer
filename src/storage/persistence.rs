@@ -8,8 +8,6 @@
 //!
 //! Persistence is best-effort — failures are logged as warnings and the app
 //! continues running with whatever state it already has in memory.
-use crate::common::logger;
-use crate::trace_span;
 use wasm_bindgen_futures::spawn_local;
 
 use super::db_schema::{
@@ -17,7 +15,13 @@ use super::db_schema::{
     load_index_from_db, load_model_from_db, open_db_versioned, save_index_item_to_db,
     save_model_bytes_to_db, save_model_json_to_db,
 };
-use crate::common::types::{FileId, FileIndexItem, StepModel};
+use crate::{
+    common::{
+        logger,
+        types::{FileId, FileIndexItem, StepModel},
+    },
+    trace_span,
+};
 
 /// Persist a single recent-files index item to IndexedDB (fire-and-forget).
 /// The write is async; the in-memory state in Yew is already updated by the caller.
@@ -44,9 +48,7 @@ pub fn delete_index_item(id: &str) {
         match open_db_versioned().await {
             Ok(db) => {
                 if let Err(e) = delete_index_item_from_db(&db, &id_string).await {
-                    logger::warn(&format!(
-                        "Failed to delete file index item from IndexedDB: {e}"
-                    ));
+                    logger::warn(&format!("Failed to delete file index item from IndexedDB: {e}"));
                 }
             }
             Err(e) => logger::warn(&format!("Failed to open DB for index item delete: {e}")),

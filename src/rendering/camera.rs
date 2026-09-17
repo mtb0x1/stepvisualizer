@@ -1,6 +1,8 @@
-pub use crate::common::math::spherical_to_cartesian;
-use glam::DVec3;
 use std::fmt::Display;
+
+use glam::DVec3;
+
+pub use crate::common::math::spherical_to_cartesian;
 
 /// Orbit camera: azimuth/elevation (radians) and distance around a target
 /// point. Dragging mutates the angles, zooming the distance; the target is
@@ -16,12 +18,8 @@ pub struct CameraState {
 impl CameraState {
     /// Default view angles and distance; `Default` and the "Reset" toolbar
     /// preset both read from here so there is a single source of truth.
-    pub const DEFAULT: Self = Self {
-        azimuth: 0.5,
-        elevation: 0.5,
-        distance: 3.0,
-        target: DVec3::ZERO,
-    };
+    pub const DEFAULT: Self =
+        Self { azimuth: 0.5, elevation: 0.5, distance: 3.0, target: DVec3::ZERO };
 
     /// Computes the 3D eye position in world space for this orbit camera.
     pub fn eye_position(&self) -> DVec3 {
@@ -55,10 +53,7 @@ impl CameraState {
     ///
     /// Translates both eye and target so the object stays under the mouse cursor.
     pub fn pan(
-        &self,
-        delta_x: f64,
-        delta_y: f64,
-        canvas_size: crate::common::types::ViewportSize,
+        &self, delta_x: f64, delta_y: f64, canvas_size: crate::common::types::ViewportSize,
     ) -> Self {
         let eye = self.eye_position();
         let forward = (self.target - eye).normalize_or(DVec3::NEG_Z);
@@ -79,7 +74,8 @@ impl CameraState {
         }
     }
 
-    /// Sets a new orbit target (pivot point) while preserving the current eye position in world space.
+    /// Sets a new orbit target (pivot point) while preserving the current eye position in world
+    /// space.
     pub fn set_target(&self, new_target: DVec3) -> Self {
         let eye = self.eye_position();
         let diff = eye - new_target;
@@ -141,24 +137,9 @@ pub const CAMERA_PRESETS: [CameraPreset; 4] = [
         elevation: CameraState::DEFAULT.elevation,
         distance: CameraState::DEFAULT.distance,
     },
-    CameraPreset {
-        label: PresetType::Iso,
-        azimuth: 0.8,
-        elevation: 0.9,
-        distance: 3.0,
-    },
-    CameraPreset {
-        label: PresetType::Top,
-        azimuth: 0.0,
-        elevation: 1.3,
-        distance: 2.5,
-    },
-    CameraPreset {
-        label: PresetType::Front,
-        azimuth: 0.0,
-        elevation: 0.0,
-        distance: 3.0,
-    },
+    CameraPreset { label: PresetType::Iso, azimuth: 0.8, elevation: 0.9, distance: 3.0 },
+    CameraPreset { label: PresetType::Top, azimuth: 0.0, elevation: 1.3, distance: 2.5 },
+    CameraPreset { label: PresetType::Front, azimuth: 0.0, elevation: 0.0, distance: 3.0 },
 ];
 
 impl CameraPreset {

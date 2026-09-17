@@ -1,8 +1,9 @@
 //! Part list of the loaded model with per-part visibility toggles.
-use crate::common::Color;
 use smol_str::{SmolStr, format_smolstr};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
+
+use crate::common::Color;
 
 #[derive(Properties, PartialEq)]
 pub struct MeshItemProps {

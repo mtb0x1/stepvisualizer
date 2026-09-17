@@ -1,9 +1,10 @@
-use crate::common::constants::NA;
-use crate::common::utils::{
-    format_bbox_coordinates, format_list_or_na, format_metric_with_unit, format_or_na,
-};
-use crate::common::{BoundingBox, Metadata};
 use yew::prelude::*;
+
+use crate::common::{
+    BoundingBox, Metadata,
+    constants::NA,
+    utils::{format_bbox_coordinates, format_list_or_na, format_metric_with_unit, format_or_na},
+};
 
 #[derive(Properties, PartialEq)]
 pub struct DetailsPanelProps {

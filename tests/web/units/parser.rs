@@ -1,8 +1,12 @@
-use stepvisualizer::common::parser::{StepParser, StepSchema, convert_header};
-use stepvisualizer::common::types::LengthUnit;
-use stepvisualizer::error::StepError;
-use stepvisualizer::ruststep;
-use stepvisualizer::ruststep::ast::{EntityInstance, Name, Parameter, Record};
+use stepvisualizer::{
+    common::{
+        parser::{StepParser, StepSchema, convert_header},
+        types::LengthUnit,
+    },
+    error::StepError,
+    ruststep,
+    ruststep::ast::{EntityInstance, Name, Parameter, Record},
+};
 use wasm_bindgen_test::*;
 
 fn step_with_schema(schema: &str) -> String {
@@ -39,10 +43,7 @@ fn header_valid_records() {
     assert_eq!(header.file_name, "test_model.step");
     assert_eq!(header.time_stamp, "2026-09-01T12:00:00");
     assert_eq!(header.author.as_slice(), &["Author Name".to_string()]);
-    assert_eq!(
-        header.organization.as_slice(),
-        &["Organization Name".to_string()]
-    );
+    assert_eq!(header.organization.as_slice(), &["Organization Name".to_string()]);
     assert_eq!(header.preprocessor_version, "Preprocessor 1.0");
     assert_eq!(header.originating_system, "Originating Sys");
     assert_eq!(header.authorization, "Auth");
@@ -76,14 +77,8 @@ fn header_sanitization_omitted_fields() {
     assert_eq!(header.implementation_level, "");
     assert_eq!(header.file_name, "test.step");
     assert_eq!(header.time_stamp, "");
-    assert_eq!(
-        header.author.as_slice(),
-        &["".to_string(), "auth2".to_string(), "".to_string()]
-    );
-    assert_eq!(
-        header.organization.as_slice(),
-        &["".to_string(), "org2".to_string()]
-    );
+    assert_eq!(header.author.as_slice(), &["".to_string(), "auth2".to_string(), "".to_string()]);
+    assert_eq!(header.organization.as_slice(), &["".to_string(), "org2".to_string()]);
     assert_eq!(header.preprocessor_version, "");
     assert_eq!(header.originating_system, "");
     assert_eq!(header.authorization, "");
@@ -92,20 +87,11 @@ fn header_sanitization_omitted_fields() {
 
 #[wasm_bindgen_test]
 fn schema_detection_supported() {
-    assert_eq!(
-        StepSchema::parse("CONFIG_CONTROL_DESIGN"),
-        Some(StepSchema::Ap203)
-    );
+    assert_eq!(StepSchema::parse("CONFIG_CONTROL_DESIGN"), Some(StepSchema::Ap203));
     assert_eq!(StepSchema::parse("ap203"), Some(StepSchema::Ap203));
-    assert_eq!(
-        StepSchema::parse("AUTOMOTIVE_DESIGN"),
-        Some(StepSchema::Ap214)
-    );
+    assert_eq!(StepSchema::parse("AUTOMOTIVE_DESIGN"), Some(StepSchema::Ap214));
     assert_eq!(StepSchema::parse("AP214"), Some(StepSchema::Ap214));
-    assert_eq!(
-        StepSchema::parse("EXPLICIT_DRAUGHTING"),
-        Some(StepSchema::Ap201)
-    );
+    assert_eq!(StepSchema::parse("EXPLICIT_DRAUGHTING"), Some(StepSchema::Ap201));
     assert_eq!(StepSchema::parse("AP201"), Some(StepSchema::Ap201));
     assert_eq!(StepSchema::parse("UNKNOWN_SCHEMA"), None);
 }
@@ -113,22 +99,13 @@ fn schema_detection_supported() {
 #[wasm_bindgen_test]
 fn probe_validate_step_buffer_various() {
     let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN");
-    assert_eq!(
-        StepParser::probe_validate_buffer(&text_203),
-        Ok(StepSchema::Ap203)
-    );
+    assert_eq!(StepParser::probe_validate_buffer(&text_203), Ok(StepSchema::Ap203));
 
     let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
-    assert_eq!(
-        StepParser::probe_validate_buffer(&text_214),
-        Ok(StepSchema::Ap214)
-    );
+    assert_eq!(StepParser::probe_validate_buffer(&text_214), Ok(StepSchema::Ap214));
 
     let text_201 = step_with_schema("EXPLICIT_DRAUGHTING");
-    assert_eq!(
-        StepParser::probe_validate_buffer(&text_201),
-        Ok(StepSchema::Ap201)
-    );
+    assert_eq!(StepParser::probe_validate_buffer(&text_201), Ok(StepSchema::Ap201));
 
     // Unsupported schema early rejection
     let text_aim = step_with_schema("PLANT_SPATIAL_CONFIGURATION");
@@ -141,10 +118,7 @@ fn probe_validate_step_buffer_various() {
 
     // Invalid file
     let invalid = "NOT A VALID STEP FILE";
-    assert!(matches!(
-        StepParser::probe_validate_buffer(invalid),
-        Err(StepError::Parse(_))
-    ));
+    assert!(matches!(StepParser::probe_validate_buffer(invalid), Err(StepError::Parse(_))));
 }
 
 #[wasm_bindgen_test]
@@ -161,10 +135,7 @@ fn usable_sections_filtering() {
 
     let parsed_empty = ruststep::parser::parse(step_no_data).expect("parse");
     let parser = StepParser::from_exchange(parsed_empty);
-    assert!(matches!(
-        parser.all_usable_sections(),
-        Err(StepError::EmptyDataSection)
-    ));
+    assert!(matches!(parser.all_usable_sections(), Err(StepError::EmptyDataSection)));
 
     let step_multi = "ISO-10303-21;\n\
                       HEADER;\n\
@@ -306,10 +277,7 @@ fn test_sanitize_axis2_placement_3d_collinear_x() {
                             _ => false,
                         })
                         .expect("ref_dir entity found in section");
-                    if let EntityInstance::Simple {
-                        record: ref_record, ..
-                    } = ref_dir_entity
-                    {
+                    if let EntityInstance::Simple { record: ref_record, .. } = ref_dir_entity {
                         assert_eq!(ref_record.name, "DIRECTION");
                     }
                 }

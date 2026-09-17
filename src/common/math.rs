@@ -1,9 +1,11 @@
 //! Geometry, math, and spatial queries.
 use glam::{DMat4, DVec3, DVec4};
 
-use crate::common::constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE};
-use crate::common::render::{RenderablePart, visible_bounds};
-use crate::common::types::{BoundingBox, ViewportSize};
+use crate::common::{
+    constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE},
+    render::{RenderablePart, visible_bounds},
+    types::{BoundingBox, ViewportSize},
+};
 
 /// Signed tetrahedron volume for 3D vertices using double-precision glam vectors.
 #[inline(always)]
@@ -17,7 +19,8 @@ pub fn triangle_area(p0: DVec3, p1: DVec3, p2: DVec3) -> f64 {
     0.5 * (p1 - p0).cross(p2 - p0).length()
 }
 
-/// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into Cartesian 3D coordinates.
+/// Converts spherical coordinates (azimuth, elevation, distance) around a `target` center into
+/// Cartesian 3D coordinates.
 #[inline(always)]
 pub fn spherical_to_cartesian(azimuth: f64, elevation: f64, distance: f64, target: DVec3) -> DVec3 {
     let (sin_az, cos_az) = azimuth.sin_cos();
@@ -40,26 +43,24 @@ pub fn compute_adaptive_tolerance(bbox: Option<&BoundingBox>) -> f64 {
 /// Bounding-box center across all parts; `DVec3::ZERO` when there is no geometry.
 #[inline]
 pub fn compute_parts_center(parts: &[RenderablePart]) -> DVec3 {
-    visible_bounds(parts, &[])
-        .map(|b| b.center())
-        .unwrap_or(DVec3::ZERO)
+    visible_bounds(parts, &[]).map(|b| b.center()).unwrap_or(DVec3::ZERO)
 }
 
-/// Computes a normalized geometric face normal from three points, falling back to DVec3::Y if degenerate.
+/// Computes a normalized geometric face normal from three points, falling back to DVec3::Y if
+/// degenerate.
 #[inline(always)]
 pub fn geometric_normal(p0: DVec3, p1: DVec3, p2: DVec3) -> DVec3 {
     (p1 - p0).cross(p2 - p0).normalize_or(DVec3::Y)
 }
 
-/// Unprojects a 2D screen coordinate (pixels from canvas top-left) into a 3D world-space ray `(origin, direction)`.
+/// Unprojects a 2D screen coordinate (pixels from canvas top-left) into a 3D world-space ray
+/// `(origin, direction)`.
 ///
-/// Assumes WebGPU NDC clip-space conventions: X in `[-1, 1]`, Y in `[-1, 1]` (upwards), Z in `[0, 1]`.
+/// Assumes WebGPU NDC clip-space conventions: X in `[-1, 1]`, Y in `[-1, 1]` (upwards), Z in `[0,
+/// 1]`.
 #[inline]
 pub fn screen_point_to_ray(
-    screen_x: f64,
-    screen_y: f64,
-    viewport_size: ViewportSize,
-    view_matrix: DMat4,
+    screen_x: f64, screen_y: f64, viewport_size: ViewportSize, view_matrix: DMat4,
     projection_matrix: DMat4,
 ) -> (DVec3, DVec3) {
     let width = (viewport_size.width as f64).max(1.0);
@@ -87,11 +88,7 @@ pub fn screen_point_to_ray(
 /// the triangle `(v0, v1, v2)`, or `None` if it misses or is parallel.
 #[inline]
 pub fn ray_triangle_intersect(
-    origin: DVec3,
-    dir: DVec3,
-    v0: DVec3,
-    v1: DVec3,
-    v2: DVec3,
+    origin: DVec3, dir: DVec3, v0: DVec3, v1: DVec3, v2: DVec3,
 ) -> Option<f64> {
     const EPSILON: f64 = 1e-9;
     let edge1 = v1 - v0;
@@ -104,7 +101,7 @@ pub fn ray_triangle_intersect(
     let f = 1.0 / a;
     let s = origin - v0;
     let u = f * s.dot(h);
-    if !(0.0..=1.0).contains(&u) {
+    if !(0.0 ..= 1.0).contains(&u) {
         return None;
     }
     let q = s.cross(edge1);
@@ -154,10 +151,7 @@ pub fn ray_aabb_intersect(origin: DVec3, dir: DVec3, bbox: &BoundingBox) -> bool
 /// Raycasts against all visible geometry parts and returns the closest hit `(hit_point, normal)`.
 #[allow(clippy::chunks_exact_to_as_chunks)]
 pub fn raycast_parts(
-    origin: DVec3,
-    dir: DVec3,
-    parts: &[RenderablePart],
-    visibility: &[bool],
+    origin: DVec3, dir: DVec3, parts: &[RenderablePart], visibility: &[bool],
 ) -> Option<(DVec3, DVec3)> {
     let mut closest_t = f64::INFINITY;
     let mut closest_hit = None;
@@ -170,10 +164,7 @@ pub fn raycast_parts(
         // Fast rejection with part bounding box in world space
         let mut part_bbox = BoundingBox::EMPTY;
         for vertex in &part.vertices {
-            let world_pos = part
-                .model_matrix
-                .transform_point3(vertex.position)
-                .as_dvec3();
+            let world_pos = part.model_matrix.transform_point3(vertex.position).as_dvec3();
             part_bbox.expand_point(world_pos);
         }
 
@@ -192,18 +183,9 @@ pub fn raycast_parts(
                 continue;
             }
 
-            let v0 = part
-                .model_matrix
-                .transform_point3(part.vertices[idx0].position)
-                .as_dvec3();
-            let v1 = part
-                .model_matrix
-                .transform_point3(part.vertices[idx1].position)
-                .as_dvec3();
-            let v2 = part
-                .model_matrix
-                .transform_point3(part.vertices[idx2].position)
-                .as_dvec3();
+            let v0 = part.model_matrix.transform_point3(part.vertices[idx0].position).as_dvec3();
+            let v1 = part.model_matrix.transform_point3(part.vertices[idx1].position).as_dvec3();
+            let v2 = part.model_matrix.transform_point3(part.vertices[idx2].position).as_dvec3();
 
             if let Some(t) = ray_triangle_intersect(origin, dir, v0, v1, v2)
                 && t < closest_t

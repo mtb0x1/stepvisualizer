@@ -1,6 +1,7 @@
 //! LRU cache over parsed `StepModel`s (backed by persistence storage).
-use smallvec::SmallVec;
 use std::rc::Rc;
+
+use smallvec::SmallVec;
 
 use crate::common::types::{FileId, StepModel};
 
@@ -23,11 +24,7 @@ impl LruCache {
     /// nothing: [`get_or_load`](Self::get_or_load) then falls through to the
     /// backend on every call.
     pub fn new(max_memory_bytes: usize) -> Self {
-        Self {
-            max_memory_bytes,
-            current_memory_bytes: 0,
-            entries: SmallVec::new(),
-        }
+        Self { max_memory_bytes, current_memory_bytes: 0, entries: SmallVec::new() }
     }
 
     /// Number of items currently stored in cache.
@@ -66,9 +63,7 @@ impl LruCache {
     /// backend (e.g. localStorage/IndexedDB). On a miss we fall through to the
     /// backend, wrap the result in `Rc`, promote into the cache, and return it.
     pub fn get_or_load(
-        &mut self,
-        id: &str,
-        load: impl Fn(&str) -> Option<StepModel>,
+        &mut self, id: &str, load: impl Fn(&str) -> Option<StepModel>,
     ) -> Option<Rc<StepModel>> {
         if let Some(rc) = self.get(id) {
             return Some(rc);
@@ -94,24 +89,18 @@ impl LruCache {
         }
         let size = estimate_model_size(&model);
 
-        if let Some(pos) = self
-            .entries
-            .iter()
-            .position(|(k, _)| k.as_str() == id.as_str())
-        {
+        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id.as_str()) {
             let (_, old_model) = self.entries.remove(pos);
-            self.current_memory_bytes = self
-                .current_memory_bytes
-                .saturating_sub(estimate_model_size(&old_model));
+            self.current_memory_bytes =
+                self.current_memory_bytes.saturating_sub(estimate_model_size(&old_model));
         }
         self.entries.insert(0, (id, model));
         self.current_memory_bytes += size;
 
         while self.current_memory_bytes > self.max_memory_bytes && self.entries.len() > 1 {
             if let Some((_, evicted)) = self.entries.pop() {
-                self.current_memory_bytes = self
-                    .current_memory_bytes
-                    .saturating_sub(estimate_model_size(&evicted));
+                self.current_memory_bytes =
+                    self.current_memory_bytes.saturating_sub(estimate_model_size(&evicted));
             }
         }
     }
@@ -120,9 +109,8 @@ impl LruCache {
     pub fn remove(&mut self, id: &str) {
         if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
             let (_, removed) = self.entries.remove(pos);
-            self.current_memory_bytes = self
-                .current_memory_bytes
-                .saturating_sub(estimate_model_size(&removed));
+            self.current_memory_bytes =
+                self.current_memory_bytes.saturating_sub(estimate_model_size(&removed));
         }
     }
 

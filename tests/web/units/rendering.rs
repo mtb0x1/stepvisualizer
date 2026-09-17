@@ -1,8 +1,12 @@
 use glam::{DVec3, DVec4, Mat4, Vec3};
-use stepvisualizer::common::color::Color;
-use stepvisualizer::common::render::{GpuVertex, RenderablePart, visible_bounds};
-use stepvisualizer::common::types::{BoundingBox, ViewportSize};
-use stepvisualizer::rendering::camera::{CameraState, spherical_to_cartesian};
+use stepvisualizer::{
+    common::{
+        color::Color,
+        render::{GpuVertex, RenderablePart, visible_bounds},
+        types::{BoundingBox, ViewportSize},
+    },
+    rendering::camera::{CameraState, spherical_to_cartesian},
+};
 use wasm_bindgen_test::*;
 
 fn create_cube_part(size: f32) -> RenderablePart {
@@ -174,10 +178,7 @@ fn part_translate_accumulation() {
     part.translate(DVec3::new(1.0, 2.0, 3.0));
     part.translate(DVec3::new(4.0, 5.0, 6.0));
 
-    assert_eq!(
-        part.model_matrix.w_axis.truncate(),
-        Vec3::new(5.0, 7.0, 9.0)
-    );
+    assert_eq!(part.model_matrix.w_axis.truncate(), Vec3::new(5.0, 7.0, 9.0));
 }
 
 #[wasm_bindgen_test]
@@ -234,10 +235,7 @@ fn bbox_operations() {
     assert_eq!(bbox.size_z(), 4.0);
     assert_eq!(bbox.max_extent(), 8.0);
 
-    let centered = BoundingBox::new(
-        DVec3::new(-10.0, -20.0, -30.0),
-        DVec3::new(10.0, 20.0, 30.0),
-    );
+    let centered = BoundingBox::new(DVec3::new(-10.0, -20.0, -30.0), DVec3::new(10.0, 20.0, 30.0));
     assert_eq!(centered.center(), DVec3::ZERO);
 
     // NaN / Infinity check

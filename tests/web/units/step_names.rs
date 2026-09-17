@@ -1,6 +1,10 @@
-use stepvisualizer::common::exchange_index::ExchangeIndex;
-use stepvisualizer::common::step_names::{StepNameMap, clean_part_name, is_valid_part_name};
-use stepvisualizer::ruststep;
+use stepvisualizer::{
+    common::{
+        exchange_index::ExchangeIndex,
+        step_names::{StepNameMap, clean_part_name, is_valid_part_name},
+    },
+    ruststep,
+};
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
@@ -82,10 +86,8 @@ fn test_step_name_map_synthetic_and_nauo() {
 
 #[wasm_bindgen_test]
 fn test_step_name_map_as1_tc_214() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/as1-tc-214.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/as1-tc-214.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
     let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
     let index = ExchangeIndex::build(&mut parser);
@@ -112,10 +114,8 @@ fn test_step_name_map_part1_ap203() {
 
 #[wasm_bindgen_test]
 fn test_step_name_map_kxt_331_lhs() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/KXT_331_LHS.STEP"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/KXT_331_LHS.STEP"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
     let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
     let index = ExchangeIndex::build(&mut parser);
@@ -129,10 +129,8 @@ fn test_step_name_map_kxt_331_lhs() {
 
 #[wasm_bindgen_test]
 fn test_step_name_map_expansion_card() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/ExpansionCard_SelfTapping.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/ExpansionCard_SelfTapping.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
     let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
     let index = ExchangeIndex::build(&mut parser);
@@ -145,10 +143,8 @@ fn test_step_name_map_expansion_card() {
 
 #[wasm_bindgen_test]
 fn test_step_name_map_io1_ca_214_fallback_empty() {
-    const STEP_TEXT: &str = include_str!(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/samples/io1-ca-214.stp"
-    ));
+    const STEP_TEXT: &str =
+        include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/io1-ca-214.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
     let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
     let index = ExchangeIndex::build(&mut parser);

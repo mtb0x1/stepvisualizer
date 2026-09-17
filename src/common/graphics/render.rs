@@ -1,22 +1,23 @@
 //! Tessellation of STEP geometry into GPU-ready triangle meshes, plus the
 //! per-part mesh type the renderer and metric calculations operate on.
-use crate::common::logger;
-use crate::trace_span;
 use bytemuck::{Pod, Zeroable};
-
+use glam::{DVec3, Mat4, Vec3};
 use serde::{Deserialize, Serialize};
+use smol_str::SmolStr;
 use truck_geometry::prelude::*;
 use truck_meshalgo::prelude::*;
 
-use crate::common::color::{Color, StepColorMap, part_color};
-use crate::common::math::{
-    compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume,
+use crate::{
+    common::{
+        color::{Color, StepColorMap, part_color},
+        logger,
+        math::{compute_parts_center, geometric_normal, triangle_area, triangle_signed_volume},
+        step_names::StepNameMap,
+        time::now_ms,
+        types::BoundingBox,
+    },
+    trace_span,
 };
-use crate::common::step_names::StepNameMap;
-use crate::common::time::now_ms;
-use crate::common::types::BoundingBox;
-use glam::{DVec3, Mat4, Vec3};
-use smol_str::SmolStr;
 
 /// Interleaved GPU vertex: 3D position and surface normal.
 /// 24 bytes, 4-byte aligned. Matches WebGPU vertex buffer layout.
@@ -129,18 +130,14 @@ impl RenderablePart {
     /// relative to the origin. The absolute sum is the enclosed volume for a
     /// watertight mesh; open meshes give an approximation.
     pub fn calculate_volume(&self) -> f64 {
-        let volume: f64 = self
-            .triangles()
-            .map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2))
-            .sum();
+        let volume: f64 =
+            self.triangles().map(|(v0, v1, v2)| triangle_signed_volume(v0, v1, v2)).sum();
         (volume / 6.0).abs()
     }
 
     /// Sum of triangle areas, each ½|(v1−v0)×(v2−v0)|.
     pub fn calculate_surface_area(&self) -> f64 {
-        self.triangles()
-            .map(|(v0, v1, v2)| triangle_area(v0, v1, v2))
-            .sum()
+        self.triangles().map(|(v0, v1, v2)| triangle_area(v0, v1, v2)).sum()
     }
 }
 
@@ -167,10 +164,8 @@ pub struct TessellationOutput {
 /// The whole-model centering translation is baked into each part's model
 /// matrix so geometry stays immutable across frames.
 pub fn extract_render_parts(
-    step_tables: &[truck_stepio::r#in::Table],
-    colors: Option<&StepColorMap>,
-    names: Option<&StepNameMap>,
-    tolerance: f64,
+    step_tables: &[truck_stepio::r#in::Table], colors: Option<&StepColorMap>,
+    names: Option<&StepNameMap>, tolerance: f64,
 ) -> TessellationOutput {
     trace_span!("extract_render_parts");
 
@@ -181,14 +176,8 @@ pub fn extract_render_parts(
 
     for (i, table) in step_tables.iter().enumerate() {
         let section_start = now_ms();
-        let skipped = tessellate_table(
-            table,
-            colors,
-            names,
-            tolerance,
-            &mut parts_to_render,
-            &mut warnings,
-        );
+        let skipped =
+            tessellate_table(table, colors, names, tolerance, &mut parts_to_render, &mut warnings);
         total_skipped += skipped;
         let tessellate_ms = now_ms() - section_start;
         let msg = format!(
@@ -225,11 +214,7 @@ pub fn extract_render_parts(
         part.translate(offset);
     }
 
-    TessellationOutput {
-        parts: parts_to_render,
-        skipped_shells: total_skipped,
-        warnings,
-    }
+    TessellationOutput { parts: parts_to_render, skipped_shells: total_skipped, warnings }
 }
 
 /// Bounding box over a subset of parts, taking `visibility` into account.
@@ -244,19 +229,12 @@ pub fn visible_bounds(parts: &[RenderablePart], visibility: &[bool]) -> Option<B
         }
         visible_count += 1;
         for vertex in &part.vertices {
-            let world_pos = part
-                .model_matrix
-                .transform_point3(vertex.position)
-                .as_dvec3();
+            let world_pos = part.model_matrix.transform_point3(vertex.position).as_dvec3();
             bbox.expand_point(world_pos);
         }
     }
 
-    if visible_count > 0 && bbox.is_valid() {
-        Some(bbox)
-    } else {
-        None
-    }
+    if visible_count > 0 && bbox.is_valid() { Some(bbox) } else { None }
 }
 
 // ==============================================================================
@@ -306,11 +284,8 @@ type VertexMap = FastU64Map<u32>;
 /// their mesh inverted (`mesh.invert()`), which inverts normals and reverses
 /// face vertex order to match the render pipeline's front-face CCW convention.
 fn append_face_geometry(
-    mut mesh: truck_polymesh::PolygonMesh,
-    orientation: bool,
-    vertices: &mut Vec<GpuVertex>,
-    indices: &mut Vec<u32>,
-    vertex_map: &mut VertexMap,
+    mut mesh: truck_polymesh::PolygonMesh, orientation: bool, vertices: &mut Vec<GpuVertex>,
+    indices: &mut Vec<u32>, vertex_map: &mut VertexMap,
 ) {
     if !orientation {
         mesh.invert();
@@ -331,7 +306,7 @@ fn append_face_geometry(
         let mut face_indices = Vec::with_capacity(face.len());
         let mut skip_face = false;
 
-        for j in 0..face.len() {
+        for j in 0 .. face.len() {
             let v = face[j];
             let pos = match positions.get(v.pos) {
                 Some(p) => p,
@@ -352,10 +327,12 @@ fn append_face_geometry(
                         // and do lazy init
                         logger::warn("Using fallback");
                         if fallback_normal.is_none() {
-                            // Geometric normal fallback from the first three distinct points of the face.
-                            // We compute this in double-precision (`DVec3`) before downcasting because
-                            // STEP models can have extreme scales (e.g. millimeters in aerospace assemblies)
-                            // that cause catastrophic cancellation in single-precision floating point.
+                            // Geometric normal fallback from the first three distinct points of the
+                            // face. We compute this in double-precision
+                            // (`DVec3`) before downcasting because STEP
+                            // models can have extreme scales (e.g. millimeters in aerospace
+                            // assemblies) that cause catastrophic
+                            // cancellation in single-precision floating point.
                             let p0 = positions.get(face[0].pos);
                             let p1 = positions.get(face[1].pos);
                             let p2 = positions.get(face[2].pos);
@@ -387,7 +364,7 @@ fn append_face_geometry(
         }
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
-        for i in 1..(face.len() - 1) {
+        for i in 1 .. (face.len() - 1) {
             indices.push(face_indices[0]);
             indices.push(face_indices[i]);
             indices.push(face_indices[i + 1]);
@@ -399,12 +376,8 @@ fn append_face_geometry(
 /// non-empty shell. Part colors cycle through [`COLORS`]; a shell that fails
 /// to compress or has missing edges is skipped with a warning instead of failing the whole file.
 fn tessellate_table(
-    table: &truck_stepio::r#in::Table,
-    colors: Option<&StepColorMap>,
-    names: Option<&StepNameMap>,
-    tolerance: f64,
-    parts_to_render: &mut Vec<RenderablePart>,
-    warnings: &mut Vec<String>,
+    table: &truck_stepio::r#in::Table, colors: Option<&StepColorMap>, names: Option<&StepNameMap>,
+    tolerance: f64, parts_to_render: &mut Vec<RenderablePart>, warnings: &mut Vec<String>,
 ) -> usize {
     let mut shells = Vec::with_capacity(table.shell.len());
     shells.extend(table.shell.iter());
@@ -432,9 +405,7 @@ fn tessellate_table(
         // empty boundary point vectors. Gracefully log and skip instead of aborting.
         if !cshell.faces.is_empty() && cshell.edges.is_empty() {
             let warn = format!("shell {shell_index} has faces but no valid boundary edges");
-            logger::warn(&format!(
-                "tessellate_table => {warn}; skipped to avoid panic"
-            ));
+            logger::warn(&format!("tessellate_table => {warn}; skipped to avoid panic"));
             warnings.push(warn);
             skipped += 1;
             continue;
@@ -469,13 +440,7 @@ fn tessellate_table(
                 .unwrap_or_else(|| part_color(parts_to_render.len()));
             let name = names.and_then(|n| n.get(*shell_key)).map(SmolStr::new);
 
-            parts_to_render.push(RenderablePart {
-                vertices,
-                indices,
-                model_matrix,
-                color,
-                name,
-            });
+            parts_to_render.push(RenderablePart { vertices, indices, model_matrix, color, name });
         }
 
         let shell_msg = format!(

@@ -1,13 +1,11 @@
 use glam::{DVec3, Mat4, Vec3};
-use stepvisualizer::common::color::Color;
-use stepvisualizer::common::constants::{
-    DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance,
+use stepvisualizer::common::{
+    color::Color,
+    constants::{DEFAULT_TOLERANCE, MAX_TOLERANCE, MIN_TOLERANCE, compute_adaptive_tolerance},
+    math::{geometric_normal, ray_triangle_intersect, raycast_parts, screen_point_to_ray},
+    render::{GpuVertex, RenderablePart},
+    types::{BoundingBox, ViewportSize},
 };
-use stepvisualizer::common::math::{
-    geometric_normal, ray_triangle_intersect, raycast_parts, screen_point_to_ray,
-};
-use stepvisualizer::common::render::{GpuVertex, RenderablePart};
-use stepvisualizer::common::types::{BoundingBox, ViewportSize};
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]
@@ -34,8 +32,7 @@ fn test_ray_triangle_intersect() {
 
 #[wasm_bindgen_test]
 fn test_screen_point_to_ray() {
-    use glam::dcamera::rh::proj::directx::perspective;
-    use glam::dcamera::rh::view::look_at_mat4;
+    use glam::dcamera::rh::{proj::directx::perspective, view::look_at_mat4};
 
     let eye = DVec3::new(0.0, 0.0, 5.0);
     let target = DVec3::ZERO;
@@ -104,9 +101,5 @@ fn test_compute_adaptive_tolerance() {
     assert_eq!(compute_adaptive_tolerance(Some(&huge_bbox)), MAX_TOLERANCE);
 
     let mid_bbox = BoundingBox::new(DVec3::ZERO, DVec3::new(10.0, 10.0, 10.0));
-    approx::assert_relative_eq!(
-        compute_adaptive_tolerance(Some(&mid_bbox)),
-        0.01,
-        epsilon = 1e-6
-    );
+    approx::assert_relative_eq!(compute_adaptive_tolerance(Some(&mid_bbox)), 0.01, epsilon = 1e-6);
 }

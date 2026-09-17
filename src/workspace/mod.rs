@@ -7,19 +7,27 @@ mod history;
 mod processor;
 mod state;
 
-use crate::common::constants::{CACHE_MAX_MEMORY_BYTES, QualityPreset};
-use crate::common::{FileId, FileIndexItem, Metadata, StepModel};
-use crate::storage::{LruCache, load_index_async};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
 use actions::use_model_actions;
 use history::use_workspace_management;
 use processor::use_file_processor;
 use smol_str::SmolStr;
 use state::StateHandles;
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
 use wasm_bindgen::JsCast;
 use web_sys::Event;
 use yew::prelude::*;
+
+use crate::{
+    common::{
+        FileId, FileIndexItem, Metadata, StepModel,
+        constants::{CACHE_MAX_MEMORY_BYTES, QualityPreset},
+    },
+    storage::{LruCache, load_index_async},
+};
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum ConfirmAction {
