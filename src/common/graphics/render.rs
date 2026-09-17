@@ -397,7 +397,7 @@ fn tessellate_table(
             Ok(cshell) => cshell,
             Err(err) => {
                 let warn = format!("shell {shell_index} failed to compress: {err}");
-                logger::warn(&format!("extract_render_parts => {warn}"));
+                logger::warn(&format!("tessellate_table => {warn}"));
                 warnings.push(warn);
                 skipped += 1;
                 continue;
@@ -411,7 +411,7 @@ fn tessellate_table(
         if !cshell.faces.is_empty() && cshell.edges.is_empty() {
             let warn = format!("shell {shell_index} has faces but no valid boundary edges");
             logger::warn(&format!(
-                "extract_render_parts => {warn}; skipped to avoid panic"
+                "tessellate_table => {warn}; skipped to avoid panic"
             ));
             warnings.push(warn);
             skipped += 1;
@@ -457,7 +457,7 @@ fn tessellate_table(
         }
 
         let shell_msg = format!(
-            "extract_render_parts => shell {} processed (compress {:.2} ms, triangulation {:.2} ms, parts={})",
+            "tessellate_table => shell {} processed (compress {:.2} ms, triangulation {:.2} ms, parts={})",
             shell_index,
             compress_ms,
             triangulation_ms,
