@@ -18,6 +18,7 @@ use smol_str::SmolStr;
 use state::StateHandles;
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
+use wasm_bindgen::JsCast;
 use web_sys::Event;
 use yew::prelude::*;
 
@@ -103,6 +104,27 @@ pub fn use_step_workspace() -> StepWorkspace {
         load_generation: Rc::new(Cell::new(0u64)),
         quality_preset: use_state(QualityPreset::default),
     };
+
+    {
+        let states_clone = states.clone();
+        use_effect_with((), move |_| {
+            let window = web_sys::window().unwrap();
+            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
+                states_clone.fail_load("A critical error occurred. State reset.");
+                states_clone.clear_model_state();
+            }) as Box<dyn FnMut(_)>);
+
+            let _ = window
+                .add_event_listener_with_callback("app-panic", closure.as_ref().unchecked_ref());
+
+            move || {
+                let _ = window.remove_event_listener_with_callback(
+                    "app-panic",
+                    closure.as_ref().unchecked_ref(),
+                );
+            }
+        });
+    }
 
     let (files_index, cache) = use_workspace_storage();
     let on_file_change = use_file_processor(&states, files_index.clone(), cache.clone());

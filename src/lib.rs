@@ -211,6 +211,11 @@ pub fn run_app() {
         {
             el.set_class_name("result-error");
             el.set_inner_html(&full_msg);
+
+            // Dispatch global event for Yew to catch and reset state
+            if let Ok(event) = web_sys::Event::new("app-panic") {
+                let _ = window.dispatch_event(&event);
+            }
         }
     }));
 }
