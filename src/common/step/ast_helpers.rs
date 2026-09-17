@@ -78,9 +78,7 @@ impl ParameterExt for Parameter {
 /// Recursively extracts all numeric entity IDs referenced within a `Parameter` (handling nested lists).
 #[inline]
 pub fn extract_entity_refs(param: &Parameter) -> Vec<u64> {
-    let mut refs = Vec::new();
-    collect_refs_recursive(param, &mut |id| refs.push(id));
-    refs
+    extract_entity_refs_with_capacity(param, 0)
 }
 
 #[inline]
@@ -101,6 +99,7 @@ where
 }
 
 /// Helper for recursive collection of entity references within a `Parameter`.
+#[inline]
 pub fn collect_refs_recursive(param: &Parameter, push: &mut impl FnMut(u64)) {
     match param {
         Parameter::Ref(crate::ruststep::ast::Name::Entity(id)) => push(*id),
@@ -114,6 +113,7 @@ pub fn collect_refs_recursive(param: &Parameter, push: &mut impl FnMut(u64)) {
 }
 
 /// Extracts the 3D direction vector `[dx, dy, dz]` from a `DIRECTION` entity record as `DVec3`.
+#[inline]
 pub fn extract_direction_coords(record: &Record) -> Option<glam::DVec3> {
     record
         .parameter
@@ -123,6 +123,7 @@ pub fn extract_direction_coords(record: &Record) -> Option<glam::DVec3> {
 }
 
 /// Tests whether a direction vector is approximately the positive Z unit vector `(0, 0, 1)`.
+#[inline]
 pub fn is_unit_z_direction(v: glam::DVec3) -> bool {
     let norm = v.normalize_or_zero();
     (norm - glam::DVec3::Z).length_squared() < 1e-8
@@ -132,6 +133,7 @@ pub fn is_unit_z_direction(v: glam::DVec3) -> bool {
 ///
 /// Uses the normalized squared cross product with `(1, 0, 0)`:
 /// `sin^2(theta) = ||v x X||^2 / ||v||^2`
+#[inline]
 pub fn is_collinear_with_x(v: glam::DVec3) -> bool {
     let len_sq = v.length_squared();
     if len_sq < 1e-12 {

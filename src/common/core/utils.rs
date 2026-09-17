@@ -4,7 +4,7 @@ use std::borrow::Cow;
 use std::fmt::Write;
 
 use glam::Vec2;
-use smol_str::SmolStr;
+use smol_str::{format_smolstr, SmolStr};
 
 use crate::common::constants::NA;
 
@@ -78,25 +78,23 @@ pub const fn bytes_to_mb(bytes: f64) -> f64 {
 
 /// Formats a byte size into a human-readable megabyte string with one decimal place.
 #[inline]
-pub fn format_bytes_mb(bytes: f64) -> String {
-    format!("{:.1} MB", bytes_to_mb(bytes))
+pub fn format_bytes_mb(bytes: f64) -> SmolStr {
+    format_smolstr!("{:.1} MB", bytes_to_mb(bytes))
 }
 
 /// Formats a metric value with an optional unit symbol and power exponent (e.g. `12.3456 mm³`, `45.6789 mm²`, `10.50 mm`).
 #[inline]
-pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32) -> String {
-    let suffix = match unit_symbol {
-        Some(u) if !u.is_empty() => match power {
-            3 => format!(" {u}³"),
-            2 => format!(" {u}²"),
-            1 => format!(" {u}"),
-            _ => format!(" {u}"),
+pub fn format_metric_with_unit(value: f64, unit_symbol: Option<&str>, power: u32) -> SmolStr {
+    match unit_symbol.filter(|u| !u.is_empty()) {
+        Some(u) => match power {
+            3 => format_smolstr!("{value:.4} {u}³"),
+            2 => format_smolstr!("{value:.4} {u}²"),
+            _ => format_smolstr!("{value:.2} {u}"),
         },
-        _ => String::new(),
-    };
-    match power {
-        3 | 2 => format!("{value:.4}{suffix}"),
-        _ => format!("{value:.2}{suffix}"),
+        None => match power {
+            3 | 2 => format_smolstr!("{value:.4}"),
+            _ => format_smolstr!("{value:.2}"),
+        },
     }
 }
 
@@ -106,18 +104,17 @@ pub fn format_bbox_coordinates(
     min: glam::DVec3,
     max: glam::DVec3,
     unit_symbol: Option<&str>,
-) -> (String, String) {
-    let unit_suffix = match unit_symbol {
-        Some(u) if !u.is_empty() => format!(" {u}"),
-        _ => String::new(),
+) -> (SmolStr, SmolStr) {
+    let u = unit_symbol.filter(|u| !u.is_empty()).unwrap_or("");
+    let space = if u.is_empty() { "" } else { " " };
+    let format_pt = |p: glam::DVec3, prefix: &str| {
+        format_smolstr!("{prefix}: {:.3}, {:.3}, {:.3}{space}{u}", p.x, p.y, p.z)
     };
-    let min_str = format!("min: {:.3}, {:.3}, {:.3}{unit_suffix}", min.x, min.y, min.z);
-    let max_str = format!("max: {:.3}, {:.3}, {:.3}{unit_suffix}", max.x, max.y, max.z);
-    (min_str, max_str)
+    (format_pt(min, "min"), format_pt(max, "max"))
 }
 
 /// Maps numeric samples to an SVG polyline points string `"x,y x,y ..."` scaled to width, height, and max value.
-#[inline(never)]
+#[inline]
 pub fn build_svg_polyline_points(samples: &[f32], width: f32, height: f32, max_val: f32) -> String {
     if samples.is_empty() {
         return String::new();

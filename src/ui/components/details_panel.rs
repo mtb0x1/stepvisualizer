@@ -28,9 +28,9 @@ fn format_bbox(bounding_box: Option<&BoundingBox>, unit: Option<&str>) -> Html {
         let (min_str, max_str) = format_bbox_coordinates(bb.min, bb.max, unit);
         html! {
             <>
-                <span class="bbox-value">{ min_str }</span>
+                <span class="bbox-value">{ min_str.as_str() }</span>
                 <br/>
-                <span class="bbox-value">{ max_str }</span>
+                <span class="bbox-value">{ max_str.as_str() }</span>
             </>
         }
     } else {
@@ -41,7 +41,7 @@ fn format_bbox(bounding_box: Option<&BoundingBox>, unit: Option<&str>) -> Html {
 /// Helper to format volume with units or render the calculate trigger.
 fn format_volume(volume: Option<f64>, unit: Option<&str>, on_calc: Callback<()>) -> Html {
     if let Some(vol) = volume {
-        html! { format_metric_with_unit(vol, unit, 3) }
+        html! { format_metric_with_unit(vol, unit, 3).as_str() }
     } else {
         html! {
             <span
@@ -57,7 +57,7 @@ fn format_volume(volume: Option<f64>, unit: Option<&str>, on_calc: Callback<()>)
 /// Helper to format surface area with units or render the calculate trigger.
 fn format_surface(surface: Option<f64>, unit: Option<&str>, on_calc: Callback<()>) -> Html {
     if let Some(area) = surface {
-        html! { format_metric_with_unit(area, unit, 2) }
+        html! { format_metric_with_unit(area, unit, 2).as_str() }
     } else {
         html! {
             <span
