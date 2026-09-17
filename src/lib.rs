@@ -209,11 +209,20 @@ pub fn run_app() {
             && let Some(document) = window.document()
             && let Some(el) = document.get_element_by_id("app-result-message")
         {
+            // Only update the CSS class directly on the element — do NOT call
+            // set_inner_html() here. That would replace Yew's tracked text node
+            // with a raw DOM node Yew doesn't own, permanently breaking all future
+            // Yew patches on this span (they'd silently target the detached node).
+            // The actual error text is carried via CustomEvent detail and set by
+            // the app-panic listener via fail_load, going through Yew's VDOM.
             el.set_class_name("result-error");
-            el.set_inner_html(&full_msg);
 
-            // Dispatch global event for Yew to catch and reset state
-            if let Ok(event) = web_sys::Event::new("app-panic") {
+            // Carry the panic message as the CustomEvent detail so the Yew
+            // listener can surface the real error text via fail_load.
+            // dispatch_event is synchronous: the listener runs before this returns.
+            let init = web_sys::CustomEventInit::new();
+            init.set_detail(&full_msg.into());
+            if let Ok(event) = web_sys::CustomEvent::new_with_event_init_dict("app-panic", &init) {
                 let _ = window.dispatch_event(&event);
             }
         }

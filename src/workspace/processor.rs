@@ -217,6 +217,10 @@ pub(crate) fn use_file_processor(
         }
 
         let next_gen = states.bump_generation();
+        // Clear any prior result (including the panic error set above) so Yew
+        // transitions Some(msg) → None and patches the DOM clean.
+        states.result.set(None);
+        states.result_is_error.set(false);
         states.is_processing.set(true);
         if web_file.size() > MAX_FILE_BYTES {
             states.fail_load(StepError::FileTooLarge {

@@ -109,9 +109,17 @@ pub fn use_step_workspace() -> StepWorkspace {
         let states_clone = states.clone();
         use_effect_with((), move |_| {
             let window = web_sys::window().unwrap();
-            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |_: web_sys::Event| {
-                states_clone.fail_load("A critical error occurred. State reset.");
-                states_clone.clear_model_state();
+            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::CustomEvent| {
+                // Read the panic message carried in the CustomEvent detail.
+                // Falls back to a generic message if the detail is missing.
+                let msg = event
+                    .detail()
+                    .as_string()
+                    .unwrap_or_else(|| "A critical error occurred. Please upload a new file.".to_string());
+                // fail_load transitions result: old → Some(msg), giving Yew a real
+                // state diff so it patches the DOM and overwrites the class-only
+                // update the panic hook made directly on the span.
+                states_clone.fail_load(msg);
             }) as Box<dyn FnMut(_)>);
 
             let _ = window
