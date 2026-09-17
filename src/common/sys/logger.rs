@@ -13,8 +13,8 @@ use tracing_subscriber::{
 use tracing_web::{MakeConsoleWriter, performance_layer};
 use web_sys::console;
 
-use super::constants::STEP_TRACER;
 use super::web::url_query_param;
+use crate::common::constants::STEP_TRACER;
 
 /// Install the global subscriber, but only when tracing is enabled via URL.
 pub fn init() {

@@ -1,6 +1,6 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
-use super::logger;
 use crate::common::exchange_index::ExchangeIndex;
+use crate::common::logger;
 use crate::common::utils::find_ignore_ascii_case;
 use crate::error::StepError;
 use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
@@ -9,7 +9,7 @@ use crate::storage::hash_text_to_id;
 use crate::trace_span;
 use serde::{Deserialize, Serialize};
 
-use super::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
+use crate::common::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 
 /// Supported STEP schemas recognized by the visualizer and geometry pipeline.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

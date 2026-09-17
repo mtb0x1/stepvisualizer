@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 use smol_str::{SmolStr, format_smolstr};
 
-use super::render::RenderablePart;
+use crate::common::render::RenderablePart;
 use crate::common::utils::clean_unit_name;
 use glam::DVec3;
 

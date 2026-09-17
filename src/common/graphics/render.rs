@@ -1,6 +1,6 @@
 //! Tessellation of STEP geometry into GPU-ready triangle meshes, plus the
 //! per-part mesh type the renderer and metric calculations operate on.
-use super::logger;
+use crate::common::logger;
 use crate::trace_span;
 use bytemuck::{Pod, Zeroable};
 
