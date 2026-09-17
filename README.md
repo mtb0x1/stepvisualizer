@@ -128,6 +128,7 @@ sequenceDiagram
    ```bash
    rustup target add wasm32-unknown-unknown
    cargo install trunk
+   git config core.hooksPath .githooks
    ```
 
 2. Run the development server:
