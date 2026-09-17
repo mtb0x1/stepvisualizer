@@ -56,10 +56,7 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 
 #note this is need so we can do `truck_stepio::r#in::ruststep::ap20*` later.
 #Do not remove the dep. below
-ruststep = { version = "0.4.0", default-features = false, features = [
-    "ap201",
-    "ap203",
-] }
+ruststep = { version = "0.4.0", default-features = false, features = ["ap201", "ap203"] }
 truck-stepio = { version = "0.3.0", default-features = false, features = [
     "in",
     "derive",

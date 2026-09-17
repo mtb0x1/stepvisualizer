@@ -9,12 +9,12 @@
 //! The index is cheap to drop: call [`std::mem::drop`] once color map, name map, and units are
 //! extracted, so the intermediate [`FastU64Map`]s are freed before tessellation begins.
 
-use phf::phf_map;
 use smallvec::SmallVec;
 use smol_str::SmolStr;
 
 use crate::common::ast_helpers::{
-    ParameterExt, extract_entity_refs, extract_entity_refs_with_capacity, extract_smallvec_refs,
+    ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_entity_refs,
+    extract_entity_refs_with_capacity, extract_smallvec_refs,
 };
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
@@ -22,68 +22,6 @@ use crate::common::step::parser::StepParser;
 use crate::common::types::LengthUnit;
 use crate::ruststep::ast::Parameter;
 use crate::ruststep::ast::{EntityInstance, Record};
-
-// TODO : double check kinds against specs.
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum StepEntityKind {
-    ColourRgb,
-    PreDefinedColour,
-    ColorStyle,
-    StyledItem,
-    ClosedShell,
-    OpenShell,
-    ManifoldSolidBrep,
-    BrepWithVoids,
-    FacetedBrep,
-    ShellBasedSurfaceModel,
-    ShapeRepresentation,
-    RepRelationship,
-    IdAttribute,
-    ShapeDefinitionRepresentation,
-    ProductDefinitionShape,
-    ProductDefinition,
-    ProductDefinitionFormation,
-    Product,
-    NextAssemblyUsageOccurrence,
-}
-
-static STEP_ENTITY_KINDS: phf::Map<&'static str, StepEntityKind> = phf_map! {
-    "COLOUR_RGB" => StepEntityKind::ColourRgb,
-    "DRAUGHTING_PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
-    "PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
-    "FILL_AREA_STYLE_COLOUR" => StepEntityKind::ColorStyle,
-    "FILL_AREA_STYLE" => StepEntityKind::ColorStyle,
-    "SURFACE_STYLE_FILL_AREA" => StepEntityKind::ColorStyle,
-    "SURFACE_SIDE_STYLE" => StepEntityKind::ColorStyle,
-    "SURFACE_STYLE_USAGE" => StepEntityKind::ColorStyle,
-    "PRESENTATION_STYLE_ASSIGNMENT" => StepEntityKind::ColorStyle,
-    "CURVE_STYLE" => StepEntityKind::ColorStyle,
-    "SYMBOL_STYLE" => StepEntityKind::ColorStyle,
-    "SYMBOL_COLOUR" => StepEntityKind::ColorStyle,
-    "STYLED_ITEM" => StepEntityKind::StyledItem,
-    "OVER_RIDING_STYLED_ITEM" => StepEntityKind::StyledItem,
-    "CLOSED_SHELL" => StepEntityKind::ClosedShell,
-    "OPEN_SHELL" => StepEntityKind::OpenShell,
-    "MANIFOLD_SOLID_BREP" => StepEntityKind::ManifoldSolidBrep,
-    "BREP_WITH_VOIDS" => StepEntityKind::BrepWithVoids,
-    "FACETED_BREP" => StepEntityKind::FacetedBrep,
-    "SHELL_BASED_SURFACE_MODEL" => StepEntityKind::ShellBasedSurfaceModel,
-    "ADVANCED_BREP_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
-    "SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
-    "MANIFOLD_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
-    "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
-    "REPRESENTATION" => StepEntityKind::ShapeRepresentation,
-    "REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
-    "SHAPE_REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
-    "ID_ATTRIBUTE" => StepEntityKind::IdAttribute,
-    "SHAPE_DEFINITION_REPRESENTATION" => StepEntityKind::ShapeDefinitionRepresentation,
-    "PRODUCT_DEFINITION_SHAPE" => StepEntityKind::ProductDefinitionShape,
-    "PRODUCT_DEFINITION" => StepEntityKind::ProductDefinition,
-    "PRODUCT_DEFINITION_FORMATION" => StepEntityKind::ProductDefinitionFormation,
-    "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE" => StepEntityKind::ProductDefinitionFormation,
-    "PRODUCT" => StepEntityKind::Product,
-    "NEXT_ASSEMBLY_USAGE_OCCURRENCE" => StepEntityKind::NextAssemblyUsageOccurrence,
-};
 
 // ---------------------------------------------------------------------------
 // Public index type
@@ -295,6 +233,15 @@ impl ExchangeIndex {
                                     idx.collect_nauo_data(params);
                                 }
                             }
+                            Some(StepEntityKind::SiUnit | StepEntityKind::ConversionBasedUnit) => {
+                                if idx.length_unit.is_none()
+                                    && let Some(unit) = Self::unit_from_record(record)
+                                    && idx.unit_fallback.is_none()
+                                {
+                                    idx.unit_fallback = Some(unit);
+                                }
+                            }
+                            Some(_) => {}
 
                             // ==============================================================================
                             // Unit Identification & Fallbacks
@@ -320,9 +267,11 @@ impl ExchangeIndex {
                     EntityInstance::Complex { id: _, subsuper } => {
                         // Complex: REPRESENTATION_RELATIONSHIP / SHAPE_REPRESENTATION_RELATIONSHIP
                         let is_rep_rel = subsuper.0.iter().any(|r| {
-                            r.name.eq_ignore_ascii_case("REPRESENTATION_RELATIONSHIP")
-                                || r.name
-                                    .eq_ignore_ascii_case("SHAPE_REPRESENTATION_RELATIONSHIP")
+                            let name_upper = r.name.to_ascii_uppercase();
+                            matches!(
+                                STEP_ENTITY_KINDS.get(name_upper.as_str()),
+                                Some(StepEntityKind::RepRelationship)
+                            )
                         });
                         if is_rep_rel {
                             let mut all_refs = Vec::new();
@@ -336,10 +285,13 @@ impl ExchangeIndex {
 
                         // Complex: LENGTH_UNIT (definitive) / fallback unit
                         if idx.length_unit.is_none() {
-                            let is_length = subsuper
-                                .0
-                                .iter()
-                                .any(|r| r.name.eq_ignore_ascii_case("LENGTH_UNIT"));
+                            let is_length = subsuper.0.iter().any(|r| {
+                                let name_upper = r.name.to_ascii_uppercase();
+                                matches!(
+                                    STEP_ENTITY_KINDS.get(name_upper.as_str()),
+                                    Some(StepEntityKind::LengthUnit)
+                                )
+                            });
                             if is_length {
                                 idx.length_unit = Self::unit_from_subsuper(&subsuper.0);
                             } else if idx.unit_fallback.is_none() {
@@ -371,13 +323,16 @@ impl ExchangeIndex {
     }
 
     fn unit_from_record(record: &Record) -> Option<LengthUnit> {
-        if record.name.eq_ignore_ascii_case("SI_UNIT") {
+        let name_upper = record.name.to_ascii_uppercase();
+        let kind = STEP_ENTITY_KINDS.get(name_upper.as_str());
+
+        if matches!(kind, Some(StepEntityKind::SiUnit)) {
             let params = record.parameter.try_extract::<&[Parameter]>()?;
             let unit = params.get(1).and_then(|p| p.try_extract::<&str>())?;
             let prefix = params.first().and_then(|p| p.try_extract::<&str>());
             return LengthUnit::from_si_spec(unit, prefix);
         }
-        if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
+        if matches!(kind, Some(StepEntityKind::ConversionBasedUnit)) {
             let params = record.parameter.try_extract::<&[Parameter]>()?;
             let name = params.first().and_then(|p| p.try_extract::<&str>())?;
             return LengthUnit::from_name(name);

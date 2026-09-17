@@ -57,6 +57,40 @@ fn header_missing_required_fields() {
 }
 
 #[wasm_bindgen_test]
+fn header_sanitization_omitted_fields() {
+    // We test both first level omitted fields `$` and sub level omitted fields `($, 'foo', $)`
+    let step = "ISO-10303-21;\n\
+                HEADER;\n\
+                FILE_DESCRIPTION(($, 'desc2', $), $);\n\
+                FILE_NAME('test.step', $, ($, 'auth2', $), ($, 'org2'), $, $, $);\n\
+                FILE_SCHEMA(($));\n\
+                ENDSEC;\n\
+                DATA;\n\
+                ENDSEC;\n\
+                END-ISO-10303-21;";
+
+    let exchange = ruststep::parser::parse(step).expect("valid step parse");
+    let header = convert_header(&exchange.header).expect("valid header conversion");
+
+    assert_eq!(header.file_description, "; desc2; ");
+    assert_eq!(header.implementation_level, "");
+    assert_eq!(header.file_name, "test.step");
+    assert_eq!(header.time_stamp, "");
+    assert_eq!(
+        header.author.as_slice(),
+        &["".to_string(), "auth2".to_string(), "".to_string()]
+    );
+    assert_eq!(
+        header.organization.as_slice(),
+        &["".to_string(), "org2".to_string()]
+    );
+    assert_eq!(header.preprocessor_version, "");
+    assert_eq!(header.originating_system, "");
+    assert_eq!(header.authorization, "");
+    assert_eq!(header.file_schema, "");
+}
+
+#[wasm_bindgen_test]
 fn schema_detection_supported() {
     assert_eq!(
         StepSchema::parse("CONFIG_CONTROL_DESIGN"),

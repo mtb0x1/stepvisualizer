@@ -141,3 +141,104 @@ pub fn is_collinear_with_x(v: glam::DVec3) -> bool {
     }
     v.cross(glam::DVec3::X).length_squared() / len_sq < 1e-4
 }
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum StepEntityKind {
+    FileDescription,
+    FileName,
+    FileSchema,
+    IntersectionCurve,
+    BoundaryCurve,
+    SurfaceCurve,
+    Direction,
+    Axis2Placement3d,
+    ColourRgb,
+    PreDefinedColour,
+    ColorStyle,
+    StyledItem,
+    ClosedShell,
+    OpenShell,
+    ManifoldSolidBrep,
+    BrepWithVoids,
+    FacetedBrep,
+    ShellBasedSurfaceModel,
+    ShapeRepresentation,
+    RepRelationship,
+    IdAttribute,
+    ShapeDefinitionRepresentation,
+    ProductDefinitionShape,
+    ProductDefinition,
+    ProductDefinitionFormation,
+    Product,
+    NextAssemblyUsageOccurrence,
+    LengthUnit,
+    SiUnit,
+    ConversionBasedUnit,
+}
+
+pub static STEP_ENTITY_KINDS: phf::Map<&'static str, StepEntityKind> = phf::phf_map! {
+    "FILE_DESCRIPTION" => StepEntityKind::FileDescription,
+    "FILE_NAME" => StepEntityKind::FileName,
+    "FILE_SCHEMA" => StepEntityKind::FileSchema,
+    "INTERSECTION_CURVE" => StepEntityKind::IntersectionCurve,
+    "BOUNDARY_CURVE" => StepEntityKind::BoundaryCurve,
+    "SURFACE_CURVE" => StepEntityKind::SurfaceCurve,
+    "DIRECTION" => StepEntityKind::Direction,
+    "AXIS2_PLACEMENT_3D" => StepEntityKind::Axis2Placement3d,
+    "COLOUR_RGB" => StepEntityKind::ColourRgb,
+    "DRAUGHTING_PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
+    "PRE_DEFINED_COLOUR" => StepEntityKind::PreDefinedColour,
+    "FILL_AREA_STYLE_COLOUR" => StepEntityKind::ColorStyle,
+    "FILL_AREA_STYLE" => StepEntityKind::ColorStyle,
+    "SURFACE_STYLE_FILL_AREA" => StepEntityKind::ColorStyle,
+    "SURFACE_SIDE_STYLE" => StepEntityKind::ColorStyle,
+    "SURFACE_STYLE_USAGE" => StepEntityKind::ColorStyle,
+    "PRESENTATION_STYLE_ASSIGNMENT" => StepEntityKind::ColorStyle,
+    "CURVE_STYLE" => StepEntityKind::ColorStyle,
+    "SYMBOL_STYLE" => StepEntityKind::ColorStyle,
+    "SYMBOL_COLOUR" => StepEntityKind::ColorStyle,
+    "STYLED_ITEM" => StepEntityKind::StyledItem,
+    "OVER_RIDING_STYLED_ITEM" => StepEntityKind::StyledItem,
+    "CLOSED_SHELL" => StepEntityKind::ClosedShell,
+    "OPEN_SHELL" => StepEntityKind::OpenShell,
+    "MANIFOLD_SOLID_BREP" => StepEntityKind::ManifoldSolidBrep,
+    "BREP_WITH_VOIDS" => StepEntityKind::BrepWithVoids,
+    "FACETED_BREP" => StepEntityKind::FacetedBrep,
+    "SHELL_BASED_SURFACE_MODEL" => StepEntityKind::ShellBasedSurfaceModel,
+    "ADVANCED_BREP_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "MANIFOLD_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "GEOMETRICALLY_BOUNDED_SURFACE_SHAPE_REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "REPRESENTATION" => StepEntityKind::ShapeRepresentation,
+    "REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
+    "SHAPE_REPRESENTATION_RELATIONSHIP" => StepEntityKind::RepRelationship,
+    "ID_ATTRIBUTE" => StepEntityKind::IdAttribute,
+    "SHAPE_DEFINITION_REPRESENTATION" => StepEntityKind::ShapeDefinitionRepresentation,
+    "PRODUCT_DEFINITION_SHAPE" => StepEntityKind::ProductDefinitionShape,
+    "PRODUCT_DEFINITION" => StepEntityKind::ProductDefinition,
+    "PRODUCT_DEFINITION_FORMATION" => StepEntityKind::ProductDefinitionFormation,
+    "PRODUCT_DEFINITION_FORMATION_WITH_SPECIFIED_SOURCE" => StepEntityKind::ProductDefinitionFormation,
+    "PRODUCT" => StepEntityKind::Product,
+    "NEXT_ASSEMBLY_USAGE_OCCURRENCE" => StepEntityKind::NextAssemblyUsageOccurrence,
+    "LENGTH_UNIT" => StepEntityKind::LengthUnit,
+    "SI_UNIT" => StepEntityKind::SiUnit,
+    "CONVERSION_BASED_UNIT" => StepEntityKind::ConversionBasedUnit,
+};
+
+/// Replaces a parameter with an empty List or empty String if it is NotProvided or Omitted.
+/// Nested lists are processed recursively, with elements defaulting to empty strings.
+#[inline]
+pub fn sanitize_omitted_param(param: &mut Parameter, default_list: bool) {
+    if matches!(param, Parameter::NotProvided | Parameter::Omitted) {
+        *param = if default_list {
+            Parameter::List(vec![])
+        } else {
+            Parameter::String(String::new())
+        };
+    } else if let Parameter::List(list) = param {
+        for item in list.iter_mut() {
+            // Sub-level elements in headers are assumed to be strings if omitted.
+            sanitize_omitted_param(item, false);
+        }
+    }
+}

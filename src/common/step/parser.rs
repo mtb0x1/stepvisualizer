@@ -13,7 +13,8 @@ use serde::{Deserialize, Serialize};
 use smallvec::SmallVec;
 
 use crate::common::ast_helpers::{
-    ParameterExt, extract_direction_coords, is_collinear_with_x, is_unit_z_direction,
+    ParameterExt, STEP_ENTITY_KINDS, StepEntityKind, extract_direction_coords, is_collinear_with_x,
+    is_unit_z_direction, sanitize_omitted_param,
 };
 use crate::common::types::{FileId, LengthUnit, Metadata, StepHeader};
 
@@ -102,33 +103,77 @@ pub fn convert_header_from_ast(header: &Header) -> StepHeader {
     }
 }
 
-/// Convert the STEP header section into the display-oriented [`StepHeader`].
-/// Fails when the records do not form a valid header.
-pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepError> {
-    trace_span!("convert_header");
+/// TODO: This sanitization allocation (`to_vec`) is a performance issue.
+/// `ruststep` should ideally be permissively deserializing by default, gracefully handling
+/// `NotProvided`/`Omitted` fields as well as skipping unknown fields (which `serde` can handle natively).
+pub fn sanitize_header_records(header_in: &[Record]) -> Result<SmallVec<[Record; 4]>, StepError> {
     if header_in.len() < 3 {
         return Err(StepError::InvalidHeader(
             "Header section must contain at least 3 records".to_string(),
         ));
     }
-    let header_obj =
-        Header::from_records(header_in).map_err(|e| StepError::InvalidHeader(e.to_string()))?;
+
+    // ruststep-0.4.0's Header deserializer expects strings or lists for some fields,
+    // but some STEP files use `$` (NotProvided). We sanitize them here.
+    let mut sanitized_header: SmallVec<[Record; 4]> = header_in.iter().cloned().collect();
+
+    for record in &mut sanitized_header {
+        let name_upper = record.name.to_ascii_uppercase();
+        let kind = STEP_ENTITY_KINDS.get(name_upper.as_str());
+
+        // TODO :we could use some unchecked get mut in here (since we are mostly sure)
+        if let Parameter::List(ref mut params) = record.parameter {
+            match kind {
+                Some(StepEntityKind::FileDescription) => {
+                    if let Some(p) = params.get_mut(0) {
+                        sanitize_omitted_param(p, true);
+                    }
+                    if let Some(p) = params.get_mut(1) {
+                        sanitize_omitted_param(p, false);
+                    }
+                }
+                Some(StepEntityKind::FileName) => {
+                    for (i, param) in params.iter_mut().enumerate() {
+                        let is_list = i == 2 || i == 3;
+                        sanitize_omitted_param(param, is_list);
+                    }
+                }
+                Some(StepEntityKind::FileSchema) => {
+                    if let Some(p) = params.get_mut(0) {
+                        sanitize_omitted_param(p, true);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    Ok(sanitized_header)
+}
+
+/// Convert the STEP header section into the display-oriented [`StepHeader`].
+/// Fails when the records do not form a valid header.
+pub fn convert_header(header_in: &[Record]) -> Result<StepHeader, StepError> {
+    trace_span!("convert_header");
+    let sanitized_header = sanitize_header_records(header_in)?;
+    let header_obj = Header::from_records(&sanitized_header)
+        .map_err(|e| StepError::InvalidHeader(e.to_string()))?;
     Ok(convert_header_from_ast(&header_obj))
 }
 
 /// Normalises `INTERSECTION_CURVE` and `BOUNDARY_CURVE` entity names in-place to `SURFACE_CURVE`.
-// TODO : avoid eq_ignore_ascii_case("INTERSECTION_CURVE") use Kind
-// TODO : better way to do this ? unsafe /faster ?
 fn normalize_curve_subtypes(section: &mut DataSection) {
     for entity in &mut section.entities {
         let EntityInstance::Simple { record, .. } = entity else {
             continue;
         };
 
-        let name = record.name.as_str();
-        if (name.eq_ignore_ascii_case("INTERSECTION_CURVE")
-            || name.eq_ignore_ascii_case("BOUNDARY_CURVE"))
-            && name != "SURFACE_CURVE"
+        let name_upper = record.name.to_ascii_uppercase();
+        if let Some(kind) = STEP_ENTITY_KINDS.get(name_upper.as_str())
+            && matches!(
+                kind,
+                StepEntityKind::IntersectionCurve | StepEntityKind::BoundaryCurve
+            )
         {
             record.name.clear();
             record.name.push_str("SURFACE_CURVE");
@@ -221,7 +266,8 @@ pub fn sanitize_axis2_placement_3d(section: &mut DataSection) {
         match entity {
             EntityInstance::Simple { id, record } => {
                 max_id = max_id.max(*id);
-                if record.name.eq_ignore_ascii_case("DIRECTION")
+                let name_upper = record.name.to_ascii_uppercase();
+                if let Some(StepEntityKind::Direction) = STEP_ENTITY_KINDS.get(name_upper.as_str())
                     && let Some(coords) = extract_direction_coords(record)
                 {
                     if existing_unit_z.is_none() && is_unit_z_direction(coords) {
@@ -243,7 +289,11 @@ pub fn sanitize_axis2_placement_3d(section: &mut DataSection) {
         let EntityInstance::Simple { record, .. } = entity else {
             continue;
         };
-        if !record.name.eq_ignore_ascii_case("AXIS2_PLACEMENT_3D") {
+        let name_upper = record.name.to_ascii_uppercase();
+        if !matches!(
+            STEP_ENTITY_KINDS.get(name_upper.as_str()),
+            Some(StepEntityKind::Axis2Placement3d)
+        ) {
             continue;
         }
         let Parameter::List(ref mut params) = record.parameter else {
@@ -427,12 +477,8 @@ impl StepParser {
         &self,
         fallback_name: &str,
     ) -> Result<(StepHeader, usize), StepError> {
-        if self.exchange.header.len() < 3 {
-            return Err(StepError::InvalidHeader(
-                "Header section must contain at least 3 records".to_string(),
-            ));
-        }
-        let header_obj = Header::from_records(&self.exchange.header)
+        let sanitized_header = sanitize_header_records(&self.exchange.header)?;
+        let header_obj = Header::from_records(&sanitized_header)
             .map_err(|e| StepError::InvalidHeader(e.to_string()))?;
         validate_schema(&header_obj.file_schema)?;
 
