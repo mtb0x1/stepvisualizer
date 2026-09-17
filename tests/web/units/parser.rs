@@ -1,7 +1,4 @@
-use stepvisualizer::common::parser::{
-    StepSchema, all_usable_sections, convert_header, normalize_exchange, parse_units,
-    probe_validate_step_buffer,
-};
+use stepvisualizer::common::parser::{StepParser, StepSchema, convert_header};
 use stepvisualizer::common::types::LengthUnit;
 use stepvisualizer::error::StepError;
 use stepvisualizer::ruststep;
@@ -82,17 +79,17 @@ fn schema_detection_supported() {
 #[wasm_bindgen_test]
 fn probe_validate_step_buffer_various() {
     let text_203 = step_with_schema("CONFIG_CONTROL_DESIGN");
-    assert_eq!(probe_validate_step_buffer(&text_203), Ok(StepSchema::Ap203));
+    assert_eq!(StepParser::probe_validate_buffer(&text_203), Ok(StepSchema::Ap203));
 
     let text_214 = step_with_schema("AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }");
-    assert_eq!(probe_validate_step_buffer(&text_214), Ok(StepSchema::Ap214));
+    assert_eq!(StepParser::probe_validate_buffer(&text_214), Ok(StepSchema::Ap214));
 
     let text_201 = step_with_schema("EXPLICIT_DRAUGHTING");
-    assert_eq!(probe_validate_step_buffer(&text_201), Ok(StepSchema::Ap201));
+    assert_eq!(StepParser::probe_validate_buffer(&text_201), Ok(StepSchema::Ap201));
 
     // Unsupported schema early rejection
     let text_aim = step_with_schema("PLANT_SPATIAL_CONFIGURATION");
-    match probe_validate_step_buffer(&text_aim) {
+    match StepParser::probe_validate_buffer(&text_aim) {
         Err(StepError::UnsupportedSchema { schema }) => {
             assert_eq!(schema, "PLANT_SPATIAL_CONFIGURATION");
         }
@@ -102,7 +99,7 @@ fn probe_validate_step_buffer_various() {
     // Invalid file
     let invalid = "NOT A VALID STEP FILE";
     assert!(matches!(
-        probe_validate_step_buffer(invalid),
+        StepParser::probe_validate_buffer(invalid),
         Err(StepError::Parse(_))
     ));
 }
@@ -120,8 +117,9 @@ fn usable_sections_filtering() {
                         END-ISO-10303-21;";
 
     let parsed_empty = ruststep::parser::parse(step_no_data).expect("parse");
+    let parser = StepParser::from_exchange(parsed_empty);
     assert!(matches!(
-        all_usable_sections(&parsed_empty),
+        parser.all_usable_sections(),
         Err(StepError::EmptyDataSection)
     ));
 
@@ -139,7 +137,8 @@ fn usable_sections_filtering() {
                       END-ISO-10303-21;";
 
     let parsed_multi = ruststep::parser::parse(step_multi).expect("parse");
-    let usable = all_usable_sections(&parsed_multi).expect("usable sections");
+    let parser = StepParser::from_exchange(parsed_multi);
+    let usable = parser.all_usable_sections().expect("usable sections");
     assert_eq!(usable.len(), 1);
     assert_eq!(usable[0].entities.len(), 1);
 }
@@ -159,7 +158,9 @@ fn units_parsing() {
                      END-ISO-10303-21;";
 
     let parsed = ruststep::parser::parse(step_text).expect("parse");
-    assert_eq!(parse_units(&parsed), Some(LengthUnit::Millimetre));
+    let mut parser = StepParser::from_exchange(parsed);
+    let index = stepvisualizer::common::ExchangeIndex::build(&mut parser);
+    assert_eq!(index.resolved_unit(), Some(LengthUnit::Millimetre));
 
     let step_inch = "ISO-10303-21;\n\
                      HEADER;\n\
@@ -173,7 +174,9 @@ fn units_parsing() {
                      END-ISO-10303-21;";
 
     let parsed_inch = ruststep::parser::parse(step_inch).expect("parse");
-    assert_eq!(parse_units(&parsed_inch), Some(LengthUnit::Inch));
+    let mut parser_inch = StepParser::from_exchange(parsed_inch);
+    let index_inch = stepvisualizer::common::ExchangeIndex::build(&mut parser_inch);
+    assert_eq!(index_inch.resolved_unit(), Some(LengthUnit::Inch));
 }
 
 #[wasm_bindgen_test]
@@ -191,9 +194,10 @@ fn test_normalize_exchange_surface_curve_subtypes() {
                      ENDSEC;\n\
                      END-ISO-10303-21;";
 
-    let mut parsed = ruststep::parser::parse(step_text).expect("parse");
-    normalize_exchange(&mut parsed);
-
+    let parsed = ruststep::parser::parse(step_text).expect("parse");
+    let mut parser = StepParser::from_exchange(parsed);
+    parser.normalize();
+    let parsed = parser.into_exchange();
     let entities = &parsed.data[0].entities;
     if let EntityInstance::Simple { record, .. } = &entities[0] {
         assert_eq!(record.name, "SURFACE_CURVE");
@@ -231,9 +235,10 @@ fn test_sanitize_axis2_placement_3d_collinear_x() {
                      ENDSEC;\n\
                      END-ISO-10303-21;";
 
-    let mut parsed = ruststep::parser::parse(step_text).expect("parse");
-    normalize_exchange(&mut parsed);
-
+    let parsed = ruststep::parser::parse(step_text).expect("parse");
+    let mut parser = StepParser::from_exchange(parsed);
+    parser.normalize();
+    let parsed = parser.into_exchange();
     let entities = &parsed.data[0].entities;
 
     // Entity #30 (PlacementAlongX) had axis collinear with (-1, 0, 0) and omitted ref_direction.
@@ -288,4 +293,3 @@ fn test_sanitize_axis2_placement_3d_collinear_x() {
         }
     }
 }
-

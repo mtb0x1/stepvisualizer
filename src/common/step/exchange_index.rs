@@ -18,10 +18,10 @@ use crate::common::ast_helpers::{
 };
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
-use crate::common::step::parser::normalize_exchange;
+use crate::common::step::parser::StepParser;
 use crate::common::types::LengthUnit;
 use crate::ruststep::ast::Parameter;
-use crate::ruststep::ast::{EntityInstance, Exchange, Record};
+use crate::ruststep::ast::{EntityInstance, Record};
 
 // TODO : double check kinds against specs.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -163,10 +163,11 @@ impl ExchangeIndex {
     /// Builds the index from the exchange structure in a **single pass**, simultaneously:
     /// - Normalising `INTERSECTION_CURVE` / `BOUNDARY_CURVE` → `SURFACE_CURVE` in-place.
     /// - Collecting color, name, and unit data.
-    pub fn build(exchange: &mut Exchange) -> Self {
-        normalize_exchange(exchange);
+    pub fn build(parser: &mut StepParser) -> Self {
+        parser.normalize();
         let mut idx = ExchangeIndex::default();
 
+        let exchange = parser.exchange_mut();
         for section in &mut exchange.data {
             for entity in &mut section.entities {
                 match entity {

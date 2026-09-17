@@ -1,6 +1,6 @@
 //! AST extraction and parsing utilities for `ruststep` types.
 
-use crate::ruststep::ast::Parameter;
+use crate::ruststep::ast::{Parameter, Record};
 
 /// Trait for types that can be extracted from a `ruststep` AST `Parameter`.
 pub trait TryExtractParam<'a>: Sized {
@@ -111,4 +111,31 @@ pub fn collect_refs_recursive(param: &Parameter, push: &mut impl FnMut(u64)) {
         }
         _ => {}
     }
+}
+
+/// Extracts the 3D direction vector `[dx, dy, dz]` from a `DIRECTION` entity record as `DVec3`.
+pub fn extract_direction_coords(record: &Record) -> Option<glam::DVec3> {
+    record
+        .parameter
+        .try_extract::<&[Parameter]>()?
+        .get(1)?
+        .try_extract::<glam::DVec3>()
+}
+
+/// Tests whether a direction vector is approximately the positive Z unit vector `(0, 0, 1)`.
+pub fn is_unit_z_direction(v: glam::DVec3) -> bool {
+    let norm = v.normalize_or_zero();
+    (norm - glam::DVec3::Z).length_squared() < 1e-8
+}
+
+/// Tests whether a direction vector is collinear or antiparallel with the global X-axis `(1, 0, 0)`.
+///
+/// Uses the normalized squared cross product with `(1, 0, 0)`:
+/// `sin^2(theta) = ||v x X||^2 / ||v||^2`
+pub fn is_collinear_with_x(v: glam::DVec3) -> bool {
+    let len_sq = v.length_squared();
+    if len_sq < 1e-12 {
+        return false;
+    }
+    v.cross(glam::DVec3::X).length_squared() / len_sq < 1e-4
 }

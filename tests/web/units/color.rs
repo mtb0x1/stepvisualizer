@@ -47,8 +47,8 @@ fn test_step_color_map_synthetic() {
                              ENDSEC;\n\
                              END-ISO-10303-21;";
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let mut ex = parsed.clone();
-    let index = ExchangeIndex::build(&mut ex);
+    let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
+    let index = ExchangeIndex::build(&mut parser);
     let map = StepColorMap::from_index(&index);
     assert_eq!(map.len(), 1);
     let col = map.get(80).expect("shell 80 color resolved");
@@ -62,8 +62,8 @@ fn test_step_color_map_as1_tc_214() {
         "/samples/as1-tc-214.stp"
     ));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let mut ex = parsed.clone();
-    let index = ExchangeIndex::build(&mut ex);
+    let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
+    let index = ExchangeIndex::build(&mut parser);
     let map = StepColorMap::from_index(&index);
     assert_eq!(map.len(), 5);
 
@@ -88,8 +88,8 @@ fn test_step_color_map_as1_tc_214() {
 fn test_step_color_map_part1_ap203_empty() {
     const STEP_TEXT: &str = include_str!(concat!(env!("CARGO_MANIFEST_DIR"), "/samples/Part1.stp"));
     let parsed = ruststep::parser::parse(STEP_TEXT).expect("parsed exchange");
-    let mut ex = parsed.clone();
-    let index = ExchangeIndex::build(&mut ex);
+    let mut parser = stepvisualizer::common::parser::StepParser::from_exchange(parsed);
+    let index = ExchangeIndex::build(&mut parser);
     let map = StepColorMap::from_index(&index);
     assert!(map.is_empty());
 }

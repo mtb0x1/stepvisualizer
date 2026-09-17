@@ -34,17 +34,19 @@ pub use graphics::render::{
 };
 #[allow(unused_imports)]
 pub use math::{
-    geometric_normal, ray_aabb_intersect, ray_triangle_intersect, raycast_parts,
-    screen_point_to_ray, spherical_to_cartesian, triangle_area, triangle_signed_volume,
+    compute_bounding_box, geometric_normal, ray_aabb_intersect, ray_triangle_intersect,
+    raycast_parts, screen_point_to_ray, spherical_to_cartesian, triangle_area,
+    triangle_signed_volume,
 };
 #[allow(unused_imports)]
-pub use step::ast_helpers::{ParameterExt, TryExtractParam, extract_entity_refs};
+pub use step::ast_helpers::{
+    ParameterExt, TryExtractParam, extract_direction_coords, extract_entity_refs,
+    is_collinear_with_x, is_unit_z_direction,
+};
 pub use step::exchange_index::ExchangeIndex;
 #[allow(unused_imports)]
 pub use step::parser::{
-    StepSchema, all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header,
-    extract_header_and_count, normalize_exchange, parse_units, probe_validate_step_buffer,
-    sanitize_axis2_placement_3d, validate_schema,
+    StepParser, StepSchema, convert_header, convert_header_from_ast, validate_schema,
 };
 pub use step::step_names::StepNameMap;
 #[allow(unused_imports)]

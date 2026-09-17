@@ -4,9 +4,8 @@ use crate::common::constants::{
 };
 use crate::common::web::input_file;
 use crate::common::{
-    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, all_usable_sections,
-    compute_bounding_box, extract_header_and_count, extract_render_parts,
-    probe_validate_step_buffer,
+    ExchangeIndex, FileId, FileIndexItem, Metadata, StepColorMap, StepNameMap, StepParser,
+    compute_bounding_box, extract_render_parts,
 };
 use crate::error::StepError;
 use crate::storage::{LruCache, hash_text_to_id, load_model_indexeddb, save_model};
@@ -34,26 +33,20 @@ pub fn parse_step_file_content(
     ),
     StepError,
 > {
-    // Fast pre-check on the in-memory buffer: validates the ISO exchange structure header
-    // and FILE_SCHEMA before running full AST parsing, avoiding downstream tokenizer crashes
-    // on unsupported schemas.
-    probe_validate_step_buffer(text)?;
-
-    let mut parsed =
-        crate::ruststep::parser::parse(text).map_err(|e| StepError::Parse(e.to_string()))?;
+    let mut step_parser = StepParser::parse(text)?;
 
     // Single combined pass: normalises INTERSECTION/BOUNDARY_CURVE → SURFACE_CURVE,
     // and simultaneously collects all data for color, name, and unit extraction.
-    let index = ExchangeIndex::build(&mut parsed);
+    let index = ExchangeIndex::build(&mut step_parser);
     let color_map = StepColorMap::from_index(&index);
     let name_map = StepNameMap::from_index(&index);
     let units = index.resolved_unit();
     // Drop the index before building step tables to free intermediate FastU64Map memory.
     drop(index);
 
-    let (step_header, entity_count) = extract_header_and_count(name, &parsed)?;
+    let (step_header, entity_count) = step_parser.extract_header_and_count(name)?;
 
-    let sections = all_usable_sections(&parsed)?;
+    let sections = step_parser.all_usable_sections()?;
     let step_tables: Vec<truck_stepio::r#in::Table> = sections
         .into_iter()
         .map(truck_stepio::r#in::Table::from_data_section)
@@ -61,7 +54,7 @@ pub fn parse_step_file_content(
 
     // Drop the parsed AST immediately to release its large record and string allocations
     // from WASM memory before computing bounding boxes and returning tables.
-    drop(parsed);
+    drop(step_parser);
 
     let meta = Metadata {
         header: step_header,

@@ -218,3 +218,21 @@ pub fn raycast_parts(
 
     closest_hit
 }
+
+/// Axis-aligned bounds over all `CARTESIAN_POINT`s in the tables. Placement
+/// transforms are ignored, so this is an approximation — good enough for a
+/// pre-load size preview. `None` when tables have no points.
+pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option<BoundingBox> {
+    crate::trace_span!("compute_bounding_box");
+    let mut bbox = BoundingBox::EMPTY;
+
+    for step_table in step_tables {
+        for value in step_table.cartesian_point.values() {
+            let coords = &value.coordinates;
+            if coords.len() >= 3 {
+                bbox.expand_point(glam::DVec3::new(coords[0], coords[1], coords[2]));
+            }
+        }
+    }
+    bbox.is_valid().then_some(bbox)
+}

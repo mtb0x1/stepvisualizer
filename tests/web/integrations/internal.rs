@@ -1,11 +1,11 @@
 use stepvisualizer::common::constants::compute_adaptive_tolerance;
 use stepvisualizer::common::exchange_index::ExchangeIndex;
-use stepvisualizer::common::parser::{all_usable_sections, build_initial_metadata};
+use stepvisualizer::common::parser::StepParser;
 use stepvisualizer::common::render::{extract_render_parts, visible_bounds};
 use stepvisualizer::common::types::{FileId, LengthUnit, StepModel};
 use stepvisualizer::common::{StepColorMap, StepNameMap};
 use stepvisualizer::error::StepError;
-use stepvisualizer::ruststep;
+
 use stepvisualizer::truck_stepio;
 use stepvisualizer::workspace::{build_step_model, parse_step_file_content};
 use wasm_bindgen_test::*;
@@ -17,8 +17,8 @@ fn step_pipeline_e2e_real_model() {
         "/samples/io1-ca-214.stp"
     ));
 
-    let mut parsed = ruststep::parser::parse(STEP_TEXT).expect("successful STEP AST parse");
-    let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
+    let mut parsed = StepParser::parse(STEP_TEXT).expect("successful STEP AST parse");
+    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
     assert!(!usable_sections.is_empty());
 
     let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
@@ -33,8 +33,9 @@ fn step_pipeline_e2e_real_model() {
     let name_map = StepNameMap::from_index(&index);
     drop(index);
 
+    let bbox = stepvisualizer::common::math::compute_bounding_box(&step_tables);
     let (meta, file_id) =
-        build_initial_metadata("io1-ca-214.stp", &parsed, &step_tables, STEP_TEXT, units)
+        parsed.build_initial_metadata("io1-ca-214.stp", STEP_TEXT, bbox, units)
             .expect("metadata successfully built");
 
     assert_eq!(meta.header.file_name, "_bcd/io1ca.stp");
@@ -79,12 +80,12 @@ fn step_pipeline_e2e_nasty_cheese() {
         "/samples/nasty_cheese.stp"
     ));
 
-    let mut parsed = ruststep::parser::parse(STEP_TEXT).expect("successful STEP AST parse");
+    let mut parsed = StepParser::parse(STEP_TEXT).expect("successful STEP AST parse");
     let index = ExchangeIndex::build(&mut parsed);
     let units = index.resolved_unit();
     drop(index);
 
-    let usable_sections = all_usable_sections(&parsed).expect("usable sections present");
+    let usable_sections = parsed.all_usable_sections().expect("usable sections present");
     assert_eq!(usable_sections.len(), 1);
 
     let step_tables: Vec<truck_stepio::r#in::Table> = usable_sections
@@ -93,8 +94,9 @@ fn step_pipeline_e2e_nasty_cheese() {
         .collect();
     assert_eq!(step_tables.len(), 1);
 
+    let bbox = stepvisualizer::common::math::compute_bounding_box(&step_tables);
     let (meta, file_id) =
-        build_initial_metadata("nasty_cheese.stp", &parsed, &step_tables, STEP_TEXT, units)
+        parsed.build_initial_metadata("nasty_cheese.stp", STEP_TEXT, bbox, units)
             .expect("metadata successfully built");
 
     assert_eq!(meta.header.file_name, "nasty_cheese");
@@ -202,11 +204,18 @@ fn step_pipeline_as1_ac_214_small() {
     let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
     let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
 
-    assert_eq!(output.skipped_shells, 0, "No shells should be skipped: {:?}", output.warnings);
-    assert_eq!(output.parts.len(), 3, "Expected all 3 shells to tessellate into renderable parts");
+    assert_eq!(
+        output.skipped_shells, 0,
+        "No shells should be skipped: {:?}",
+        output.warnings
+    );
+    assert_eq!(
+        output.parts.len(),
+        3,
+        "Expected all 3 shells to tessellate into renderable parts"
+    );
     for part in &output.parts {
         assert!(!part.vertices.is_empty());
         assert!(!part.indices.is_empty());
     }
 }
-
