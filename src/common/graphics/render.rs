@@ -327,48 +327,70 @@ fn append_face_geometry(
             continue;
         }
 
-        // Geometric normal fallback from the first three distinct points of the face.
-        // We compute this in double-precision (`DVec3`) before downcasting because
-        // STEP models can have extreme scales (e.g. millimeters in aerospace assemblies)
-        // that cause catastrophic cancellation in single-precision floating point.
-        let p0 = match positions.get(face[0].pos) {
-            Some(p) => DVec3::new(p.x, p.y, p.z),
-            None => continue,
-        };
-        let p1 = match positions.get(face[1].pos) {
-            Some(p) => DVec3::new(p.x, p.y, p.z),
-            None => continue,
-        };
-        let p2 = match positions.get(face[2].pos) {
-            Some(p) => DVec3::new(p.x, p.y, p.z),
-            None => continue,
-        };
+        let mut fallback_normal: Option<Vec3> = None;
+        let mut face_indices = Vec::with_capacity(face.len());
+        let mut skip_face = false;
 
-        let fallback_normal = geometric_normal(p0, p1, p2);
+        for j in 0..face.len() {
+            let v = face[j];
+            let pos = match positions.get(v.pos) {
+                Some(p) => p,
+                None => {
+                    skip_face = true;
+                    break;
+                }
+            };
+
+            let key = pack_vertex_key(v.pos, v.nor);
+            let idx = *vertex_map.entry(key).or_insert_with(|| {
+                let normal = match v.nor.and_then(|idx| normals.get(idx)) {
+                    Some(n) => Vec3::new(n.x as f32, n.y as f32, n.z as f32),
+                    None => {
+                        // todo: this should be a cold path
+                        // but we will fix later
+                        // also avoid geometric_normal call
+                        // and do lazy init
+                        logger::warn("Using fallback");
+                        if fallback_normal.is_none() {
+                            // Geometric normal fallback from the first three distinct points of the face.
+                            // We compute this in double-precision (`DVec3`) before downcasting because
+                            // STEP models can have extreme scales (e.g. millimeters in aerospace assemblies)
+                            // that cause catastrophic cancellation in single-precision floating point.
+                            let p0 = positions.get(face[0].pos);
+                            let p1 = positions.get(face[1].pos);
+                            let p2 = positions.get(face[2].pos);
+                            fallback_normal = Some(match (p0, p1, p2) {
+                                (Some(p0), Some(p1), Some(p2)) => geometric_normal(
+                                    DVec3::new(p0.x, p0.y, p0.z),
+                                    DVec3::new(p1.x, p1.y, p1.z),
+                                    DVec3::new(p2.x, p2.y, p2.z),
+                                )
+                                .as_vec3(),
+                                _ => Vec3::ZERO,
+                            });
+                        }
+                        fallback_normal.unwrap()
+                    }
+                };
+                let new_idx = vertices.len() as u32;
+                vertices.push(GpuVertex {
+                    position: Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32),
+                    normal,
+                });
+                new_idx
+            });
+            face_indices.push(idx);
+        }
+
+        if skip_face {
+            continue;
+        }
 
         // Triangulate polygon (triangle fan: 0, i, i+1)
         for i in 1..(face.len() - 1) {
-            let tri = [face[0], face[i], face[i + 1]];
-            for v in tri {
-                let pos = match positions.get(v.pos) {
-                    Some(p) => p,
-                    None => continue,
-                };
-                let key = pack_vertex_key(v.pos, v.nor);
-                let idx = *vertex_map.entry(key).or_insert_with(|| {
-                    let normal = match v.nor.and_then(|idx| normals.get(idx)) {
-                        Some(n) => Vec3::new(n.x as f32, n.y as f32, n.z as f32),
-                        None => fallback_normal.as_vec3(),
-                    };
-                    let new_idx = vertices.len() as u32;
-                    vertices.push(GpuVertex {
-                        position: Vec3::new(pos.x as f32, pos.y as f32, pos.z as f32),
-                        normal,
-                    });
-                    new_idx
-                });
-                indices.push(idx);
-            }
+            indices.push(face_indices[0]);
+            indices.push(face_indices[i]);
+            indices.push(face_indices[i + 1]);
         }
     }
 }
