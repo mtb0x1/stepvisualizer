@@ -1,13 +1,17 @@
 //! STEP header/metadata extraction on top of ruststep's AST.
+use crate::common::ast_helpers::ParameterExt;
 use crate::common::exchange_index::ExchangeIndex;
+use crate::common::fast_hash::FastU64Map;
 use crate::common::logger;
 use crate::common::utils::find_ignore_ascii_case;
 use crate::error::StepError;
-use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Record};
+use crate::ruststep::ast::{DataSection, EntityInstance, Exchange, Name, Parameter, Record};
 use crate::ruststep::header::{FileSchema, Header};
 use crate::storage::hash_text_to_id;
 use crate::trace_span;
+use glam::DVec3;
 use serde::{Deserialize, Serialize};
+use smallvec::SmallVec;
 
 use crate::common::types::{BoundingBox, FileId, LengthUnit, Metadata, StepHeader};
 
@@ -215,28 +219,237 @@ pub fn compute_bounding_box(step_tables: &[truck_stepio::r#in::Table]) -> Option
 
 /// Normalises STEP entity records in-place before loading into `truck_stepio::Table`.
 ///
-/// **Deprecated hot-path**: in the hot path this is done inside [`ExchangeIndex::build`].
-/// This wrapper is retained for tests that only have a parsed `&mut Exchange`.
-///
-/// Renames `INTERSECTION_CURVE` and `BOUNDARY_CURVE` → `SURFACE_CURVE` so that
-/// `truck_stepio` can parse them into `table.surface_curve`.
+/// This pass performs two essential AST sanitizations:
+/// 1. Renames `INTERSECTION_CURVE` and `BOUNDARY_CURVE` → `SURFACE_CURVE` so that
+///    `truck_stepio` can parse them into `table.surface_curve`.
+/// 2. Sanitizes `AXIS2_PLACEMENT_3D` records whose `ref_direction` is omitted (`$`) and
+///    whose `axis` is collinear with the global X-axis, preventing a catastrophic $\frac{0}{0} = \text{NaN}$
+///    crash in `truck-stepio`'s Gram-Schmidt orthonormalization.
+// TODO : better way to do this, it defies the index building or it feels like it.
 pub fn normalize_exchange(exchange: &mut Exchange) {
     trace_span!("normalize_exchange");
     for section in &mut exchange.data {
-        for entity in &mut section.entities {
-            let EntityInstance::Simple { record, .. } = entity else {
-                continue;
-            };
+        normalize_curve_subtypes(section);
+        sanitize_axis2_placement_3d(section);
+    }
+}
 
-            let name = record.name.as_str();
-            if (name.eq_ignore_ascii_case("INTERSECTION_CURVE")
-                || name.eq_ignore_ascii_case("BOUNDARY_CURVE"))
-                && name != "SURFACE_CURVE"
-            {
-                record.name.clear();
-                record.name.push_str("SURFACE_CURVE");
+/// Normalises `INTERSECTION_CURVE` and `BOUNDARY_CURVE` entity names in-place to `SURFACE_CURVE`.
+// TODO : avoid eq_ignore_ascii_case("INTERSECTION_CURVE") use Kind
+// TODO : better way to do this ? unsafe /faster ?
+fn normalize_curve_subtypes(section: &mut DataSection) {
+    for entity in &mut section.entities {
+        let EntityInstance::Simple { record, .. } = entity else {
+            continue;
+        };
+
+        let name = record.name.as_str();
+        if (name.eq_ignore_ascii_case("INTERSECTION_CURVE")
+            || name.eq_ignore_ascii_case("BOUNDARY_CURVE"))
+            && name != "SURFACE_CURVE"
+        {
+            record.name.clear();
+            record.name.push_str("SURFACE_CURVE");
+        }
+    }
+}
+
+/// Extracts the 3D direction vector `[dx, dy, dz]` from a `DIRECTION` entity record as `DVec3`.
+fn extract_direction_coords(record: &Record) -> Option<DVec3> {
+    record
+        .parameter
+        .try_extract::<&[Parameter]>()?
+        .get(1)?
+        .try_extract::<DVec3>()
+}
+
+/// Tests whether a direction vector is approximately the positive Z unit vector `(0, 0, 1)`.
+fn is_unit_z_direction(v: DVec3) -> bool {
+    let norm = v.normalize_or_zero();
+    (norm - DVec3::Z).length_squared() < 1e-8
+}
+
+/// Tests whether a direction vector is collinear or antiparallel with the global X-axis `(1, 0, 0)`.
+///
+/// Uses the normalized squared cross product with `(1, 0, 0)`:
+/// $$\sin^2(\theta) = \frac{||\vec{v} \times \hat{x}||^2}{||\vec{v}||^2}$$
+fn is_collinear_with_x(v: DVec3) -> bool {
+    let len_sq = v.length_squared();
+    if len_sq < 1e-12 {
+        return false;
+    }
+    v.cross(DVec3::X).length_squared() / len_sq < 1e-4
+}
+
+/// Sanitizes `AXIS2_PLACEMENT_3D` entities in-place within a STEP data section.
+///
+/// # Problem & Specification Rationale (ISO 10303-42 vs. `truck-stepio`)
+///
+/// In ISO 10303-42 (Geometric and topological representation), `AXIS2_PLACEMENT_3D` defines
+/// a 3D coordinate system:
+/// ```text
+/// ENTITY axis2_placement_3d SUBTYPE OF (placement);
+///   axis : OPTIONAL direction;
+///   ref_direction : OPTIONAL direction;
+/// WHERE
+///   WR1: (NOT EXISTS(axis)) OR (NOT EXISTS(ref_direction)) OR
+///        (cross_product(axis, ref_direction).magnitude > 0.0);
+/// END_ENTITY;
+/// ```
+///
+/// Per ISO 10303-42 Section 4.4.28:
+/// > *"If the attribute ref_direction is omitted, the direction of the x axis is
+/// > arbitrary, but shall be orthogonal to axis."*
+///
+/// Standard-compliant CAD systems (notably CATIA V5) routinely omit `ref_direction`
+/// on circular and cylindrical features (e.g. circles, cylinders, holes, fillets) whenever the
+/// orientation around the rotation axis is geometrically arbitrary.
+///
+/// However, `truck-stepio` (v0.3.0) implements `From<&Axis2Placement3d> for Matrix4` using
+/// a hardcoded fallback to global unit X:
+/// ```text
+/// let z = match &axis.axis {
+///     Some(axis) => Vector3::from(axis),
+///     None => Vector3::unit_z(),
+/// };
+/// let x = match &axis.ref_direction {
+///     Some(axis) => Vector3::from(axis),
+///     None => Vector3::unit_x(), // <--- Collinear singularity when z || unit_x!
+/// };
+/// let x = (x - x.dot(z) * z).normalize();
+/// let y = z.cross(x);
+/// ```
+///
+/// When `axis` ($\vec{z}$) is collinear with the global X-axis (e.g. `(1.0, 0.0, 0.0)` or
+/// `(-1.0, 0.0, 0.0)`) and `ref_direction` is omitted:
+/// 1. $x - (x \cdot z) z = (1, 0, 0) - (\pm 1)(\pm 1, 0, 0) = (0, 0, 0)$.
+/// 2. `(0, 0, 0).normalize()` attempts to divide by zero: `0.0 / 0.0 = NaN`.
+/// 3. `y = z.cross(x)` becomes `NaN`.
+/// 4. The resulting `Matrix4` coordinate frame is corrupted with `NaN` elements.
+/// 5. Downstream in `truck-meshalgo` during `cshell.triangulation(tolerance)`, each edge
+///    curve (e.g. `CIRCLE`, `ELLIPSE`) or surface (e.g. `TOROIDAL_SURFACE`) is tessellated
+///    via `Processor::parameter_division`.
+/// 6. `Processor` computes its spatial scaling factor $n$ via an Iwasawa decomposition on the
+///    `Matrix4`. Because the matrix elements are `NaN`, $n$ evaluates to `NaN`.
+/// 7. The effective tolerance passed to `UnitCircle::parameter_division` is
+///    `tolerance / n = tolerance / NaN = NaN`.
+/// 8. In `truck-geometry-0.5.0/src/specifieds/circle.rs:51`, `nonpositive_tolerance!(tol)`
+///    executes `assert!(tol >= 1.0e-6)`.
+/// 9. In IEEE-754 floating-point arithmetic, any comparison with `NaN` evaluates to `false`
+///    (`NaN >= 1.0e-6` is `false`).
+/// 10. The assertion panics with: `"tolerance must be no less than 1e-6"`, terminating the
+///     entire WebAssembly thread / async task and crashing the visualizer.
+///
+/// # Mathematical Resolution
+///
+/// To eliminate the $\frac{0}{0} = \text{NaN}$ singularity, this function ensures that any
+/// `AXIS2_PLACEMENT_3D` whose `ref_direction` is omitted and whose `axis` is collinear with
+/// $(1, 0, 0)$ is explicitly assigned an orthogonal reference direction $\hat{u}_z = (0.0, 0.0, 1.0)$:
+/// - If a `DIRECTION` pointing along $(0.0, 0.0, 1.0)$ already exists in the section, its entity
+///   ID is reused.
+/// - Otherwise, a synthetic `DIRECTION('synthetic_ref_z', (0.0, 0.0, 1.0))` entity is appended to
+///   the data section.
+/// - The `AXIS2_PLACEMENT_3D` record's parameter list is updated to reference this `DIRECTION`.
+///
+/// This satisfies ISO 10303-42 requirement WR1, ensures `(x - x.dot(z) * z).normalize()` safely
+/// produces $(0.0, 0.0, 1.0)$, guarantees an orthonormal coordinate frame without `NaN`s, and
+/// allows `truck-meshalgo` to tessellate all shells and features successfully.
+// TODO : avoid eq_ignore_ascii_case("DIRECTION") / "synthetic_ref_z" use Kind
+// TODO : better way to do this ? unsafe /faster ?
+pub fn sanitize_axis2_placement_3d(section: &mut DataSection) {
+    let mut max_id: u64 = 0;
+    let mut direction_map: FastU64Map<DVec3> = FastU64Map::default();
+    let mut existing_unit_z: Option<u64> = None;
+
+    // Pass 1: Index existing DIRECTION entities and find the maximum entity ID.
+    for entity in &section.entities {
+        match entity {
+            EntityInstance::Simple { id, record } => {
+                max_id = max_id.max(*id);
+                if record.name.eq_ignore_ascii_case("DIRECTION")
+                    && let Some(coords) = extract_direction_coords(record)
+                {
+                    if existing_unit_z.is_none() && is_unit_z_direction(coords) {
+                        existing_unit_z = Some(*id);
+                    }
+                    direction_map.insert(*id, coords);
+                }
+            }
+            EntityInstance::Complex { id, .. } => {
+                max_id = max_id.max(*id);
             }
         }
+    }
+
+    let mut synthetic_directions: SmallVec<[EntityInstance; 1]> = SmallVec::new();
+
+    // Pass 2: Sanitize AXIS2_PLACEMENT_3D entities whose axis is collinear with X.
+    for entity in &mut section.entities {
+        let EntityInstance::Simple { record, .. } = entity else {
+            continue;
+        };
+        if !record.name.eq_ignore_ascii_case("AXIS2_PLACEMENT_3D") {
+            continue;
+        }
+        let Parameter::List(ref mut params) = record.parameter else {
+            continue;
+        };
+
+        // AXIS2_PLACEMENT_3D signature: (name, location, [axis], [ref_direction])
+        // ref_direction is omitted if params.len() == 3 or params[3] is NotProvided.
+        let ref_dir_omitted =
+            params.len() == 3 || (params.len() >= 4 && matches!(params[3], Parameter::NotProvided));
+        if !ref_dir_omitted {
+            continue;
+        }
+
+        let Some(axis_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) else {
+            continue;
+        };
+
+        let Some(&axis_dir) = direction_map.get(&axis_id) else {
+            continue;
+        };
+
+        if !is_collinear_with_x(axis_dir) {
+            continue;
+        }
+
+        // axis_dir is collinear with X: supply an orthogonal unit Z reference direction.
+        let target_ref_id = match existing_unit_z {
+            Some(id) => id,
+            None => {
+                let synthetic_id = max_id + 1;
+                max_id += 1;
+                existing_unit_z = Some(synthetic_id);
+                synthetic_directions.push(EntityInstance::Simple {
+                    id: synthetic_id,
+                    record: Record {
+                        name: "DIRECTION".to_string(),
+                        parameter: Parameter::List(vec![
+                            Parameter::String("synthetic_ref_z".to_string()),
+                            Parameter::List(vec![
+                                Parameter::Real(0.0),
+                                Parameter::Real(0.0),
+                                Parameter::Real(1.0),
+                            ]),
+                        ]),
+                    },
+                });
+                synthetic_id
+            }
+        };
+
+        let ref_param = Parameter::Ref(Name::Entity(target_ref_id));
+        if params.len() >= 4 {
+            params[3] = ref_param;
+        } else {
+            params.push(ref_param);
+        }
+    }
+
+    if !synthetic_directions.is_empty() {
+        section.entities.extend(synthetic_directions);
     }
 }
 

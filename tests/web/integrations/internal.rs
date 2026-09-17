@@ -184,3 +184,29 @@ fn workspace_parse_unsupported_and_invalid_fails_early() {
         res => panic!("Expected UnsupportedSchema error, got {:?}", res),
     }
 }
+
+#[wasm_bindgen_test]
+fn step_pipeline_as1_ac_214_small() {
+    const STEP_TEXT: &str = include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/samples/as1-ac-214_small.stp"
+    ));
+
+    let (meta, _id, step_tables, color_map, name_map) =
+        parse_step_file_content("as1-ac-214_small.stp", STEP_TEXT)
+            .expect("successful parse of as1-ac-214_small.stp");
+
+    assert_eq!(meta.header.file_schema, "CONFIG_CONTROL_DESIGN");
+    assert_eq!(step_tables.len(), 1);
+
+    let tolerance = compute_adaptive_tolerance(meta.bounding_box.as_ref());
+    let output = extract_render_parts(&step_tables, Some(&color_map), Some(&name_map), tolerance);
+
+    assert_eq!(output.skipped_shells, 0, "No shells should be skipped: {:?}", output.warnings);
+    assert_eq!(output.parts.len(), 3, "Expected all 3 shells to tessellate into renderable parts");
+    for part in &output.parts {
+        assert!(!part.vertices.is_empty());
+        assert!(!part.indices.is_empty());
+    }
+}
+

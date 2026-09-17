@@ -5,7 +5,7 @@ use stepvisualizer::common::parser::{
 use stepvisualizer::common::types::LengthUnit;
 use stepvisualizer::error::StepError;
 use stepvisualizer::ruststep;
-use stepvisualizer::ruststep::ast::{EntityInstance, Record};
+use stepvisualizer::ruststep::ast::{EntityInstance, Name, Parameter, Record};
 use wasm_bindgen_test::*;
 
 fn step_with_schema(schema: &str) -> String {
@@ -213,3 +213,79 @@ fn test_normalize_exchange_surface_curve_subtypes() {
         panic!("Expected simple entity #3");
     }
 }
+
+#[wasm_bindgen_test]
+fn test_sanitize_axis2_placement_3d_collinear_x() {
+    let step_text = "ISO-10303-21;\n\
+                     HEADER;\n\
+                     FILE_DESCRIPTION(('Test'), '2;1');\n\
+                     FILE_NAME('test.stp', '2026-09-01', ('Author'), ('Org'), 'Prep', 'Sys', 'Auth');\n\
+                     FILE_SCHEMA(('CONFIG_CONTROL_DESIGN'));\n\
+                     ENDSEC;\n\
+                     DATA;\n\
+                     #10 = CARTESIAN_POINT('Loc', (0.0, 0.0, 0.0));\n\
+                     #20 = DIRECTION('DirAlongX', (-1.0, 0.0, 0.0));\n\
+                     #30 = AXIS2_PLACEMENT_3D('PlacementAlongX', #10, #20, $);\n\
+                     #40 = DIRECTION('DirAlongY', (0.0, 1.0, 0.0));\n\
+                     #50 = AXIS2_PLACEMENT_3D('PlacementAlongY', #10, #40, $);\n\
+                     ENDSEC;\n\
+                     END-ISO-10303-21;";
+
+    let mut parsed = ruststep::parser::parse(step_text).expect("parse");
+    normalize_exchange(&mut parsed);
+
+    let entities = &parsed.data[0].entities;
+
+    // Entity #30 (PlacementAlongX) had axis collinear with (-1, 0, 0) and omitted ref_direction.
+    // It should now have an explicit ref_direction pointing to a unit Z direction.
+    let placement_x = entities
+        .iter()
+        .find(|e| match e {
+            EntityInstance::Simple { id, .. } => *id == 30,
+            _ => false,
+        })
+        .expect("entity #30 found");
+
+    if let EntityInstance::Simple { record, .. } = placement_x {
+        if let Parameter::List(ref params) = record.parameter {
+            assert!(params.len() >= 4);
+            match &params[3] {
+                Parameter::Ref(Name::Entity(ref_id)) => {
+                    let ref_dir_entity = entities
+                        .iter()
+                        .find(|e| match e {
+                            EntityInstance::Simple { id, .. } => id == ref_id,
+                            _ => false,
+                        })
+                        .expect("ref_dir entity found in section");
+                    if let EntityInstance::Simple {
+                        record: ref_record, ..
+                    } = ref_dir_entity
+                    {
+                        assert_eq!(ref_record.name, "DIRECTION");
+                    }
+                }
+                other => {
+                    panic!("Expected Parameter::Ref for sanitized ref_direction, got {other:?}")
+                }
+            }
+        }
+    }
+
+    // Entity #50 (PlacementAlongY) had axis along Y, not collinear with X.
+    // Its ref_direction was $ and should remain omitted ($).
+    let placement_y = entities
+        .iter()
+        .find(|e| match e {
+            EntityInstance::Simple { id, .. } => *id == 50,
+            _ => false,
+        })
+        .expect("entity #50 found");
+
+    if let EntityInstance::Simple { record, .. } = placement_y {
+        if let Parameter::List(ref params) = record.parameter {
+            assert!(params.len() == 3 || matches!(params[3], Parameter::NotProvided));
+        }
+    }
+}
+

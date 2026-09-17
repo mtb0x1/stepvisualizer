@@ -48,6 +48,21 @@ impl<'a> TryExtractParam<'a> for f64 {
     }
 }
 
+impl<'a> TryExtractParam<'a> for glam::DVec3 {
+    #[inline]
+    fn try_extract(param: &'a Parameter) -> Option<glam::DVec3> {
+        let list = param.try_extract::<&[Parameter]>()?;
+        if list.len() < 3 {
+            return None;
+        }
+        Some(glam::DVec3::new(
+            list[0].try_extract::<f64>()?,
+            list[1].try_extract::<f64>()?,
+            list[2].try_extract::<f64>()?,
+        ))
+    }
+}
+
 /// Extension trait for `Parameter` to allow ergonomic extraction.
 pub trait ParameterExt {
     fn try_extract<'a, T: TryExtractParam<'a>>(&'a self) -> Option<T>;

@@ -43,7 +43,8 @@ pub use step::exchange_index::ExchangeIndex;
 #[allow(unused_imports)]
 pub use step::parser::{
     StepSchema, all_usable_sections, build_initial_metadata, compute_bounding_box, convert_header,
-    extract_header_and_count, parse_units, probe_validate_step_buffer, validate_schema,
+    extract_header_and_count, normalize_exchange, parse_units, probe_validate_step_buffer,
+    sanitize_axis2_placement_3d, validate_schema,
 };
 pub use step::step_names::StepNameMap;
 #[allow(unused_imports)]

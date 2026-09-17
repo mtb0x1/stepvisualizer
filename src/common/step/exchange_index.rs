@@ -18,6 +18,7 @@ use crate::common::ast_helpers::{
 };
 use crate::common::color::Color;
 use crate::common::fast_hash::FastU64Map;
+use crate::common::step::parser::normalize_exchange;
 use crate::common::types::LengthUnit;
 use crate::ruststep::ast::Parameter;
 use crate::ruststep::ast::{EntityInstance, Exchange, Record};
@@ -163,6 +164,7 @@ impl ExchangeIndex {
     /// - Normalising `INTERSECTION_CURVE` / `BOUNDARY_CURVE` → `SURFACE_CURVE` in-place.
     /// - Collecting color, name, and unit data.
     pub fn build(exchange: &mut Exchange) -> Self {
+        normalize_exchange(exchange);
         let mut idx = ExchangeIndex::default();
 
         for section in &mut exchange.data {
@@ -170,19 +172,6 @@ impl ExchangeIndex {
                 match entity {
                     EntityInstance::Simple { id, record } => {
                         let entity_id = *id;
-
-                        // --- Normalisation (was normalize_exchange) ---
-                        {
-                            let name = record.name.as_str();
-                            if (name.eq_ignore_ascii_case("INTERSECTION_CURVE")
-                                || name.eq_ignore_ascii_case("BOUNDARY_CURVE"))
-                                && name != "SURFACE_CURVE"
-                            {
-                                record.name.clear();
-                                record.name.push_str("SURFACE_CURVE");
-                            }
-                        }
-
                         let name = record.name.as_str();
 
                         // O(1) minimal perfect hash lookup (fallback to uppercase if non-conformant case)
