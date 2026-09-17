@@ -169,16 +169,6 @@ wasm-pack test --headless --firefox --release
 - truck-* crates for geometry processing
 - and some more ... 
 
-## TODO
-
-- Unit tests for the pure logic (math, caches, parsing, mesh metrics).
-- Add support for STEP file features that are not currently supported.
-- Clean up:
-   - a lot of `clone` calls, most probably adding to perf issues.
-   - some callbacks are not needed and/or triggered too often.
-   - Alternative to Yew: less convoluted and more performant ?
-   
-
 ## Benchmarking & Performance Regression Testing
 
 An end-to-end hot-path benchmark suite is available in [`misc/benchmarks`](misc/benchmarks). It measures execution time and memory footprint (WASM linear memory and WebGPU buffer allocations) across the complete loading, parsing, tessellation, and rendering pipeline using `samples/l44mji.step` as baseline.
