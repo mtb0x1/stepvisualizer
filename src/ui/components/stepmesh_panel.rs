@@ -2,7 +2,6 @@
 //! deselect action.
 use super::meshes_panel::{MeshData, MeshesPanel};
 use crate::common::types::StepModel;
-use crate::trace_span;
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -18,8 +17,6 @@ pub struct StepMeshPanelProps {
 
 #[function_component(StepMeshPanel)]
 pub fn step_mesh_panel(props: &StepMeshPanelProps) -> Html {
-    trace_span!("step_mesh_panel");
-
     let meshes = use_memo(
         (props.model.clone(), props.part_visibility.clone()),
         |(model, part_visibility)| {

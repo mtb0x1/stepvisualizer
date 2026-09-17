@@ -1,7 +1,6 @@
 //! Right sidebar: the metadata details panel.
 use super::components::details_panel::DetailsPanel;
 use crate::common::Metadata;
-use crate::trace_span;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -13,7 +12,6 @@ pub struct RightPanelProps {
 
 #[function_component(RightPanel)]
 pub fn right_panel(props: &RightPanelProps) -> Html {
-    trace_span!("right_panel");
     html! {
         <div class="right-panel">
             <DetailsPanel

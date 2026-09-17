@@ -1,10 +1,7 @@
 //! Left sidebar: file history when nothing is selected, part list otherwise.
 use super::components::{file_history_panel::FileHistoryPanel, stepmesh_panel::StepMeshPanel};
 use crate::common::types::StepModel;
-use crate::{
-    common::{FileId, FileIndexItem},
-    trace_span,
-};
+use crate::common::{FileId, FileIndexItem};
 use std::rc::Rc;
 use yew::prelude::*;
 
@@ -25,7 +22,6 @@ pub struct LeftPanelProps {
 
 #[function_component(LeftPanel)]
 pub fn left_panel(props: &LeftPanelProps) -> Html {
-    trace_span!("left_panel");
     html! {
         <div class="left-panel">
             if props.selected_file.is_none() {

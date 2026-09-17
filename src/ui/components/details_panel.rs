@@ -3,7 +3,6 @@ use crate::common::utils::{
     format_bbox_coordinates, format_list_or_na, format_metric_with_unit, format_or_na,
 };
 use crate::common::{BoundingBox, Metadata};
-use crate::trace_span;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -73,7 +72,6 @@ fn format_surface(surface: Option<f64>, unit: Option<&str>, on_calc: Callback<()
 
 #[function_component(DetailsPanel)]
 pub fn details_panel(props: &DetailsPanelProps) -> Html {
-    trace_span!("details_panel");
     let unit_suffix = props
         .metadata
         .as_ref()

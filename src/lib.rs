@@ -42,7 +42,6 @@ use workspace::{ConfirmAction, use_step_workspace};
 /// `on_gpu_unavailable` callback.
 #[function_component(App)]
 fn app() -> Html {
-    trace_span!("StepVisualizer");
     // Single hook, called unconditionally before the early return, so hook
     // order is stable across renders.
     let gpu_unavailable =

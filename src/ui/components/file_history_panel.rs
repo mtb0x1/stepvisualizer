@@ -1,6 +1,5 @@
 //! Recent-files list with per-item load and delete, plus clear-history.
 use crate::common::{FileId, FileIndexItem};
-use crate::trace_span;
 use yew::prelude::*;
 
 #[derive(Properties, PartialEq)]
@@ -13,7 +12,6 @@ pub struct FileHistoryPanelProps {
 
 #[function_component(FileHistoryPanel)]
 pub fn file_history_panel(props: &FileHistoryPanelProps) -> Html {
-    trace_span!("file_history_panel");
     let on_item_click = props.on_item_click.clone();
     let on_delete = props.on_delete.clone();
 

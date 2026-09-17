@@ -17,7 +17,6 @@ use crate::{
         renderer::render_wgpu_on_canvas,
         wgpu_state::{WgpuState, init_wgpu},
     },
-    trace_span,
 };
 use smol_str::{SmolStr, format_smolstr};
 use wasm_bindgen::JsCast;
@@ -92,7 +91,6 @@ fn compute_camera_matrices(
 
 #[function_component(AppStepVisualizer)]
 pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
-    trace_span!("StepVisualizer_viewer");
     let canvas_ref = use_node_ref();
     let wgpu_state = use_state(|| None::<Rc<WgpuState>>);
     let camera_state = use_state(CameraState::default);

@@ -1,6 +1,5 @@
 //! STEP file picker with its processing hint and tessellation-quality preset.
 use crate::common::constants::QualityPreset;
-use crate::trace_span;
 use web_sys::Event;
 use yew::prelude::*;
 
@@ -20,8 +19,6 @@ const PRESETS: [QualityPreset; 3] = [
 
 #[function_component(UploadBar)]
 pub fn upload_bar(props: &UploadBarProps) -> Html {
-    trace_span!("upload_bar");
-
     let preset_buttons = PRESETS
         .iter()
         .map(|&preset| {

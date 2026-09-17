@@ -1,6 +1,5 @@
 //! Part list of the loaded model with per-part visibility toggles.
 use crate::common::Color;
-use crate::trace_span;
 use smol_str::{SmolStr, format_smolstr};
 use web_sys::HtmlInputElement;
 use yew::prelude::*;
@@ -84,8 +83,6 @@ pub struct MeshData {
 
 #[function_component(MeshesPanel)]
 pub fn meshes_panel(props: &MeshesPanelProps) -> Html {
-    trace_span!("meshes_panel");
-
     let meshes_list = props
         .meshes
         .iter()

@@ -10,7 +10,6 @@ mod state;
 use crate::common::constants::{CACHE_MAX_MEMORY_BYTES, QualityPreset};
 use crate::common::{FileId, FileIndexItem, Metadata, StepModel};
 use crate::storage::{LruCache, load_index_async};
-use crate::trace_span;
 use actions::use_model_actions;
 use history::use_workspace_management;
 use processor::use_file_processor;
@@ -73,12 +72,12 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
 
     {
         let files_index = files_index.clone();
-        use_effect(move || {
+        use_effect_with((), move |_| {
             wasm_bindgen_futures::spawn_local(async move {
                 let index = load_index_async().await;
                 files_index.set(index);
             });
-            || () // no cleanup needed
+            || ()
         });
     }
 
@@ -90,7 +89,6 @@ fn use_workspace_storage() -> (UseStateHandle<Vec<FileIndexItem>>, Rc<RefCell<Lr
 /// Call once, in the root component.
 #[hook]
 pub fn use_step_workspace() -> StepWorkspace {
-    trace_span!("use_step_workspace");
     let states = StateHandles {
         result: use_state(|| None::<SmolStr>),
         result_is_error: use_state(|| false),
@@ -109,18 +107,18 @@ pub fn use_step_workspace() -> StepWorkspace {
         let states_clone = states.clone();
         use_effect_with((), move |_| {
             let window = web_sys::window().unwrap();
-            let closure = wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::CustomEvent| {
-                // Read the panic message carried in the CustomEvent detail.
-                // Falls back to a generic message if the detail is missing.
-                let msg = event
-                    .detail()
-                    .as_string()
-                    .unwrap_or_else(|| "A critical error occurred. Please upload a new file.".to_string());
-                // fail_load transitions result: old → Some(msg), giving Yew a real
-                // state diff so it patches the DOM and overwrites the class-only
-                // update the panic hook made directly on the span.
-                states_clone.fail_load(msg);
-            }) as Box<dyn FnMut(_)>);
+            let closure =
+                wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::CustomEvent| {
+                    // Read the panic message carried in the CustomEvent detail.
+                    // Falls back to a generic message if the detail is missing.
+                    let msg = event.detail().as_string().unwrap_or_else(|| {
+                        "A critical error occurred. Please upload a new file.".to_string()
+                    });
+                    // fail_load transitions result: old → Some(msg), giving Yew a real
+                    // state diff so it patches the DOM and overwrites the class-only
+                    // update the panic hook made directly on the span.
+                    states_clone.fail_load(msg);
+                }) as Box<dyn FnMut(_)>);
 
             let _ = window
                 .add_event_listener_with_callback("app-panic", closure.as_ref().unchecked_ref());
