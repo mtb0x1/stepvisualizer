@@ -5,6 +5,7 @@ authors = ["mtb0x1"]
 description = "A WebAssembly-based 3D STEP file visualizer built with Rust and WebGPU."
 keywords = ["stepfile", "stepvisualizer", "webgpu", "wasm", "step-rs", "csr"]
 edition = "2024"
+license-file = "LICENSE"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
