@@ -318,7 +318,7 @@ impl ExchangeIndex {
                                         idx.pdf_to_prod.insert(entity_id, prod_id);
                                     }
                                 } else if idx.length_unit.is_none()
-                                    && let Some(unit) = unit_from_record(record)
+                                    && let Some(unit) = Self::unit_from_record(record)
                                     && idx.unit_fallback.is_none()
                                 {
                                     idx.unit_fallback = Some(unit);
@@ -351,9 +351,9 @@ impl ExchangeIndex {
                                 .iter()
                                 .any(|r| r.name.eq_ignore_ascii_case("LENGTH_UNIT"));
                             if is_length {
-                                idx.length_unit = unit_from_subsuper(&subsuper.0);
+                                idx.length_unit = Self::unit_from_subsuper(&subsuper.0);
                             } else if idx.unit_fallback.is_none() {
-                                idx.unit_fallback = unit_from_subsuper(&subsuper.0);
+                                idx.unit_fallback = Self::unit_from_subsuper(&subsuper.0);
                             }
                         }
                     }
@@ -365,23 +365,36 @@ impl ExchangeIndex {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Extraction Helpers
-// ---------------------------------------------------------------------------
-
-#[inline]
-fn first_valid_name<'a, const N: usize>(candidates: [Option<&'a str>; N]) -> Option<SmolStr> {
-    for c in candidates {
-        if let Some(s) = c {
+impl ExchangeIndex {
+    #[inline]
+    fn first_valid_name<const N: usize>(candidates: [Option<&str>; N]) -> Option<SmolStr> {
+        for s in candidates.into_iter().flatten() {
             if crate::common::step_names::is_valid_part_name(s) {
                 return Some(crate::common::step_names::clean_part_name(s));
             }
         }
+        None
     }
-    None
-}
 
-impl ExchangeIndex {
+    fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
+        records.iter().find_map(Self::unit_from_record)
+    }
+
+    fn unit_from_record(record: &Record) -> Option<LengthUnit> {
+        if record.name.eq_ignore_ascii_case("SI_UNIT") {
+            let params = record.parameter.try_extract::<&[Parameter]>()?;
+            let unit = params.get(1).and_then(|p| p.try_extract::<&str>())?;
+            let prefix = params.first().and_then(|p| p.try_extract::<&str>());
+            return LengthUnit::from_si_spec(unit, prefix);
+        }
+        if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
+            let params = record.parameter.try_extract::<&[Parameter]>()?;
+            let name = params.first().and_then(|p| p.try_extract::<&str>())?;
+            return LengthUnit::from_name(name);
+        }
+        None
+    }
+
     #[inline]
     fn collect_styled_item(&mut self, params: &[Parameter]) {
         if let (Some(styles_param), Some(target_id)) = (
@@ -405,7 +418,9 @@ impl ExchangeIndex {
         }
 
         // Name: shell direct name
-        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+        if let Some(val) =
+            Self::first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())])
+        {
             self.shell_direct_names.insert(entity_id, val);
         }
     }
@@ -413,7 +428,9 @@ impl ExchangeIndex {
     #[inline]
     fn collect_solid_data(&mut self, entity_id: u64, params: &[Parameter]) {
         // Name: solid name (param 0)
-        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+        if let Some(val) =
+            Self::first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())])
+        {
             self.solid_names.insert(entity_id, val);
         }
 
@@ -430,7 +447,9 @@ impl ExchangeIndex {
     #[inline]
     fn collect_surface_model_data(&mut self, entity_id: u64, params: &[Parameter]) {
         // Name: surface model name (param 0)
-        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+        if let Some(val) =
+            Self::first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())])
+        {
             self.solid_names.insert(entity_id, val);
         }
 
@@ -448,13 +467,18 @@ impl ExchangeIndex {
 
     #[inline]
     fn collect_shape_rep_data(&mut self, entity_id: u64, params: &[Parameter]) {
-        if let Some(val) = first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())]) {
+        if let Some(val) =
+            Self::first_valid_name([params.first().and_then(|p| p.try_extract::<&str>())])
+        {
             self.rep_names.insert(entity_id, val);
         }
         if let Some(items_param) = params.get(1) {
             let refs = extract_smallvec_refs(items_param);
             for &item_id in &refs {
-                self.item_to_reps.entry(item_id).or_default().push(entity_id);
+                self.item_to_reps
+                    .entry(item_id)
+                    .or_default()
+                    .push(entity_id);
             }
             self.rep_items.insert(entity_id, refs);
         }
@@ -465,10 +489,9 @@ impl ExchangeIndex {
         if let (Some(raw_val), Some(target_id)) = (
             params.first().and_then(|p| p.try_extract::<&str>()),
             params.get(1).and_then(|p| p.try_extract::<u64>()),
-        ) {
-            if let Some(val) = first_valid_name([Some(raw_val)]) {
-                self.rep_names.insert(target_id, val);
-            }
+        ) && let Some(val) = Self::first_valid_name([Some(raw_val)])
+        {
+            self.rep_names.insert(target_id, val);
         }
     }
 
@@ -486,8 +509,8 @@ impl ExchangeIndex {
     fn collect_pds_data(&mut self, entity_id: u64, params: &[Parameter]) {
         let raw_name = params.first().and_then(|p| p.try_extract::<&str>());
         let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
-        
-        if let Some(val) = first_valid_name([raw_desc, raw_name]) {
+
+        if let Some(val) = Self::first_valid_name([raw_desc, raw_name]) {
             self.pds_names.insert(entity_id, val);
         }
         if let Some(pd_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
@@ -500,7 +523,7 @@ impl ExchangeIndex {
         let raw_id = params.first().and_then(|p| p.try_extract::<&str>());
         let raw_desc = params.get(1).and_then(|p| p.try_extract::<&str>());
 
-        if let Some(val) = first_valid_name([raw_id, raw_desc]) {
+        if let Some(val) = Self::first_valid_name([raw_id, raw_desc]) {
             self.pd_names.insert(entity_id, val);
         }
         if let Some(pdf_id) = params.get(2).and_then(|p| p.try_extract::<u64>()) {
@@ -514,7 +537,7 @@ impl ExchangeIndex {
         let raw_name = params.get(1).and_then(|p| p.try_extract::<&str>());
         let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
 
-        if let Some(val) = first_valid_name([raw_name, raw_id, raw_desc]) {
+        if let Some(val) = Self::first_valid_name([raw_name, raw_id, raw_desc]) {
             self.prod_names.insert(entity_id, val);
         }
     }
@@ -526,33 +549,10 @@ impl ExchangeIndex {
         let raw_desc = params.get(2).and_then(|p| p.try_extract::<&str>());
 
         if let (Some(val), Some(related_pd)) = (
-            first_valid_name([raw_desc, raw_id, raw_name]),
+            Self::first_valid_name([raw_desc, raw_id, raw_name]),
             params.get(4).and_then(|p| p.try_extract::<u64>()),
         ) {
             self.nauo_names.insert(related_pd, val);
         }
     }
-}
-
-// ---------------------------------------------------------------------------
-// Extraction Helpers
-// ---------------------------------------------------------------------------
-
-fn unit_from_subsuper(records: &[Record]) -> Option<LengthUnit> {
-    records.iter().find_map(unit_from_record)
-}
-
-fn unit_from_record(record: &Record) -> Option<LengthUnit> {
-    if record.name.eq_ignore_ascii_case("SI_UNIT") {
-        let params = record.parameter.try_extract::<&[Parameter]>()?;
-        let unit = params.get(1).and_then(|p| p.try_extract::<&str>())?;
-        let prefix = params.first().and_then(|p| p.try_extract::<&str>());
-        return LengthUnit::from_si_spec(unit, prefix);
-    }
-    if record.name.eq_ignore_ascii_case("CONVERSION_BASED_UNIT") {
-        let params = record.parameter.try_extract::<&[Parameter]>()?;
-        let name = params.first().and_then(|p| p.try_extract::<&str>())?;
-        return LengthUnit::from_name(name);
-    }
-    None
 }
