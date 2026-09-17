@@ -156,7 +156,7 @@ fn main_app(props: &MainAppProps) -> Html {
                             { option_env!("GIT_HASH").unwrap_or("?") }
                         </span>
                     </div>
-                    <span class={if *workspace.result_is_error { "result-error" } else { "result-success" }}>
+                    <span id="app-result-message" class={if *workspace.result_is_error { "result-error" } else { "result-success" }}>
                         { workspace.result.as_ref().map(|msg| msg.as_str()).unwrap_or("") }
                     </span>
                 </div>
@@ -181,4 +181,36 @@ pub fn run_app() {
     logger::init();
     trace_span!("run_app");
     yew::Renderer::<App>::new().render();
+
+    // we set a hook on panic (requires unwinding)
+    // IMPORTANT: Yew installs `console_error_panic_hook` during initialization (or via its dependencies),
+    // which overwrites our custom hook if we set it beforehand. Thus we set our custom hook AFTER Yew starts.
+    std::panic::set_hook(Box::new(|info| {
+        let msg = match info.payload().downcast_ref::<&'static str>() {
+            Some(s) => *s,
+            None => match info.payload().downcast_ref::<String>() {
+                Some(s) => &s[..],
+                None => "Box<dyn Any>",
+            },
+        };
+        let location = info
+            .location()
+            .map(|loc| format!("{}:{}", loc.file(), loc.line()))
+            .unwrap_or_else(|| "unknown".to_string());
+        let full_msg = format!("Panic at {}: {}", location, msg);
+
+        // dump the error to the console
+        web_sys::console::error_1(&full_msg.clone().into());
+
+        // this is a bit unclean, we tapping into
+        // dom with hardoced id/classes, this might break
+        // but we at least have the console as fallback(see above)
+        if let Some(window) = web_sys::window()
+            && let Some(document) = window.document()
+            && let Some(el) = document.get_element_by_id("app-result-message")
+        {
+            el.set_class_name("result-error");
+            el.set_inner_html(&full_msg);
+        }
+    }));
 }

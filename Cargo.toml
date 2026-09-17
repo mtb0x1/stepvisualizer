@@ -109,5 +109,5 @@ phf = { version = "0.13", default-features = false, features = ["macros"] }
 opt-level = 3
 lto = "fat"
 codegen-units = 1
-panic = "abort"
+panic = "unwind"
 strip = true
