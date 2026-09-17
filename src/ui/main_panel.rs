@@ -4,7 +4,7 @@ use super::components::fps_graph::FpsGraph;
 use crate::common::logger;
 use crate::rendering::camera::PresetType;
 use crate::{
-    common::fps_meter::FpsMeter,
+    common::fps_meter::{FpsMeter, FpsSnapshot},
     common::math::{raycast_parts, screen_point_to_ray},
     common::render::visible_bounds,
     common::types::BoundingBox,
@@ -97,7 +97,8 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
     let drag_state = use_state(|| None::<DragState>);
     let canvas_size = use_state(|| ViewportSize::ZERO);
     let last_model_id = use_state(|| None::<FileId>);
-    let fps_meter = use_state(|| Rc::new(FpsMeter::new()));
+    let fps_meter = use_mut_ref(|| Rc::new(FpsMeter::new()));
+    let fps_snapshot = use_state(FpsSnapshot::default);
     let is_rendering = use_mut_ref(|| false);
     let pending_render = use_mut_ref(|| false);
     let latest_camera = use_mut_ref(CameraState::default);
@@ -171,8 +172,9 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
         let step_model = props.step_model.clone();
         let part_visibility = props.part_visibility.clone();
         let last_model_id = last_model_id.clone();
-        let fps_meter = (*fps_meter).clone();
+        let fps_meter = (*fps_meter.borrow()).clone();
         let latest_camera = latest_camera.clone();
+        let fps_snapshot = fps_snapshot.clone();
 
         use_effect_with(
             (
@@ -252,6 +254,10 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                                 )
                                 .await;
                             }
+                            // Push a snapshot after the full render batch so
+                            // FpsGraph updates exactly when frames are produced
+                            // and stays completely idle otherwise.
+                            fps_snapshot.set(meter.snapshot());
                         });
                     }
                 }
@@ -513,7 +519,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                 { camera_toolbar }
             </div>
             { canvas_overlay }
-            <FpsGraph meter={(*fps_meter).clone()} />
+            <FpsGraph snapshot={(*fps_snapshot).clone()} />
         </div>
     }
 }
