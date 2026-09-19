@@ -1,7 +1,7 @@
 //! LRU cache over parsed `StepModel`s (backed by persistence storage).
 use std::rc::Rc;
 
-use smallvec::SmallVec;
+use lru::LruCache as InnerLru;
 
 use crate::common::types::{FileId, StepModel};
 
@@ -10,13 +10,18 @@ use crate::common::types::{FileId, StepModel};
 pub struct LruCache {
     max_memory_bytes: usize,
     current_memory_bytes: usize,
-    entries: SmallVec<[(FileId, Rc<StepModel>); 5]>,
+    entries: InnerLru<FileId, Rc<StepModel>>,
 }
 
-#[inline]
 fn estimate_model_size(model: &StepModel) -> usize {
-    // 24 bytes per GpuVertex + 4 bytes per index (3 indices per triangle)
-    model.metadata.vertex_count * 24 + model.metadata.triangle_count * 12
+    model
+        .render_parts
+        .iter()
+        .map(|p| {
+            p.vertices.capacity() * std::mem::size_of::<crate::common::GpuVertex>()
+                + p.indices.capacity() * std::mem::size_of::<u32>()
+        })
+        .sum()
 }
 
 impl LruCache {
@@ -24,7 +29,7 @@ impl LruCache {
     /// nothing: [`get_or_load`](Self::get_or_load) then falls through to the
     /// backend on every call.
     pub fn new(max_memory_bytes: usize) -> Self {
-        Self { max_memory_bytes, current_memory_bytes: 0, entries: SmallVec::new() }
+        Self { max_memory_bytes, current_memory_bytes: 0, entries: InnerLru::unbounded() }
     }
 
     /// Number of items currently stored in cache.
@@ -39,22 +44,11 @@ impl LruCache {
         self.entries.is_empty()
     }
 
-    fn touch_index(&mut self, index: usize) {
-        if index > 0 && index < self.entries.len() {
-            let entry = self.entries.remove(index);
-            self.entries.insert(0, entry);
-        }
-    }
-
     /// Returns a shared reference to the model under `id`, promoting it to
     /// most-recently-used. No geometry data is copied on a cache hit.
     pub fn get(&mut self, id: &str) -> Option<Rc<StepModel>> {
-        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
-            self.touch_index(pos);
-            Some(self.entries[0].1.clone())
-        } else {
-            None
-        }
+        let key = FileId::from(id);
+        self.entries.get(&key).cloned()
     }
 
     /// Memory cache hit, else persistence backend, else `None`.
@@ -89,16 +83,15 @@ impl LruCache {
         }
         let size = estimate_model_size(&model);
 
-        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id.as_str()) {
-            let (_, old_model) = self.entries.remove(pos);
+        if let Some(old_model) = self.entries.pop(&id) {
             self.current_memory_bytes =
                 self.current_memory_bytes.saturating_sub(estimate_model_size(&old_model));
         }
-        self.entries.insert(0, (id, model));
+        self.entries.put(id, model);
         self.current_memory_bytes += size;
 
         while self.current_memory_bytes > self.max_memory_bytes && self.entries.len() > 1 {
-            if let Some((_, evicted)) = self.entries.pop() {
+            if let Some((_, evicted)) = self.entries.pop_lru() {
                 self.current_memory_bytes =
                     self.current_memory_bytes.saturating_sub(estimate_model_size(&evicted));
             }
@@ -107,8 +100,8 @@ impl LruCache {
 
     /// Drop a model from the cache (the persisted copy, if any, remains).
     pub fn remove(&mut self, id: &str) {
-        if let Some(pos) = self.entries.iter().position(|(k, _)| k.as_str() == id) {
-            let (_, removed) = self.entries.remove(pos);
+        let key = FileId::from(id);
+        if let Some(removed) = self.entries.pop(&key) {
             self.current_memory_bytes =
                 self.current_memory_bytes.saturating_sub(estimate_model_size(&removed));
         }

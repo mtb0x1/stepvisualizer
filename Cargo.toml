@@ -107,6 +107,7 @@ hashbrown = { version = "0.17", default-features = false, features = [
 # Pinned to 0.13 to match transitive version required by csscolorparser.
 # Do NOT upgrade or change version independently to avoid duplicate crate compilation in WASM.
 phf = { version = "0.13", default-features = false, features = ["macros"] }
+lru = { version = "0.18.4", default-features = false }
 
 
 [profile.release]
