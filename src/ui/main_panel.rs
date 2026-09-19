@@ -220,6 +220,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                                 state.clone(),
                                 &model.render_parts,
                                 &vis_vec,
+                                model.visibility_generation,
                                 &camera_value,
                                 meter.clone(),
                             )
@@ -235,6 +236,7 @@ pub fn step_visualizer_viewer(props: &MainPanelProps) -> Html {
                                     state.clone(),
                                     &model.render_parts,
                                     &vis_vec,
+                                    model.visibility_generation,
                                     &cur_cam,
                                     meter.clone(),
                                 )

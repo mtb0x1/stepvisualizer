@@ -127,7 +127,7 @@ pub struct WgpuState {
     pub id: u64,
     /// Cached visible bounds keyed by visibility array to avoid re-iterating vertices on every
     /// frame.
-    pub cached_bounds: RefCell<Option<(Vec<bool>, BoundingBox)>>,
+    pub cached_bounds: RefCell<Option<(u64, BoundingBox)>>,
 }
 
 static NEXT_WGPU_STATE_ID: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(1);

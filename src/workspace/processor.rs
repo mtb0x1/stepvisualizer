@@ -207,6 +207,9 @@ pub(crate) fn use_file_processor(
         let files_index = files_index.clone();
 
         let reader = gloo::file::callbacks::read_as_text(&file, move |res| {
+            // Clear the reader handle now that it has fired
+            states_for_reader.file_reader.borrow_mut().take();
+
             if states_for_reader.is_superseded(next_gen) {
                 return;
             }

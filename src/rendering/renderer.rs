@@ -22,8 +22,8 @@ use crate::{
 /// a part's geometry size changes; MVP/model/color uniforms are rewritten
 /// every frame; each visible part is one indexed draw.
 pub async fn render_wgpu_on_canvas(
-    state: Rc<WgpuState>, parts: &[RenderablePart], visibility: &[bool], camera: &CameraState,
-    fps_meter: Rc<FpsMeter>,
+    state: Rc<WgpuState>, parts: &[RenderablePart], visibility: &[bool], visibility_gen: u64,
+    camera: &CameraState, fps_meter: Rc<FpsMeter>,
 ) -> Result<(), StepError> {
     trace_span!("render_wgpu_on_canvas");
     let WgpuState {
@@ -56,19 +56,19 @@ pub async fn render_wgpu_on_canvas(
 
     let bounds = {
         let mut cached_opt = state.cached_bounds.borrow_mut();
-        if let Some((cached_vis, cached_bbox)) = cached_opt.as_ref() {
-            if cached_vis.as_slice() == visibility {
+        if let Some((cached_gen, cached_bbox)) = cached_opt.as_ref() {
+            if *cached_gen == visibility_gen {
                 *cached_bbox
             } else {
                 let computed = crate::common::render::visible_bounds(parts, visibility)
                     .unwrap_or(BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)));
-                *cached_opt = Some((visibility.to_vec(), computed));
+                *cached_opt = Some((visibility_gen, computed));
                 computed
             }
         } else {
             let computed = crate::common::render::visible_bounds(parts, visibility)
                 .unwrap_or(BoundingBox::new(glam::DVec3::splat(-1.0), glam::DVec3::splat(1.0)));
-            *cached_opt = Some((visibility.to_vec(), computed));
+            *cached_opt = Some((visibility_gen, computed));
             computed
         }
     };

@@ -16,14 +16,14 @@ use actions::use_model_actions;
 use history::use_workspace_management;
 use processor::use_file_processor;
 use smol_str::SmolStr;
-use state::StateHandles;
+use state::{ModelView, StateHandles};
 use wasm_bindgen::JsCast;
 use web_sys::Event;
 use yew::prelude::*;
 
 use crate::{
     common::{
-        FileId, FileIndexItem, Metadata, StepModel,
+        FileId, FileIndexItem, Metadata,
         constants::{CACHE_MAX_MEMORY_BYTES, QualityPreset},
     },
     storage::{LruCache, load_index_async},
@@ -64,8 +64,7 @@ pub struct StepWorkspace {
     pub metadata: UseStateHandle<Option<Metadata>>,
     pub files_index: UseStateHandle<Vec<FileIndexItem>>,
     pub selected_file: UseStateHandle<Option<FileId>>,
-    pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
-    pub part_visibility: UseStateHandle<Vec<bool>>,
+    pub step_model: UseStateHandle<Option<ModelView>>,
     pub is_processing: UseStateHandle<bool>,
     pub pending_confirm: UseStateHandle<Option<ConfirmAction>>,
     pub quality_preset: UseStateHandle<QualityPreset>,
@@ -102,8 +101,7 @@ pub fn use_step_workspace() -> StepWorkspace {
         result_is_error: use_state(|| false),
         metadata: use_state(|| None::<Metadata>),
         file_reader: Rc::new(RefCell::new(None)),
-        step_model: use_state(|| None::<Rc<StepModel>>),
-        part_visibility: use_state(Vec::new),
+        step_model: use_state(|| None::<ModelView>),
         selected_file: use_state(|| None::<FileId>),
         is_processing: use_state(|| false),
         pending_confirm: use_state(|| None::<ConfirmAction>),
@@ -152,7 +150,6 @@ pub fn use_step_workspace() -> StepWorkspace {
         files_index,
         selected_file: states.selected_file.clone(),
         step_model: states.step_model.clone(),
-        part_visibility: states.part_visibility.clone(),
         is_processing: states.is_processing.clone(),
         pending_confirm: states.pending_confirm.clone(),
         quality_preset: states.quality_preset.clone(),

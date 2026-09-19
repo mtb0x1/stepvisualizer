@@ -110,6 +110,11 @@ fn main_app(props: &MainAppProps) -> Html {
         None => html! {},
     };
 
+    let (model_rc, part_visibility) = match workspace.step_model.as_ref() {
+        Some(view) => (Some(view.model.clone()), view.model.part_visibility.clone()),
+        None => (None, vec![]),
+    };
+
     html! {
         <div class="app-container">
             // Left Sidebar: file history and model parts
@@ -117,8 +122,8 @@ fn main_app(props: &MainAppProps) -> Html {
                 <LeftPanel
                     files_index={(*workspace.files_index).clone()}
                     selected_file={(*workspace.selected_file).clone()}
-                    model={(*workspace.step_model).clone()}
-                    part_visibility={(*workspace.part_visibility).clone()}
+                    model={model_rc.clone()}
+                    part_visibility={part_visibility.clone()}
                     on_item_click={workspace.actions.on_item_click.clone()}
                     on_delete={workspace.actions.on_delete.clone()}
                     on_deselect={workspace.actions.on_deselect.clone()}
@@ -139,10 +144,10 @@ fn main_app(props: &MainAppProps) -> Html {
                 />
 
                 <AppStepVisualizer
-                    step_model={(*workspace.step_model).clone()}
+                    step_model={model_rc.clone()}
                     is_processing={*workspace.is_processing}
                     metadata={(*workspace.metadata).clone()}
-                    part_visibility={(*workspace.part_visibility).clone()}
+                    part_visibility={part_visibility.clone()}
                     on_render_error={render_error_callback}
                     on_gpu_unavailable={props.on_gpu_unavailable.clone()}
                 />

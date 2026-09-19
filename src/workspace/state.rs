@@ -24,8 +24,7 @@ pub(crate) struct StateHandles {
     pub result: UseStateHandle<Option<SmolStr>>,
     pub result_is_error: UseStateHandle<bool>,
     pub metadata: UseStateHandle<Option<Metadata>>,
-    pub step_model: UseStateHandle<Option<Rc<StepModel>>>,
-    pub part_visibility: UseStateHandle<Vec<bool>>,
+    pub step_model: UseStateHandle<Option<ModelView>>,
     pub selected_file: UseStateHandle<Option<FileId>>,
     pub is_processing: UseStateHandle<bool>,
     pub pending_confirm: UseStateHandle<Option<ConfirmAction>>,
@@ -39,6 +38,7 @@ impl StateHandles {
     pub fn bump_generation(&self) -> u64 {
         let next = self.load_generation.get() + 1;
         self.load_generation.set(next);
+        self.file_reader.borrow_mut().take();
         next
     }
 
@@ -67,7 +67,6 @@ impl StateHandles {
         self.selected_file.set(None);
         self.metadata.set(None);
         self.step_model.set(None);
-        self.part_visibility.set(vec![]);
     }
 
     /// Updates status message and error flag.
@@ -77,15 +76,18 @@ impl StateHandles {
     }
 
     /// Sets the active loaded model across all related state handles.
-    pub fn set_loaded_model(&self, model: Rc<StepModel>, file_id: FileId, status_msg: &str) {
-        let part_visibility = if model.part_visibility.len() == model.render_parts.len() {
-            model.part_visibility.clone()
-        } else {
-            vec![true; model.render_parts.len()]
-        };
-        self.metadata.set(Some(model.metadata.clone()));
-        self.step_model.set(Some(model));
-        self.part_visibility.set(part_visibility);
+    pub fn set_loaded_model(&self, mut model_rc: Rc<StepModel>, file_id: FileId, status_msg: &str) {
+        if model_rc.part_visibility.len() != model_rc.render_parts.len() {
+            let mut model = (*model_rc).clone();
+            model.part_visibility = vec![true; model.render_parts.len()];
+            model_rc = Rc::new(model);
+        }
+        self.metadata.set(Some(model_rc.metadata.clone()));
+
+        let generation = model_rc.visibility_generation;
+        let view = ModelView { model: model_rc, generation };
+
+        self.step_model.set(Some(view));
         self.selected_file.set(Some(file_id));
         self.set_result(status_msg, false);
         self.is_processing.set(false);
@@ -109,8 +111,20 @@ pub fn build_step_model(
     };
     model.metadata.vertex_count = model.total_vertices();
     model.metadata.triangle_count = model.total_triangles();
-    if let Some(bbox) = visible_bounds(&model.render_parts, &part_visibility) {
+    if let Some(bbox) = visible_bounds(&model.render_parts, &model.part_visibility) {
         model.metadata.bounding_box = Some(bbox);
     }
     model
+}
+
+#[derive(Clone)]
+pub struct ModelView {
+    pub model: Rc<StepModel>,
+    pub generation: u64,
+}
+
+impl PartialEq for ModelView {
+    fn eq(&self, other: &Self) -> bool {
+        self.generation == other.generation && Rc::ptr_eq(&self.model, &other.model)
+    }
 }

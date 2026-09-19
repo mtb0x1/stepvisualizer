@@ -12,21 +12,23 @@ fn recompute_and_store_metric(
     states: &StateHandles, cache: &Rc<RefCell<LruCache>>, compute: impl Fn(&StepModel) -> f64,
     apply: impl Fn(&mut Metadata, f64),
 ) {
-    if let Some(model_rc) = states.step_model.as_ref() {
-        let total = compute(model_rc);
+    if let Some(view) = states.step_model.as_ref() {
+        let total = compute(&view.model);
 
-        let mut new_meta = model_rc.metadata.clone();
+        let mut new_meta = view.model.metadata.clone();
         apply(&mut new_meta, total);
         states.metadata.set(Some(new_meta.clone()));
 
-        let mut model_rc = model_rc.clone();
+        let mut model_rc = view.model.clone();
         let model_mut = Rc::make_mut(&mut model_rc);
         model_mut.metadata = new_meta;
 
         save_model(model_mut);
         cache.borrow_mut().insert_rc(model_rc.id.clone(), model_rc.clone());
 
-        states.step_model.set(Some(model_rc));
+        let new_view =
+            crate::workspace::state::ModelView { model: model_rc, generation: view.generation };
+        states.step_model.set(Some(new_view));
     }
 }
 
@@ -44,27 +46,61 @@ pub(crate) fn use_model_actions(
     states: &StateHandles, cache: Rc<RefCell<LruCache>>,
 ) -> ModelActions {
     let on_visibility_change = {
-        let part_visibility = states.part_visibility.clone();
+        let step_model = states.step_model.clone();
         Callback::from(move |(index, visible): (usize, bool)| {
-            let mut new_visibility = (*part_visibility).clone();
-            if index < new_visibility.len() {
-                new_visibility[index] = visible;
-                part_visibility.set(new_visibility);
+            if let Some(view) = step_model.as_ref() {
+                let mut new_model = (*view.model).clone();
+                if index < new_model.part_visibility.len() {
+                    new_model.part_visibility[index] = visible;
+                    new_model.visibility_generation += 1;
+
+                    save_model(&new_model);
+
+                    let new_view = crate::workspace::state::ModelView {
+                        model: Rc::new(new_model),
+                        generation: view.generation + 1,
+                    };
+                    step_model.set(Some(new_view));
+                }
             }
         })
     };
 
     let on_show_all = {
-        let part_visibility = states.part_visibility.clone();
+        let step_model = states.step_model.clone();
         Callback::from(move |_| {
-            part_visibility.set(vec![true; part_visibility.len()]);
+            if let Some(view) = step_model.as_ref() {
+                let mut new_model = (*view.model).clone();
+                new_model.part_visibility = vec![true; new_model.part_visibility.len()];
+                new_model.visibility_generation += 1;
+
+                save_model(&new_model);
+
+                let new_view = crate::workspace::state::ModelView {
+                    model: Rc::new(new_model),
+                    generation: view.generation + 1,
+                };
+                step_model.set(Some(new_view));
+            }
         })
     };
 
     let on_hide_all = {
-        let part_visibility = states.part_visibility.clone();
+        let step_model = states.step_model.clone();
         Callback::from(move |_| {
-            part_visibility.set(vec![false; part_visibility.len()]);
+            if let Some(view) = step_model.as_ref() {
+                let mut new_model = (*view.model).clone();
+                new_model.part_visibility = vec![false; new_model.part_visibility.len()];
+                new_model.visibility_generation += 1;
+
+                save_model(&new_model);
+
+                let new_view = crate::workspace::state::ModelView {
+                    model: Rc::new(new_model),
+                    generation: view.generation + 1,
+                };
+                step_model.set(Some(new_view));
+            }
         })
     };
 
