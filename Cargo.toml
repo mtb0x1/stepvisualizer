@@ -15,7 +15,9 @@ wasm-bindgen-test = "0.3"
 approx = "0.5"
 
 [dependencies]
-gloo = { version = "0.12.0", default-features = false, features = ["file"] }
+# Pinned to 0.11.0 to match transitive version required by deep dep. tree.
+# Do NOT upgrade or change version independently to avoid duplicate crate compilation in WASM.
+gloo = { version = "0.11.0", default-features = false, features = ["file"] }
 js-sys = { version = "0.3.81", default-features = false }
 wasm-bindgen = { version = "0.2.127", default-features = false }
 wasm-bindgen-futures = { version = "0.4.77", default-features = false }
@@ -56,7 +58,10 @@ tracing-subscriber = { version = "0.3.20", default-features = false, features = 
 
 #note this is need so we can do `truck_stepio::r#in::ruststep::ap20*` later.
 #Do not remove the dep. below
-ruststep = { version = "0.4.0", default-features = false, features = ["ap201", "ap203"] }
+ruststep = { version = "0.4.0", default-features = false, features = [
+    "ap201",
+    "ap203",
+] }
 truck-stepio = { version = "0.3.0", default-features = false, features = [
     "in",
     "derive",
