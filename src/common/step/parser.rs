@@ -256,7 +256,6 @@ fn normalize_curve_subtypes(section: &mut DataSection) {
 /// This satisfies ISO 10303-42 requirement WR1, ensures `(x - x.dot(z) * z).normalize()` safely
 /// produces `(0.0, 0.0, 1.0)`, guarantees an orthonormal coordinate frame without `NaN`s, and
 /// allows `truck-meshalgo` to tessellate all shells and features successfully.
-// TODO : avoid eq_ignore_ascii_case("DIRECTION") /"AXIS2_PLACEMENT_3D" /"synthetic_ref_z" use Kind
 // TODO : better way to do this ? unsafe /faster ?
 pub fn sanitize_axis2_placement_3d(section: &mut DataSection, next_synthetic_id: &mut u64) {
     let mut direction_map: FastU64Map<DVec3> = FastU64Map::default();

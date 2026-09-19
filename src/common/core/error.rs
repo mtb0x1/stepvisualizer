@@ -21,6 +21,8 @@ pub enum StepError {
     RenderError(String),
     /// FILE_SCHEMA declares a STEP application protocol not supported by the parser.
     UnsupportedSchema { schema: String },
+    /// Persistence or storage layer failure.
+    Storage(String),
     /// General or unclassified error message.
     Generic(String),
 }
@@ -42,6 +44,7 @@ impl fmt::Display for StepError {
             Self::GpuInitFailed(msg) => write!(f, "Failed to initialize WebGPU: {msg}"),
             Self::RenderError(msg) => write!(f, "Render error: {msg}"),
             Self::Generic(msg) => write!(f, "{msg}"),
+            Self::Storage(msg) => write!(f, "Storage error: {msg}"),
             Self::UnsupportedSchema { schema } => write!(
                 f,
                 "Unsupported STEP schema: '{schema}'. Supported schemas: AP203, AP214, AP201. Check documentation for details."

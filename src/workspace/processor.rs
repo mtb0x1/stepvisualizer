@@ -137,7 +137,7 @@ pub(crate) fn spawn_tessellation(
 
         let model = build_step_model(file_id.clone(), meta, renderable_parts);
         if let Err(e) = save_model(&model).await {
-            states.fail_load(StepError::Generic(format!("Failed to save model: {}", e)));
+            states.fail_load(StepError::Storage(format!("Failed to save model: {}", e)));
             return;
         }
 

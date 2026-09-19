@@ -4,7 +4,11 @@
 /// Falls back to 0.0 if the browser window or performance API is unavailable.
 #[inline(always)]
 pub fn now_ms() -> f64 {
-    web_sys::window().and_then(|w| w.performance()).map(|p| p.now()).unwrap_or(0.0)
+    web_sys::window()
+        .expect("window exists: WASM main thread")
+        .performance()
+        .expect("performance exists: WASM main thread")
+        .now()
 }
 
 /// Reads a query parameter from the current URL (e.g. `?tracing=on&level=debug`).

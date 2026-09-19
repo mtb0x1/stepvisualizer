@@ -112,7 +112,7 @@ pub fn use_step_workspace() -> StepWorkspace {
     {
         let states_clone = states.clone();
         use_effect_with((), move |_| {
-            let window = web_sys::window().unwrap();
+            let window = web_sys::window().expect("window exists: WASM main thread");
             let closure =
                 wasm_bindgen::closure::Closure::wrap(Box::new(move |event: web_sys::CustomEvent| {
                     // Read the panic message carried in the CustomEvent detail.

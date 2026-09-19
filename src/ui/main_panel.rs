@@ -1,5 +1,6 @@
 //! The WebGPU viewport: canvas setup, orbit/drag handling, camera presets,
 //! and the effect that renders a frame whenever inputs change.
+use glam::dcamera::rh::{proj::directx::perspective, view::look_at_mat4};
 use smol_str::{SmolStr, format_smolstr};
 use wasm_bindgen::{JsCast, closure::Closure};
 use wasm_bindgen_futures::spawn_local;
@@ -12,9 +13,8 @@ use crate::{
         DMat4, DVec3, FileId, Metadata, StepModel, ViewportSize,
         constants::{NEAR_PLANE, WEBGPU_INIT_FAILED_MSG},
         fps_meter::{FpsMeter, FpsSnapshot},
-        logger, look_at_mat4,
+        logger,
         math::{raycast_parts, screen_point_to_ray},
-        perspective,
         render::visible_bounds,
         types::BoundingBox,
     },

@@ -1,10 +1,8 @@
-use stepvisualizer::{
-    common::{
-        color::{Color, StepColorMap},
-        exchange_index::ExchangeIndex,
-    },
-    ruststep,
+use stepvisualizer::common::{
+    color::{Color, StepColorMap},
+    exchange_index::ExchangeIndex,
 };
+use truck_stepio::r#in::ruststep;
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]

@@ -8,9 +8,9 @@ use stepvisualizer::{
         types::{FileId, LengthUnit, StepModel},
     },
     error::StepError,
-    truck_stepio,
     workspace::{build_step_model, parse_step_file_content},
 };
+use truck_stepio;
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]

@@ -1,10 +1,8 @@
-use stepvisualizer::{
-    common::{
-        exchange_index::ExchangeIndex,
-        step_names::{StepNameMap, clean_part_name, is_valid_part_name},
-    },
-    ruststep,
+use stepvisualizer::common::{
+    exchange_index::ExchangeIndex,
+    step_names::{StepNameMap, clean_part_name, is_valid_part_name},
 };
+use truck_stepio::r#in::ruststep;
 use wasm_bindgen_test::*;
 
 #[wasm_bindgen_test]

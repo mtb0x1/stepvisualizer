@@ -1,4 +1,7 @@
-use glam::{DVec3, DVec4, Mat4, Vec3};
+use glam::{
+    DVec3, DVec4, Mat4, Vec3,
+    dcamera::rh::{proj::directx::perspective, view::look_at_mat4},
+};
 use stepvisualizer::{
     common::{
         color::Color,
@@ -119,8 +122,8 @@ fn test_camera_set_target() {
 fn test_projection_matrix_ndc() {
     let eye = DVec3::new(0.0, 0.0, 10.0);
     let target = DVec3::ZERO;
-    let view = stepvisualizer::common::look_at_mat4(eye, target, DVec3::Y);
-    let proj = stepvisualizer::common::perspective(std::f64::consts::FRAC_PI_3, 1.0, 0.1, 100.0);
+    let view = look_at_mat4(eye, target, DVec3::Y);
+    let proj = perspective(std::f64::consts::FRAC_PI_3, 1.0, 0.1, 100.0);
     let vp = proj * view;
 
     let clip = vp * DVec4::new(0.0, 0.0, 0.0, 1.0);
@@ -128,13 +131,8 @@ fn test_projection_matrix_ndc() {
     assert!(ndc.z >= 0.0 && ndc.z <= 1.0, "ndc.z was {}", ndc.z);
 
     let eye_300 = spherical_to_cartesian(0.8, 0.9, 302.25, DVec3::ZERO);
-    let view_300 = stepvisualizer::common::look_at_mat4(eye_300, DVec3::ZERO, DVec3::Y);
-    let proj_300 = stepvisualizer::common::perspective(
-        std::f64::consts::FRAC_PI_3,
-        1152.0 / 834.0,
-        0.1,
-        10075.0,
-    );
+    let view_300 = look_at_mat4(eye_300, DVec3::ZERO, DVec3::Y);
+    let proj_300 = perspective(std::f64::consts::FRAC_PI_3, 1152.0 / 834.0, 0.1, 10075.0);
     let vp_300 = proj_300 * view_300;
     let v_clip = vp_300 * DVec4::new(0.88, -6.35, 40.22, 1.0);
     let v_ndc = v_clip.truncate() / v_clip.w;

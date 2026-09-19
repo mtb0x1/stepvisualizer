@@ -33,11 +33,17 @@ fn create_mock_model(id: &str) -> StepModel {
             volume: Some(100.0),
             surface_area: Some(250.0),
         },
-        render_parts: vec![],
+        render_parts: vec![stepvisualizer::common::graphics::render::RenderablePart {
+            vertices: Vec::with_capacity(100),
+            indices: Vec::with_capacity(500),
+            model_matrix: stepvisualizer::common::Mat4::IDENTITY,
+            color: stepvisualizer::common::graphics::color::Color::default(),
+            name: None,
+        }],
         part_visibility: vec![],
         visibility_generation: 0,
         cached_bounds: None,
-        audit: stepvisualizer::common::AuditMetadata::default(),
+        audit: stepvisualizer::common::types::AuditMetadata::default(),
     }
 }
 
@@ -73,9 +79,11 @@ fn cache_rc_pointer_equality() {
 /// Verifies capacity-based LRU eviction and access-based promotion.
 #[wasm_bindgen_test]
 fn cache_eviction_and_lru_promotion() {
-    // 7000 bytes limit fits two 3000-byte mock models, evicting on the third.
-    let mut cache = LruCache::new(7000);
-    cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+    let mock_a = create_mock_model("model_A");
+    let size = 4400; // 100 * 24 + 500 * 4
+    // fits two models, evicting on the third
+    let mut cache = LruCache::new(size * 2 + size / 2);
+    cache.insert(FileId::from("model_A"), mock_a);
     cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
 
     // Touch A to promote it to MRU
@@ -93,9 +101,10 @@ fn cache_eviction_and_lru_promotion() {
 /// Verifies re-inserting an existing key updates payload without changing capacity or order.
 #[wasm_bindgen_test]
 fn cache_reinsert_existing_key() {
-    // 7000 bytes limit fits two 3000-byte mock models.
-    let mut cache = LruCache::new(7000);
-    cache.insert(FileId::from("model_A"), create_mock_model("model_A"));
+    let mock_a = create_mock_model("model_A");
+    let size = 4400;
+    let mut cache = LruCache::new(size * 2 + size / 2);
+    cache.insert(FileId::from("model_A"), mock_a);
     cache.insert(FileId::from("model_B"), create_mock_model("model_B"));
 
     let mut updated_a = create_mock_model("model_A");

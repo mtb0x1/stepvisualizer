@@ -4,6 +4,8 @@ use stepvisualizer::{
         types::LengthUnit,
     },
     error::StepError,
+};
+use truck_stepio::r#in::{
     ruststep,
     ruststep::ast::{EntityInstance, Name, Parameter, Record},
 };
