@@ -381,7 +381,10 @@ fn tessellate_table(
 ) -> usize {
     let mut shells = Vec::with_capacity(table.shell.len());
     shells.extend(table.shell.iter());
-    shells.sort_by_key(|(k, _)| *k);
+    // Sort shells by ID to guarantee deterministic part ordering.
+    // Without this, the `part_color` fallback assigns randomized colors
+    // each time the file is loaded due to HashMap's non-deterministic iteration.
+    shells.sort_unstable_by_key(|(k, _)| **k);
     let mut skipped: usize = 0;
     let mut vertex_map = VertexMap::default();
     for (shell_index, (shell_key, shell)) in shells.into_iter().enumerate() {
@@ -406,6 +409,20 @@ fn tessellate_table(
         if !cshell.faces.is_empty() && cshell.edges.is_empty() {
             let warn = format!("shell {shell_index} has faces but no valid boundary edges");
             logger::warn(&format!("tessellate_table => {warn}; skipped to avoid panic"));
+            warnings.push(warn);
+            skipped += 1;
+            continue;
+        }
+
+        // Early reject for overly complex shells to prevent WebAssembly OOM or
+        // browser tab freezes during triangulation.
+        if cshell.faces.len() > 20_000 || cshell.edges.len() > 50_000 {
+            let warn = format!(
+                "shell {shell_index} too complex ({} faces, {} edges); skipping to avoid OOM",
+                cshell.faces.len(),
+                cshell.edges.len()
+            );
+            logger::warn(&format!("tessellate_table => {warn}"));
             warnings.push(warn);
             skipped += 1;
             continue;

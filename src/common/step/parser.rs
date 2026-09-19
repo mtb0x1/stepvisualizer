@@ -258,28 +258,21 @@ fn normalize_curve_subtypes(section: &mut DataSection) {
 /// allows `truck-meshalgo` to tessellate all shells and features successfully.
 // TODO : avoid eq_ignore_ascii_case("DIRECTION") /"AXIS2_PLACEMENT_3D" /"synthetic_ref_z" use Kind
 // TODO : better way to do this ? unsafe /faster ?
-pub fn sanitize_axis2_placement_3d(section: &mut DataSection) {
-    let mut max_id: u64 = 0;
+pub fn sanitize_axis2_placement_3d(section: &mut DataSection, next_synthetic_id: &mut u64) {
     let mut direction_map: FastU64Map<DVec3> = FastU64Map::default();
     let mut existing_unit_z: Option<u64> = None;
 
-    // Pass 1: Index existing DIRECTION entities and find the maximum entity ID.
+    // Pass 1: Index existing DIRECTION entities.
     for entity in &section.entities {
-        match entity {
-            EntityInstance::Simple { id, record } => {
-                max_id = max_id.max(*id);
-                let name_upper = record.name.to_ascii_uppercase();
-                if let Some(StepEntityKind::Direction) = STEP_ENTITY_KINDS.get(name_upper.as_str())
-                    && let Some(coords) = extract_direction_coords(record)
-                {
-                    if existing_unit_z.is_none() && is_unit_z_direction(coords) {
-                        existing_unit_z = Some(*id);
-                    }
-                    direction_map.insert(*id, coords);
+        if let EntityInstance::Simple { id, record } = entity {
+            let name_upper = record.name.to_ascii_uppercase();
+            if let Some(StepEntityKind::Direction) = STEP_ENTITY_KINDS.get(name_upper.as_str())
+                && let Some(coords) = extract_direction_coords(record)
+            {
+                if existing_unit_z.is_none() && is_unit_z_direction(coords) {
+                    existing_unit_z = Some(*id);
                 }
-            }
-            EntityInstance::Complex { id, .. } => {
-                max_id = max_id.max(*id);
+                direction_map.insert(*id, coords);
             }
         }
     }
@@ -326,8 +319,8 @@ pub fn sanitize_axis2_placement_3d(section: &mut DataSection) {
         let target_ref_id = match existing_unit_z {
             Some(id) => id,
             None => {
-                let synthetic_id = max_id + 1;
-                max_id += 1;
+                let synthetic_id = *next_synthetic_id;
+                *next_synthetic_id -= 1;
                 existing_unit_z = Some(synthetic_id);
                 synthetic_directions.push(EntityInstance::Simple {
                     id: synthetic_id,
@@ -466,9 +459,10 @@ impl StepParser {
     // TODO : better way to do this, it defies the index building or it feels like it.
     pub fn normalize(&mut self) {
         trace_span!("normalize_exchange");
+        let mut next_synthetic_id = u64::MAX;
         for section in &mut self.exchange.data {
             normalize_curve_subtypes(section);
-            sanitize_axis2_placement_3d(section);
+            sanitize_axis2_placement_3d(section, &mut next_synthetic_id);
         }
     }
 
