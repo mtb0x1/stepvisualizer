@@ -155,16 +155,22 @@ pub(crate) fn use_workspace_management(
             Some(ConfirmAction::ClearHistory) => {
                 states.pending_confirm.set(None);
 
-                clear_all_storage(&files_index);
-
-                {
-                    let mut cache_mut = cache.borrow_mut();
-                    cache_mut.clear();
-                }
-
-                files_index.set(Vec::new());
-                states.clear_model_state();
-                states.set_result("Cleared cached files.", false);
+                let states_async = states.clone();
+                let files_index_async = files_index.clone();
+                let cache_async = cache.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    if let Err(e) = clear_all_storage().await {
+                        states_async.set_result(format!("Failed to clear storage: {}", e), true);
+                    } else {
+                        {
+                            let mut cache_mut = cache_async.borrow_mut();
+                            cache_mut.clear();
+                        }
+                        files_index_async.set(Vec::new());
+                        states_async.clear_model_state();
+                        states_async.set_result("Cleared cached files.", false);
+                    }
+                });
             }
             None => {}
         })

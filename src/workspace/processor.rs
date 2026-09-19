@@ -136,7 +136,10 @@ pub(crate) fn spawn_tessellation(
         }
 
         let model = build_step_model(file_id.clone(), meta, renderable_parts);
-        save_model(&model);
+        if let Err(e) = save_model(&model).await {
+            states.fail_load(StepError::Generic(format!("Failed to save model: {}", e)));
+            return;
+        }
 
         // Record the file in the history index ONLY after successful tessellation and model
         // persistence.

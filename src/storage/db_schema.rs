@@ -1,9 +1,8 @@
 //! IndexedDB schema definition, versioning, and migration runner.
 //!
 //! # Version Strategy
-//! [`DB_VERSION`] is set at **build time** from `git rev-list --count HEAD`,
-//! making it a monotonically increasing `u32` that never needs manual bumping.
-//! The fallback value is `1` for environments without git (e.g. zip downloads).
+//! [`DB_VERSION`] is set manually and should be monotonically increased
+//! when making breaking schema changes (e.g. changing storage format).
 //!
 //! # Migration Strategy (Dual-DB Tombstone)
 //! When the stored DB version is lower than [`DB_VERSION`], the old DB is opened

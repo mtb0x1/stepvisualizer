@@ -23,7 +23,14 @@ fn recompute_and_store_metric(
         let model_mut = Rc::make_mut(&mut model_rc);
         model_mut.metadata = new_meta;
 
-        save_model(model_mut);
+        let states_async = states.clone();
+        let new_model_owned = (*model_mut).clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            if let Err(e) = save_model(&new_model_owned).await {
+                states_async.set_result(format!("Persistence error: {}", e), true);
+            }
+        });
+
         cache.borrow_mut().insert_rc(model_rc.id.clone(), model_rc.clone());
 
         let new_view =
@@ -47,6 +54,7 @@ pub(crate) fn use_model_actions(
 ) -> ModelActions {
     let on_visibility_change = {
         let step_model = states.step_model.clone();
+        let states_for_cb = states.clone();
         Callback::from(move |(index, visible): (usize, bool)| {
             if let Some(view) = step_model.as_ref() {
                 let mut new_model = (*view.model).clone();
@@ -54,13 +62,18 @@ pub(crate) fn use_model_actions(
                     new_model.part_visibility[index] = visible;
                     new_model.visibility_generation += 1;
 
-                    save_model(&new_model);
-
                     let new_view = crate::workspace::state::ModelView {
-                        model: Rc::new(new_model),
+                        model: Rc::new(new_model.clone()),
                         generation: view.generation + 1,
                     };
                     step_model.set(Some(new_view));
+
+                    let states_async = states_for_cb.clone();
+                    wasm_bindgen_futures::spawn_local(async move {
+                        if let Err(e) = save_model(&new_model).await {
+                            states_async.set_result(format!("Persistence error: {}", e), true);
+                        }
+                    });
                 }
             }
         })
@@ -68,38 +81,50 @@ pub(crate) fn use_model_actions(
 
     let on_show_all = {
         let step_model = states.step_model.clone();
+        let states_for_cb = states.clone();
         Callback::from(move |_| {
             if let Some(view) = step_model.as_ref() {
                 let mut new_model = (*view.model).clone();
                 new_model.part_visibility = vec![true; new_model.part_visibility.len()];
                 new_model.visibility_generation += 1;
 
-                save_model(&new_model);
-
                 let new_view = crate::workspace::state::ModelView {
-                    model: Rc::new(new_model),
+                    model: Rc::new(new_model.clone()),
                     generation: view.generation + 1,
                 };
                 step_model.set(Some(new_view));
+
+                let states_async = states_for_cb.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    if let Err(e) = save_model(&new_model).await {
+                        states_async.set_result(format!("Persistence error: {}", e), true);
+                    }
+                });
             }
         })
     };
 
     let on_hide_all = {
         let step_model = states.step_model.clone();
+        let states_for_cb = states.clone();
         Callback::from(move |_| {
             if let Some(view) = step_model.as_ref() {
                 let mut new_model = (*view.model).clone();
                 new_model.part_visibility = vec![false; new_model.part_visibility.len()];
                 new_model.visibility_generation += 1;
 
-                save_model(&new_model);
-
                 let new_view = crate::workspace::state::ModelView {
-                    model: Rc::new(new_model),
+                    model: Rc::new(new_model.clone()),
                     generation: view.generation + 1,
                 };
                 step_model.set(Some(new_view));
+
+                let states_async = states_for_cb.clone();
+                wasm_bindgen_futures::spawn_local(async move {
+                    if let Err(e) = save_model(&new_model).await {
+                        states_async.set_result(format!("Persistence error: {}", e), true);
+                    }
+                });
             }
         })
     };

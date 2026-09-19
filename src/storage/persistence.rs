@@ -108,22 +108,12 @@ pub async fn clear_indexeddb() -> Result<(), String> {
     clear_models_in_db(&db).await
 }
 
-/// Persist a whole model (fire-and-forget async IndexedDB write using rkyv binary encoding).
-pub fn save_model(model: &StepModel) {
+/// Persist a whole model (async IndexedDB write using rkyv binary encoding).
+pub async fn save_model(model: &StepModel) -> Result<(), String> {
     trace_span!("save_model");
     let id = model.id.clone();
-    let bytes = match rkyv::to_bytes::<rkyv::rancor::Error>(model) {
-        Ok(b) => b,
-        Err(e) => {
-            logger::warn(&format!("Failed to serialize model with rkyv: {e}"));
-            return;
-        }
-    };
-    spawn_local(async move {
-        if let Err(e) = save_model_bytes_indexeddb(&id, bytes.as_slice()).await {
-            logger::warn(&format!("Failed to save model to IndexedDB: {e}"));
-        }
-    });
+    let bytes = rkyv::to_bytes::<rkyv::rancor::Error>(model).map_err(|e| e.to_string())?;
+    save_model_bytes_indexeddb(&id, bytes.as_slice()).await
 }
 
 /// Remove a model's persisted copy from IndexedDB (fire-and-forget).
@@ -135,18 +125,13 @@ pub fn delete_model(id: &str) {
     });
 }
 
-/// Remove all persisted models and the file index from IndexedDB (fire-and-forget).
-pub fn clear_all_storage(_items: &[FileIndexItem]) {
+/// Remove all persisted models and the file index from IndexedDB.
+pub async fn clear_all_storage() -> Result<(), String> {
     trace_span!("clear_all_storage");
-    spawn_local(async move {
-        match open_db_versioned().await {
-            Ok(db) => {
-                let _ = clear_models_in_db(&db).await;
-                let _ = clear_index_in_db(&db).await;
-            }
-            Err(e) => logger::warn(&format!("Failed to open DB for clear: {e}")),
-        }
-    });
+    let db = open_db_versioned().await.map_err(|e| e.to_string())?;
+    clear_models_in_db(&db).await?;
+    clear_index_in_db(&db).await?;
+    Ok(())
 }
 
 /// Content-based model identity (16 hex chars) used as the IndexedDB key.
